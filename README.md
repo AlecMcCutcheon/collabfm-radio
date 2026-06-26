@@ -24,6 +24,7 @@ Want to play with a running CollabFM before self-hosting? Join the [Discord serv
 
 - **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - **Audio pipeline:** [docs/audio-pipeline.md](./docs/audio-pipeline.md)
+- **Roadmap:** [docs/ROADMAP.md](./docs/ROADMAP.md)
 - **Guides (UI & integrations):** [docs/wiki/Home.md](./docs/wiki/Home.md)
 
 ---
@@ -35,6 +36,18 @@ CollabFM is something I have worked on off and on for quite a long time. Only re
 I cannot promise fixes or features on a fixed schedule, but if you open an issue or submit a PR I will read it, reply when I can, and do my best to help. Feature requests are welcome too; hearing how people use CollabFM helps shape what gets built next.
 
 If CollabFM helps you, [donations are appreciated](https://www.paypal.com/donate/?business=YSFG23ABNS6HY&no_recurring=0&item_name=If+my+projects+help+you%2C+donations+are+appreciated.+Feedback%2C+issues%2C+or+PRs+help+too%21&currency_code=USD)—issues and PRs help too.
+
+---
+
+## Roadmap
+
+Planned directions and ideas—not a schedule or promise of delivery:
+
+- **Hybrid users** — optional local password on SSO-linked accounts (and related account management).
+- **Gated registration** — access-request form, admin approve/deny queue, one-time enrollment tokens.
+- **Dynamic stage UI** — stage slots in the GUI match the configured max stage users.
+
+More detail on each item: [docs/ROADMAP.md](./docs/ROADMAP.md).
 
 ---
 
