@@ -75,6 +75,7 @@ export function useRadioPlayer(options?: { shareToken?: string }) {
   const [playing, setPlaying] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [offline, setOffline] = useState(true);
+  const [statusReady, setStatusReady] = useState(false);
   const [streamActive, setStreamActive] = useState(false);
   const [broadcastStartTime, setBroadcastStartTime] = useState<Date | null>(null);
   const [lastDisconnect, setLastDisconnect] = useState<Date | null>(null);
@@ -354,6 +355,8 @@ export function useRadioPlayer(options?: { shareToken?: string }) {
       if (playing || connecting) {
         stopPlayback();
       }
+    } finally {
+      setStatusReady(true);
     }
   }, [connecting, playing, stopPlayback, syncStallTelemetry]);
 
@@ -468,7 +471,7 @@ export function useRadioPlayer(options?: { shareToken?: string }) {
   }, [reconnectLivePlayback]);
 
   const toggle = async () => {
-    if (offline) return;
+    if (!statusReady || offline) return;
     if (connecting && !playing) return;
 
     if (playing) {
@@ -489,6 +492,7 @@ export function useRadioPlayer(options?: { shareToken?: string }) {
     playing,
     connecting: connecting && !playing,
     offline,
+    statusReady,
     streamActive,
     broadcastStartTime,
     lastDisconnect,

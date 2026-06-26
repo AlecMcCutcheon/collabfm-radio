@@ -93,6 +93,24 @@ export function RadioPanel({
   const idlePlaceholderTitle = `${idleBroadcasterName} is playing music`;
   const idlePlaceholderArt = proceduralAlbumArt("Playing music", idleBroadcasterName, 192);
 
+  const showStreamOffline = player.statusReady && player.offline;
+  const listenDisabled = !player.statusReady || showStreamOffline || player.connecting;
+  let listenIcon;
+  let listenLabel: string;
+  if (showStreamOffline) {
+    listenIcon = <Radio className="w-5 h-5 sm:w-6 sm:h-6" />;
+    listenLabel = "Offline";
+  } else if (player.connecting) {
+    listenIcon = <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" />;
+    listenLabel = "Buffering...";
+  } else if (player.playing) {
+    listenIcon = <Square className="w-5 h-5 sm:w-6 sm:h-6" />;
+    listenLabel = "Stop";
+  } else {
+    listenIcon = <Play className="w-5 h-5 sm:w-6 sm:h-6" />;
+    listenLabel = "Listen Live";
+  }
+
   useEffect(() => {
     void api.branding().then((b) => {
       setRadioTitle(b.radioDisplayName);
@@ -277,7 +295,7 @@ export function RadioPanel({
             type="button"
             disabled={!player.streamActive}
             onClick={() => setSessionLogOpen(true)}
-            className={`${STAT_PILL_BASE} ${
+            className={`${STAT_PILL_BASE} min-w-[11rem] ${
               player.streamActive
                 ? "hover:border-radio-accent/70 hover:bg-gray-800/70 cursor-pointer"
                 : "cursor-default opacity-80"
@@ -312,7 +330,7 @@ export function RadioPanel({
         </div>
       </div>
 
-      <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-2xl p-3 sm:p-5 mt-2 sm:mt-3 mb-4 sm:mb-8 border border-gray-600 shadow-lg">
+      <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-2xl p-3 sm:p-5 mt-2 sm:mt-3 mb-4 sm:mb-8 border border-gray-600 shadow-lg min-h-[8.5rem] flex items-center">
         {player.hasTrackInfo ? (
           <div className="flex items-center gap-6">
             <div className="flex-shrink-0 relative group">
@@ -405,39 +423,26 @@ export function RadioPanel({
       <div className="mb-4 sm:mb-8">
         <button
           type="button"
-          disabled={player.offline || player.connecting}
+          disabled={listenDisabled}
           onClick={() => void player.toggle()}
           className={`w-full py-2 sm:py-3 px-5 sm:px-7 min-h-16 rounded-2xl font-semibold sm:font-bold text-base sm:text-xl transition-all duration-300 transform hover:brightness-110 active:scale-95 flex items-center justify-center gap-2 sm:gap-3 border border-gray-600 shadow-lg ${
-            player.offline
+            showStreamOffline
               ? "bg-gradient-to-br from-gray-600 to-gray-700 text-gray-400 cursor-not-allowed hover:brightness-100"
               : player.connecting
                 ? "bg-gradient-to-br from-radio-accent to-blue-400 text-white cursor-wait hover:brightness-100"
                 : player.playing
                   ? "bg-gradient-to-br from-radio-red to-red-700 text-white"
-                  : "bg-gradient-to-br from-white to-gray-100 text-gray-900"
+                  : !player.statusReady
+                    ? "bg-gradient-to-br from-white to-gray-100 text-gray-900 opacity-80 cursor-wait hover:brightness-100"
+                    : "bg-gradient-to-br from-white to-gray-100 text-gray-900"
           }`}
         >
-          {player.offline ? (
-            <>
-              <Radio className="w-5 h-5 sm:w-6 sm:h-6" />
-              Offline
-            </>
-          ) : player.connecting ? (
-            <>
-              <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" />
-              Buffering...
-            </>
-          ) : player.playing ? (
-            <>
-              <Square className="w-5 h-5 sm:w-6 sm:h-6" />
-              Stop
-            </>
-          ) : (
-            <>
-              <Play className="w-5 h-5 sm:w-6 sm:h-6" />
-              Listen Live
-            </>
-          )}
+          <span className="inline-flex items-center justify-center gap-2 sm:gap-3 min-w-[10.5rem]">
+            <span className="flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center" aria-hidden>
+              {listenIcon}
+            </span>
+            <span className="min-w-[7.25rem] sm:min-w-[7.75rem] text-center">{listenLabel}</span>
+          </span>
         </button>
       </div>
 

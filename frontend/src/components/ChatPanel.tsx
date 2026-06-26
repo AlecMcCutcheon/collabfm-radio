@@ -599,7 +599,7 @@ export function MobileNav({
             />
           }
           label="Chat"
-          badge={view !== "chat" ? <MobileNavChatBadge count={chatUnreadCount} /> : null}
+          badge={<MobileNavChatBadge count={chatUnreadCount} />}
         />
         {showStudio && (
           <NavButton
@@ -634,7 +634,7 @@ function NavButton({
       className={`relative flex-1 py-3 text-sm font-semibold ${active ? "text-white" : "text-gray-400"}`}
     >
       <span className="inline-flex items-center justify-center gap-2">
-        <span className="relative inline-flex">
+        <span className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center">
           {icon}
           {badge}
         </span>

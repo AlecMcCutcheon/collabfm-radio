@@ -443,10 +443,14 @@ export function ChatFabWithUnread({
 }
 
 export function MobileNavChatBadge({ count }: { count: number }) {
-  if (count <= 0) return null;
-  const label = count > 99 ? "99+" : String(count);
+  const label = count > 99 ? "99+" : count > 0 ? String(count) : "0";
   return (
-    <span className="absolute top-1 right-[18%] min-w-[1.1rem] h-[1.1rem] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold leading-none inline-flex items-center justify-center">
+    <span
+      className={`absolute top-1 right-[18%] min-w-[1.1rem] h-[1.1rem] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold leading-none inline-flex items-center justify-center ${
+        count <= 0 ? "invisible" : ""
+      }`}
+      aria-hidden={count <= 0}
+    >
       {label}
     </span>
   );
