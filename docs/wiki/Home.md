@@ -29,5 +29,11 @@ Bottom nav **Studio**
 **Promote another DJ**  
 Open **Stage** → click a host **avatar** → **Promote to DJ**
 
+**Discord: shared main station**  
+Voice channel → `/join` (starts on Main station — same as the website)
+
+**Discord: one DJ only (personal feed)**  
+After `/join` → `/station` or **Switch station** on the Now Playing message
+
 **Media controls (YouTube Music, SoundCloud, etc.)**  
 Open **Stage** → click host **avatar** → green **music note** icon → Play / Pause / Previous / Next

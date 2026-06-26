@@ -4,7 +4,9 @@
 
 Licensed under [CC BY-NC 4.0](LICENSE) — © Alec McCutcheon
 
-CollabFM is a self-hosted collaborative internet radio: multiple people can broadcast from the browser or the Chrome extension, listeners tune in on the web or via direct stream URLs, and an optional Discord voice bot can relay the same audio into voice channels.
+CollabFM is a self-hosted **collaborative radio**: friends take turns as the live DJ while everyone else listens together. Broadcast from the browser or Chrome extension; listeners tune in on the web, via direct stream URLs, or through an optional Discord voice bot.
+
+On the **website and main stream**, everyone shares one **main station**—whoever is the promoted live DJ is what the room hears. In **Discord**, you can still follow that main feed, or **listen to a specific DJ on stage** on your own (handy when you want your own broadcast without pulling the whole group onto the shared stream).
 
 - **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - **Audio pipeline:** [docs/audio-pipeline.md](./docs/audio-pipeline.md)
@@ -34,6 +36,21 @@ If CollabFM helps you, [donations are appreciated](https://www.paypal.com/donate
 
 ---
 
+## Shared radio experience
+
+The main idea is a **shared station** where people **take turns DJing**—promote someone on the **Stage**, chat, request songs, and listen to whoever is live on the **main stream**.
+
+| Where you listen | What you hear |
+|------------------|---------------|
+| **Web UI / `/api/stream`** | The **main station** only—one live DJ for the whole room (whoever was promoted on stage). |
+| **Discord voice bot** | **Main station** (follows the live DJ) **or** a **specific DJ’s feed** on stage—your choice per voice channel. |
+
+That split is intentional: if you want to focus on **your own broadcast** (or one DJ) without the group following along on the website, use Discord and pick that DJ with `/station` or the station dropdown on the now-playing message. On the open web stream, you’re always on the shared main station with everyone else.
+
+See [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md) for `/join`, `/station`, `/leave`, and the live now-playing embed.
+
+---
+
 ## What you get
 
 | Area | Summary |
@@ -42,7 +59,7 @@ If CollabFM helps you, [donations are appreciated](https://www.paypal.com/donate
 | **Stage** | See who is on air, promote DJs, tune Discord bots per host, hearts / leveling |
 | **Broadcasters** | Chrome extension (tab audio), in-browser Web UI broadcaster, guest broadcaster links |
 | **Listeners** | Log in on the main site, or use **share links** for guest access without an account |
-| **Discord** | Optional voice bot (`relay-bot.js`) joins channels and plays the station; slash commands for join/leave |
+| **Discord** | Voice bot relays audio into voice channels; `/join`, `/station`, `/leave`; per-channel now-playing embed with station picker |
 | **Auth** | Local accounts, optional OIDC (Authentik, etc.), device pairing for the extension |
 | **Admin** | Users, Discord bot, share links, SSO, audio tuning, branding, integrations |
 
@@ -257,7 +274,17 @@ radio.example.com {
 
 ### Discord voice bot (optional)
 
-The main container runs `bot.js` only. Discord voice needs a **second process** (`node relay-bot.js`) with the same appdata mount. Configure **Admin → Discord** (bot token, application ID, server whitelist). Use `/join` / `/leave` in a whitelisted server.
+The main container runs `bot.js` only. Discord voice needs a **second process** (`node relay-bot.js`) with the same appdata mount. Configure **Admin → Discord** (bot token, application ID, server whitelist).
+
+In a voice channel on a whitelisted server:
+
+- **`/join`** — bot joins you on **Main station** (the live DJ the website follows).
+- **`/station`** — switch to Main station or a **specific DJ on stage** (autocomplete list).
+- **`/leave`** — bot disconnects.
+
+The bot posts a **Now Playing** message in the text channel (album art, track, DJ, station, live status) with a **Switch station** dropdown that stays updated. Use that or `/station` when you want your own DJ feed in Discord without changing what everyone hears on the web stream.
+
+Details: [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md).
 
 ---
 

@@ -72,10 +72,41 @@ The bot refuses `/join` on non-whitelisted servers.
 
 ## 7. Use in Discord
 
-In a whitelisted server, join a voice channel and run:
+In a whitelisted server, join a voice channel, then:
 
-- `/join` — bot joins your channel and plays the station.
-- `/leave` — bot disconnects.
+### Slash commands
+
+| Command | What it does |
+|---------|----------------|
+| **`/join`** | Bot joins your voice channel on **Main station** (follows whoever is the live DJ on the website). |
+| **`/station`** | Switch what this voice channel hears—**Main station (live DJ)** or a **specific DJ on stage**. Use autocomplete on the `name` option. Requires `/join` first. |
+| **`/leave`** | Bot leaves the voice channel and clears the session. |
+
+**Main station** = the same shared feed as the web player and `/api/stream` (one live DJ for the room).
+
+**A named DJ** = that broadcaster’s own audio rail on stage, even if they are not the promoted live DJ. Useful when you want to listen to your own broadcast—or one person’s feed—without everyone on the website switching with you.
+
+### Now Playing message
+
+After `/join`, the bot posts (and keeps updating) a **Now Playing** embed in the text channel:
+
+- Album art, title, artist
+- **Station**, **Status** (e.g. LIVE / On stage / Waiting), and **DJ** name
+- **Switch station** dropdown — same choices as `/station` (Main station + DJs currently on stage)
+- **Heart** button on the embed when a track is playing (grants DJ XP, same idea as on the website)
+
+The embed and dropdown refresh as tracks and stage assignments change. Pick a station from the menu anytime; you do not need to run `/station` again unless you prefer the command.
+
+### Typical flows
+
+**Group listening (matches the website)**  
+`/join` → leave on **Main station** → everyone in that voice channel hears the live DJ.
+
+**Solo / personal feed in Discord**  
+`/join` → `/station` (or dropdown) → choose **your DJ name** (or whoever you want to follow) → only that voice channel switches; the main web stream is unchanged.
+
+**Done**  
+`/leave`
 
 ---
 
