@@ -142,7 +142,7 @@ export async function handleSetupRoutes(req, res, pathname, method) {
 
 export function requireSetupOrAllow(pathname) {
   if (isSetupComplete()) return true;
-  if (pathname === "/setup" || pathname.startsWith("/api/setup")) return true;
+  if (pathname === "/" || pathname === "/setup" || pathname.startsWith("/api/setup")) return true;
   if (pathname.startsWith("/listen/") || pathname.startsWith("/api/listen/")) return true;
   if (pathname.startsWith("/api/extension/")) return true;
   if (pathname.startsWith("/api/avatars/")) return true;

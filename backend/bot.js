@@ -110,6 +110,7 @@ import {
   issueBootstrapTokenOnStartup,
   printBootstrapBanner,
 } from "./src/setup/bootstrapToken.js";
+import { requireSetupOrAllow } from "./src/http/setup.js";
 import {
   getAudioSettings,
   getLimitsSettings,
@@ -5541,13 +5542,20 @@ http.createServer(async (req, res) => {
     return;
   }
 
-  // OAuth routes (outside /api) — legacy Discord OAuth when setup not complete
+  // OAuth routes (outside /api) — before setup, send login attempts to bootstrap wizard
   if (!isSetupComplete() && (req.url === '/auth/login' || req.url.startsWith('/auth/login?') || req.url === '/auth/login/')) {
-    const authorizeUrl = `https://discord.com/api/oauth2/authorize?client_id=${encodeURIComponent(DISCORD_CLIENT_ID)}&response_type=code&redirect_uri=${encodeURIComponent(DISCORD_REDIRECT_URI)}&scope=identify%20guilds`;
-    res.writeHead(302, { Location: authorizeUrl });
+    res.writeHead(302, { Location: '/setup' });
     res.end();
     return;
   }
+
+  // OLD CODE - KEEP UNTIL CONFIRMED WORKING: legacy Discord OAuth login when setup incomplete
+  // if (!isSetupComplete() && (req.url === '/auth/login' || req.url.startsWith('/auth/login?') || req.url === '/auth/login/')) {
+  //   const authorizeUrl = `https://discord.com/api/oauth2/authorize?client_id=${encodeURIComponent(DISCORD_CLIENT_ID)}&response_type=code&redirect_uri=${encodeURIComponent(DISCORD_REDIRECT_URI)}&scope=identify%20guilds`;
+  //   res.writeHead(302, { Location: authorizeUrl });
+  //   res.end();
+  //   return;
+  // }
 
   // NEW CODE - SITE OAUTH CALLBACK (restored). Uses DISCORD_REDIRECT_URI (/auth/callback)
   if (!isSetupComplete() && (req.url === '/auth/callback' || req.url.startsWith('/auth/callback?') || req.url === '/auth/callback/')) {
@@ -5873,23 +5881,33 @@ http.createServer(async (req, res) => {
         return;
       }
     
-  // Static file serving (HTML, CSS, JS, images) with Discord auth gate (legacy pre-v2 only)
-  if (!isSetupComplete() && !req.url.startsWith('/auth')) {
-    const session = getDiscordSession(req);
-    if (!session) { res.writeHead(302, { Location: '/auth/login' }); res.end(); return; }
-    // When debug is enabled, show the real join-required page ONLY to admin for preview
-    if (forceJoinDebug && await isUserAdmin(session.user?.id)) {
-      // Serve the React-built join-required page to admins when debug is on
-      const jrPath = path.join(STATIC_DIR, 'join-required.html');
-      if (fs.existsSync(jrPath)) {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        fs.createReadStream(jrPath).pipe(res);
-      } else {
-        serveJoinRequired(res, session?.user?.username, { showReturnButton: true });
-      }
+  // Pre-setup: v2 bootstrap — serve /setup and assets; no legacy Discord session gate.
+  if (!isSetupComplete()) {
+    if (!requireSetupOrAllow(pathname)) {
+      const isStaticAsset = pathname.match(/\.(js|css|png|webp|ico|svg|woff2?|woff|ttf|map)$/i);
+      if (!pathname.startsWith("/internal/") && !isStaticAsset) {
+        res.writeHead(302, { Location: "/setup" });
+        res.end();
         return;
       }
+    }
   }
+
+  // OLD CODE - KEEP UNTIL CONFIRMED WORKING: legacy Discord auth gate blocked /setup before v2 bootstrap
+  // if (!isSetupComplete() && !req.url.startsWith('/auth')) {
+  //   const session = getDiscordSession(req);
+  //   if (!session) { res.writeHead(302, { Location: '/auth/login' }); res.end(); return; }
+  //   if (forceJoinDebug && await isUserAdmin(session.user?.id)) {
+  //     const jrPath = path.join(STATIC_DIR, 'join-required.html');
+  //     if (fs.existsSync(jrPath)) {
+  //       res.writeHead(200, { 'Content-Type': 'text/html' });
+  //       fs.createReadStream(jrPath).pipe(res);
+  //     } else {
+  //       serveJoinRequired(res, session?.user?.username, { showReturnButton: true });
+  //     }
+  //       return;
+  //     }
+  // }
   // In dev, don't serve the stale frontend/dist build from the API port.
   if (RADIO_DEV && req.method === "GET") {
     const uiPath = pathname;
