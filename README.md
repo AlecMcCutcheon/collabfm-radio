@@ -15,7 +15,7 @@ On the **website and main stream**, everyone shares one **main station**—whoev
 </p>
 
 <p align="center">
-  <img src="previews/CollabFM-Preview-1.gif" alt="CollabFM demo — stage, chat, and now playing" width="900" />
+  <img src="previews/CollabFM-Preview-demo.gif" alt="CollabFM demo — stage, chat, and now playing" width="900" />
 </p>
 
 <p align="center">
