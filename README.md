@@ -18,9 +18,9 @@ On the **website and main stream**, everyone shares one **main station**—whoev
   <img src="previews/CollabFM-Preview-demo.gif" alt="CollabFM demo — stage, chat, and now playing" width="900" />
 </p>
 
-<p align="center">
-  <a href="https://github.com/AlecMcCutcheon/collabfm-radio/raw/main/previews/CollabFM-Preview-1.mp4"><strong>Watch full demo (MP4)</strong></a>
-</p>
+## Try a live instance
+
+Want to play with a running CollabFM before self-hosting? Join the [Discord server](https://discord.gg/7bTRzEunSz). Guest access is at the admin’s discretion—when `@Jebes_Cust` is online and using it, say you’d like to try it. No guarantees on timing or access.
 
 - **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - **Audio pipeline:** [docs/audio-pipeline.md](./docs/audio-pipeline.md)
