@@ -68,6 +68,7 @@ export function useRadioPlayer(options?: { shareToken?: string }) {
   const stallTimerRef = useRef<number | null>(null);
   const reconnectStreamRef = useRef<() => void>(() => {});
   const reconnectingRef = useRef(false);
+  const expectingLiveStreamRef = useRef(false);
   const [stallTelemetry, setStallTelemetry] = useState<StreamStallTelemetry>(
     createEmptyStreamStallTelemetry,
   );
@@ -162,6 +163,7 @@ export function useRadioPlayer(options?: { shareToken?: string }) {
       audioRef.current.load();
       audioRef.current = null;
     }
+    expectingLiveStreamRef.current = false;
     setPlaying(false);
     setConnecting(false);
   }, [clearStallSampleTimer, clearStallTimer, syncStallTelemetry]);
@@ -236,7 +238,7 @@ export function useRadioPlayer(options?: { shareToken?: string }) {
     const onError = () => {
       clearStallTimer();
       setPlaying(false);
-      if (!hasStartedPlaybackRef.current) {
+      if (!hasStartedPlaybackRef.current && !expectingLiveStreamRef.current) {
         setConnecting(false);
         return;
       }
@@ -386,6 +388,7 @@ export function useRadioPlayer(options?: { shareToken?: string }) {
   }, [refreshStatus, onStreamHandoff, shareToken]);
 
   const startLivePlayback = useCallback(async () => {
+    expectingLiveStreamRef.current = true;
     setConnecting(true);
     setPlaying(false);
     stallRecorderRef.current.beginSession(webStreamDelayMs);
@@ -404,11 +407,13 @@ export function useRadioPlayer(options?: { shareToken?: string }) {
         audio.volume = volume;
       }
       hasStartedPlaybackRef.current = true;
+      expectingLiveStreamRef.current = false;
       stallRecorderRef.current.setWarmupUntil(Date.now() + PLAYBACK_WARMUP_MS);
       startStallSampling(audio);
       setConnecting(false);
       setPlaying(true);
     } catch {
+      expectingLiveStreamRef.current = false;
       stopPlayback();
     }
   }, [
@@ -424,14 +429,31 @@ export function useRadioPlayer(options?: { shareToken?: string }) {
     if (reconnectingRef.current) return;
     reconnectingRef.current = true;
     try {
-      const status = await api.broadcastStatus();
-      if (!status.active) {
+      const maxAttempts = 6;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const status = await api.broadcastStatus();
+        if (!status.active) {
+          expectingLiveStreamRef.current = false;
+          stopPlayback();
+          return;
+        }
         stopPlayback();
-        return;
+        expectingLiveStreamRef.current = true;
+        try {
+          await startLivePlayback();
+          return;
+        } catch {
+          expectingLiveStreamRef.current = false;
+          if (attempt < maxAttempts - 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 1000 + attempt * 750));
+          }
+        }
       }
-      stopPlayback();
-      await startLivePlayback();
+      expectingLiveStreamRef.current = false;
+      setConnecting(false);
+      setPlaying(false);
     } catch {
+      expectingLiveStreamRef.current = false;
       setConnecting(false);
       setPlaying(false);
     } finally {

@@ -8,6 +8,18 @@ CollabFM is a self-hosted **collaborative radio**: friends take turns as the liv
 
 On the **website and main stream**, everyone shares one **main station**—whoever is the promoted live DJ is what the room hears. In **Discord**, you can still follow that main feed, or **listen to a specific DJ on stage** on your own (handy when you want your own broadcast without pulling the whole group onto the shared stream).
 
+## Preview
+
+<p align="center">
+  <img src="previews/CollabFM-Preview-1.png" alt="CollabFM web UI — stage, chat, and now playing" width="900" />
+</p>
+
+<p align="center">
+  <video src="previews/CollabFM-Preview-1.webm" controls width="900">
+    <a href="previews/CollabFM-Preview-1.webm">Watch the CollabFM preview video</a>
+  </video>
+</p>
+
 - **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - **Audio pipeline:** [docs/audio-pipeline.md](./docs/audio-pipeline.md)
 - **Guides (UI & integrations):** [docs/wiki/Home.md](./docs/wiki/Home.md)

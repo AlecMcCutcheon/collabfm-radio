@@ -52,6 +52,7 @@ import {
   wirePcmRelayOutputs,
   getLiveRailId,
   stopLiveMp3Publisher,
+  setMp3BroadcastSessionActive,
 } from "./src/radio/streamHub.js";
 import {
   encodePcmRelayFrame,
@@ -790,6 +791,7 @@ let forceJoinDebug = false;
 
 function setBroadcastActive(isActive) {
   const wasActive = broadcastStatus.active;
+  setMp3BroadcastSessionActive(isActive);
   broadcastStatus.active = isActive;
 
   if (isActive) {

@@ -9,6 +9,9 @@ const MAX_RAIL_PCM_PENDING = 250;
 const MAX_SUB_PENDING_BYTES = 256 * 1024;
 const MP3_STALL_MS = 4000;
 const MP3_WATCHDOG_MS = 2000;
+/** While a broadcaster WS session is active, listeners stay connected through long pauses. */
+const MP3_FIRST_BYTE_TIMEOUT_MS = 5000;
+const MP3_FIRST_BYTE_TIMEOUT_BROADCAST_MS = 20_000;
 
 const subscribers = new Map();
 const railEncoders = new Map();
@@ -18,6 +21,8 @@ let outboundFlushTimer = null;
 let liveMp3RailId = null;
 let mp3BytesOut = 0;
 let streamActive = false;
+/** True while at least one authorized broadcaster relay WS is connected. */
+let broadcastSessionActive = false;
 let lastLiveMp3OutAt = 0;
 let mp3WatchdogTimer = null;
 let webStreamDelayMs = 0;
@@ -25,6 +30,10 @@ let webStreamDelayMs = 0;
 let mp3DelayQueue = [];
 let mp3DelayDrainTimer = null;
 const MAX_MP3_DELAY_ENTRIES = 256;
+
+export function setMp3BroadcastSessionActive(active) {
+  broadcastSessionActive = !!active;
+}
 
 export function configureMp3Publisher(options = {}) {
   const next = Number(options.webStreamDelayMs);
@@ -289,6 +298,7 @@ function createRailEncoder(railId) {
       "-metadata", "title=Music playing",
       "-metadata", "artist=CollabFM Radio",
       "-content_type", "audio/mpeg",
+      "-flush_packets", "1",
       "-f", "mp3",
       "pipe:1",
     ]);
@@ -388,7 +398,9 @@ function startMp3Watchdog() {
     }
 
     const mp3Stale = !lastLiveMp3OutAt || Date.now() - lastLiveMp3OutAt > MP3_STALL_MS;
-    if (mp3Stale) {
+    const pcmStale = !rail.lastWriteTs || Date.now() - rail.lastWriteTs > MP3_STALL_MS;
+    // Only restart when PCM has also stopped — silence/pause still feeds PCM keepalive.
+    if (mp3Stale && pcmStale) {
       console.warn(`⚠️ [mp3-pub] live encoder stalled — restarting rail ${liveMp3RailId}`);
       restartRailEncoder(liveMp3RailId);
     }
@@ -460,10 +472,21 @@ export function getActiveListenerCount() {
 }
 
 export function isMp3StreamActive() {
-  if (!streamActive || !liveMp3RailId) return false;
+  if (!liveMp3RailId) return false;
 
-  const rail = railEncoders.get(liveMp3RailId);
-  if (!rail?.proc || rail.proc.killed) return false;
+  let rail = railEncoders.get(liveMp3RailId);
+  if (!rail?.proc || rail.proc.killed) {
+    if (broadcastSessionActive) {
+      ensureRailEncoder(liveMp3RailId);
+      rail = railEncoders.get(liveMp3RailId);
+    }
+    if (!rail?.proc || rail.proc.killed) return false;
+  }
+
+  // Broadcaster still connected — stream stays available through long music pauses.
+  if (broadcastSessionActive) return true;
+
+  if (!streamActive) return false;
 
   const mp3Recent = lastLiveMp3OutAt && Date.now() - lastLiveMp3OutAt < MP3_STALL_MS;
   if (mp3Recent) return true;
@@ -522,17 +545,23 @@ export function subscribeToStream(res, meta = {}) {
     writeSubscriberChunk(sub, Buffer.from(outboundBuffer));
   }
 
+  const firstByteTimeoutMs = broadcastSessionActive
+    ? MP3_FIRST_BYTE_TIMEOUT_BROADCAST_MS
+    : MP3_FIRST_BYTE_TIMEOUT_MS;
   headerTimeout = setTimeout(() => {
     if (!subscribers.has(id)) return;
     if (sub.lastWriteAt > 0) return;
     console.warn("⚠️ [mp3-pub] subscriber timed out waiting for first MP3 byte");
     cleanup();
-  }, 5000);
+  }, firstByteTimeoutMs);
 
   subKeepalive = setInterval(() => {
     if (!subscribers.has(id)) return;
     if (!sub.lastWriteAt) return;
-    if (!streamActive || !liveMp3RailId) return;
+    if (!liveMp3RailId) return;
+    // Keep HTTP listeners connected while the broadcaster session is still up.
+    if (broadcastSessionActive) return;
+    if (!streamActive) return;
     const idleMs = Date.now() - (sub.lastWriteAt || 0);
     if (idleMs < MP3_STALL_MS) return;
     console.warn("⚠️ [mp3-pub] closing idle subscriber (no MP3 bytes)");

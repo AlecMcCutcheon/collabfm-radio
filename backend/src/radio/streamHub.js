@@ -26,6 +26,7 @@ export {
   initLiveMp3Publisher,
   restartLiveMp3Publisher,
   stopLiveMp3Publisher,
+  setMp3BroadcastSessionActive,
   writeLiveMp3Pcm,
   getActiveListenerCount,
   subscribeToStream,
