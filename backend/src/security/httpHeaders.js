@@ -29,6 +29,7 @@ export function staticFileHeaders(ext, extra = {}) {
     ".png": "image/png",
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
+    ".txt": "text/plain; charset=utf-8",
   };
 
   const headers = {
