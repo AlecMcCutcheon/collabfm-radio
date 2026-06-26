@@ -1,5 +1,6 @@
 // Offscreen document - handles actual audio capture and streaming
 import { extensionLog } from "./extension-log.js";
+import { resolveRadioEndpoints } from "./radio-config.js";
 import { syncGuestAuthDisplayName } from "./guest-auth.js";
 import { syncPairedDeviceDisplayName } from "./pair-auth.js";
 
@@ -49,12 +50,10 @@ function getApiBaseUrl() {
   if (currentApiOrigin) return currentApiOrigin;
   if (currentRelayUrl) {
     try {
-      const relay = new URL(currentRelayUrl);
-      const local = relay.hostname === 'localhost' || relay.hostname === '127.0.0.1';
-      return local ? `http://${relay.hostname}:4002` : (relay.protocol === 'wss:' ? `https://${relay.host}` : `http://${relay.host}`);
+      return resolveRadioEndpoints(currentRelayUrl).apiOrigin;
     } catch {}
   }
-  return 'http://localhost:4002';
+  return "http://localhost:4002";
 }
 
 function authHeaders() {

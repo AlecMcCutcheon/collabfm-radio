@@ -2,6 +2,20 @@ function isLocalHost(hostname) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]" || hostname === "::1";
 }
 
+/** Private LAN / docker host IPs — direct HTTP on :4002, relay WS on :4001 (no reverse proxy). */
+function isPrivateLanHost(hostname) {
+  if (!hostname || isLocalHost(hostname)) return true;
+  const parts = String(hostname).split(".");
+  if (parts.length !== 4) return false;
+  const nums = parts.map((p) => Number(p));
+  if (nums.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) return false;
+  const [a, b] = nums;
+  if (a === 10) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  return false;
+}
+
 /** Default connection when no server is stored (production). */
 export const DEFAULT_RADIO_HOST = "https://radio.app.ackvyn.org";
 
@@ -54,6 +68,19 @@ export function normalizeApiOrigin(origin) {
   }
 }
 
+/** Split-port docker/LAN: HTTP API on webPort, browser relay WS on wsPort. */
+function directCollabfmEndpoints(hostname, { apiPort = "4002", webPort = "5173" } = {}) {
+  const apiOrigin = normalizeApiOrigin(`http://${hostname}:${apiPort}`);
+  const useDevWeb = isLocalHost(hostname);
+  return {
+    apiOrigin,
+    webOrigin: useDevWeb ? `http://${hostname}:${webPort}` : apiOrigin,
+    wsUrl: `ws://${hostname}:4001/relay`,
+    hostKey: hostname,
+  };
+}
+
+
 export function resolveRadioEndpoints(input) {
   const raw = normalizeHostInput(input);
   if (!raw) {
@@ -64,33 +91,47 @@ export function resolveRadioEndpoints(input) {
     const url = new URL(raw);
     const hostname = url.hostname;
     const local = isLocalHost(hostname);
+    const lan = isPrivateLanHost(hostname);
     const wsPath = url.pathname && url.pathname !== "/" ? url.pathname : "/relay";
     const wsUrl = `${url.protocol}//${url.host}${wsPath}`;
-    const apiOrigin = local
-      ? normalizeApiOrigin(`http://${hostname}:4002`)
-      : url.protocol === "wss:"
-        ? `https://${url.host}`
-        : `http://${url.host}`;
+    if (local || lan || url.port === "4001") {
+      return directCollabfmEndpoints(hostname);
+    }
+    const apiOrigin =
+      url.protocol === "wss:"
+        ? normalizeApiOrigin(`https://${url.host}`)
+        : normalizeApiOrigin(`http://${url.host}`);
     const webOrigin = local ? `http://${hostname}:5173` : apiOrigin;
     return { apiOrigin, webOrigin, wsUrl, hostKey: hostname };
   }
 
   if (/^https?:\/\//i.test(raw)) {
     const url = new URL(raw);
-    const local = isLocalHost(url.hostname);
+    const hostname = url.hostname;
+    const local = isLocalHost(hostname);
     const apiOrigin = normalizeApiOrigin(raw);
-    const webOrigin = local ? `http://${url.hostname}:5173` : apiOrigin;
+    if (local || isPrivateLanHost(hostname) || url.port === "4002" || url.protocol === "http:") {
+      return {
+        ...directCollabfmEndpoints(hostname, {
+          apiPort: url.port || "4002",
+        }),
+        apiOrigin,
+        webOrigin: local ? `http://${hostname}:5173` : apiOrigin,
+      };
+    }
     return {
       apiOrigin,
-      webOrigin,
-      wsUrl: local ? `ws://${url.hostname}:4001/relay` : `wss://${url.host}/relay`,
-      hostKey: url.hostname,
+      webOrigin: apiOrigin,
+      wsUrl: `wss://${url.host}/relay`,
+      hostKey: hostname,
     };
   }
 
   const hostOnly = raw.split("/")[0];
   const hostname = hostOnly.split(":")[0];
+  const port = hostOnly.includes(":") ? hostOnly.split(":")[1] : "";
   const local = isLocalHost(hostname);
+
   if (local) {
     if (hostOnly.includes(":4001")) {
       return {
@@ -101,12 +142,7 @@ export function resolveRadioEndpoints(input) {
       };
     }
     if (hostOnly.includes(":4002")) {
-      return {
-        apiOrigin: normalizeApiOrigin(`http://${hostOnly}`),
-        webOrigin: `http://${hostname}:5173`,
-        wsUrl: `ws://${hostname}:4001/relay`,
-        hostKey: hostname,
-      };
+      return directCollabfmEndpoints(hostname, { apiPort: "4002" });
     }
     if (hostOnly.includes(":5173")) {
       return {
@@ -116,12 +152,12 @@ export function resolveRadioEndpoints(input) {
         hostKey: hostname,
       };
     }
-    return {
-      apiOrigin: normalizeApiOrigin(`http://${hostname}:4002`),
-      webOrigin: `http://${hostname}:5173`,
-      wsUrl: `ws://${hostname}:4001/relay`,
-      hostKey: hostname,
-    };
+    return directCollabfmEndpoints(hostname);
+  }
+
+  if (isPrivateLanHost(hostname) || port === "4002" || port === "4001") {
+    const apiPort = port === "4001" ? "4002" : port || "4002";
+    return directCollabfmEndpoints(hostname, { apiPort });
   }
 
   return {
