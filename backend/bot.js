@@ -2763,7 +2763,7 @@ http.createServer(async (req, res) => {
   const pathname = urlObj.pathname;
   const ALLOWED_ORIGINS = config.server.allowedOrigins;
 
-  if (handleProceduralTrackArtRoute(req, res, pathname)) {
+  if (handleProceduralTrackArtRoute(req, res, pathname, getAppSession)) {
     return;
   }
 
@@ -3032,18 +3032,21 @@ http.createServer(async (req, res) => {
     const isPublicGuestRead =
       req.method === "GET" &&
       (isListenInfo ||
-        apiPath === "/api/broadcast-status" ||
-        apiPath === "/api/metadata" ||
-        apiPath.startsWith("/api/metadata") ||
-        apiPath === "/api/art/track" ||
-        apiPath === "/art/track" ||
-        apiPath === "/api/status-json.xsl" ||
         apiPath === "/api/branding" ||
-        apiPath === "/api/branding/visualizer" ||
-        apiPath === "/api/party-effects" ||
-        apiPath.startsWith("/api/search"));
+        apiPath === "/api/branding/visualizer");
     const allowsGuestPostAtHandler = allowsGuestHandlerAuthPost(req, apiPath);
     const allowsShareTokenRead = allowsShareTokenApiRead(req, getAppSession, apiPath);
+    const isInternalLoopbackRead =
+      req.method === "GET" &&
+      isPrivateNetworkRemote(req.socket?.remoteAddress || "") &&
+      (apiPath === "/api/metadata" ||
+        apiPath.startsWith("/api/metadata") ||
+        apiPath === "/api/lastfm" ||
+        apiPath.startsWith("/api/lastfm") ||
+        apiPath === "/api/broadcast-status" ||
+        apiPath === "/api/status-json.xsl" ||
+        apiPath === "/api/art/track" ||
+        apiPath === "/art/track");
 
     if (!isTokenStream && !isListenStream && !isSessionStream) {
       res.setHeader("Content-Type", "application/json");
@@ -3061,7 +3064,8 @@ http.createServer(async (req, res) => {
       !allowsDeviceBearer &&
       !isPublicGuestRead &&
       !allowsGuestPostAtHandler &&
-      !allowsShareTokenRead
+      !allowsShareTokenRead &&
+      !isInternalLoopbackRead
     ) {
       const session = getDiscordSession(req);
       if (!session) {
@@ -3077,7 +3081,7 @@ http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.url === "/api/broadcast-status") {
+    if (apiPath === "/api/broadcast-status") {
       const { getActiveListenerCount } = await import('./src/http/stream.js');
       res.writeHead(200);
       res.end(JSON.stringify({ ...broadcastStatus, listeners: getActiveListenerCount() }, null, 2));
@@ -5519,7 +5523,7 @@ http.createServer(async (req, res) => {
     // REMOVE legacy validate endpoint
 
     // Proxy: Icecast status JSON under /api
-    if (req.url === "/api/status-json.xsl") {
+    if (apiPath === "/api/status-json.xsl") {
       try {
         const { buildStreamStatusJson } = await import('./src/radio/streamHub.js');
         const payload = buildStreamStatusJson({

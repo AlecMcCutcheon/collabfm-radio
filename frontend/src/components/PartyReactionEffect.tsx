@@ -15,6 +15,7 @@ import { PARTY_EFFECTS_REACTION_Z } from "../utils/partyEffectsZIndex";
 
 interface PartyReactionEffectProps {
   effect: PartyEffect;
+  shareToken?: string;
 }
 
 function ReactionPropEl({ prop, index, effect }: { prop: ReactionProp; index: number; effect: PartyEffect }) {
@@ -41,7 +42,7 @@ function ReactionPropEl({ prop, index, effect }: { prop: ReactionProp; index: nu
   );
 }
 
-export function PartyReactionEffect({ effect }: PartyReactionEffectProps) {
+export function PartyReactionEffect({ effect, shareToken }: PartyReactionEffectProps) {
   const fallbackEmoji = REACTION_EMOJI[effect.type] ?? "✨";
   const placement = useMemo(
     () => pointerReactionPlacement(effect.x, effect.y),
@@ -54,7 +55,7 @@ export function PartyReactionEffect({ effect }: PartyReactionEffectProps) {
     const stageMotion = driftMotions.includes(base.stageMotion) ? sideMotion : base.stageMotion;
     return { ...base, stageMotion };
   }, [effect.type, effect.id, placement.side]);
-  const avatarSrc = effect.reactor ? partyReactorAvatarSrc(effect.reactor, 96) : null;
+  const avatarSrc = effect.reactor ? partyReactorAvatarSrc(effect.reactor, 96, shareToken) : null;
   const ms = REACTION_DURATION_MS;
   const staggerStyle = effectStaggerStyle(effect);
   const anchorStyle = {

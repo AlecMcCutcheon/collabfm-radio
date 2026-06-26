@@ -10,6 +10,14 @@ export function apiUrl(path: string): string {
   return API_ORIGIN ? `${API_ORIGIN}${path}` : path;
 }
 
+/** Append share link token for authenticated asset/API reads (guest listen pages). */
+export function apiUrlWithShareToken(path: string, shareToken?: string): string {
+  const url = apiUrl(path);
+  if (!shareToken) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}shareToken=${encodeURIComponent(shareToken)}`;
+}
+
 export function authLogoutUrl(): string {
   return apiUrl("/auth/logout");
 }

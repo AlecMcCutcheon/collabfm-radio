@@ -1,3 +1,7 @@
+import { hasSessionOrShareToken } from "../security/access.js";
+import { getAppSession } from "../auth/routes.js";
+import { isPrivateNetworkRemote } from "../security/network.js";
+
 const PALETTE = [
   "hsl(221, 83%, 53%)",
   "hsl(259, 94%, 61%)",
@@ -149,10 +153,17 @@ export function proceduralTrackArtPath(title, artist, size = CANVAS_SIZE) {
   return `${PUBLIC_PROCEDURAL_ART_PATH}?${params.toString()}`;
 }
 
-export function handleProceduralTrackArtRoute(req, res, pathname) {
+export function handleProceduralTrackArtRoute(req, res, pathname, getSession = getAppSession) {
   const method = String(req.method || "GET").toUpperCase();
   if (!isProceduralTrackArtPath(pathname) || (method !== "GET" && method !== "HEAD")) {
     return false;
+  }
+
+  const remote = req.socket?.remoteAddress || "";
+  if (!hasSessionOrShareToken(req, getSession) && !isPrivateNetworkRemote(remote)) {
+    res.writeHead(401, { "Content-Type": "text/plain", "Cache-Control": "no-store" });
+    res.end("Authentication required");
+    return true;
   }
 
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);

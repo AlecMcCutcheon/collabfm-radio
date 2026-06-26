@@ -219,10 +219,10 @@ export function PartyEffectsLayer({
         <PartyTravelEffect key={effect.id} effect={effect} />
       ))}
       {reactionEffects.map((effect) => (
-        <PartyReactionEffect key={effect.id} effect={effect} />
+        <PartyReactionEffect key={effect.id} effect={effect} shareToken={shareToken} />
       ))}
       {profileReactionEffects.map((effect) => (
-        <PartyProfileReactionEffect key={effect.id} effect={effect} />
+        <PartyProfileReactionEffect key={effect.id} effect={effect} shareToken={shareToken} />
       ))}
       {petEffects.map((effect) => (
         <PartyPetEffect key={effect.id} effect={effect} />

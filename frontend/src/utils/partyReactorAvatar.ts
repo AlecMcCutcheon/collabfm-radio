@@ -1,4 +1,4 @@
-import { apiUrl } from "../config";
+import { apiUrlWithShareToken } from "../config";
 import type { PartyEffectReactor } from "../types/api";
 import { avatarSrc, guestAvatarSrc } from "./avatar";
 import {
@@ -6,8 +6,12 @@ import {
   isDiscordReactorUserId,
 } from "./discordBotReactorAvatar";
 
-export function partyReactorAvatarSrc(reactor: PartyEffectReactor, size = 96): string {
-  if (reactor.avatarUrl) return apiUrl(reactor.avatarUrl);
+export function partyReactorAvatarSrc(
+  reactor: PartyEffectReactor,
+  size = 96,
+  shareToken?: string,
+): string {
+  if (reactor.avatarUrl) return apiUrlWithShareToken(reactor.avatarUrl, shareToken);
   if (isDiscordReactorUserId(reactor.userId)) {
     return discordBotReactorAvatarSrc(size);
   }

@@ -198,6 +198,7 @@ function ChatMessageRow({
           },
           72,
           auth.user,
+          guest?.shareToken,
         );
 
   return (
@@ -498,7 +499,7 @@ export function ChatPanel({
             shareToken={guest?.shareToken}
           />
         )}
-        <ChatTypingIndicator typers={typers} auth={auth} />
+        <ChatTypingIndicator typers={typers} auth={auth} shareToken={guest?.shareToken} />
         <form className="flex gap-2" onSubmit={(e) => void send(e)}>
           {chatGifsEnabled && (
             <button

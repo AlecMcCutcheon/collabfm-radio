@@ -18,6 +18,7 @@ function typingLabel(typers: ChatTyper[]): string {
 function typerAvatarSrc(
   typer: ChatTyper,
   authUser: AuthStatus["user"],
+  shareToken?: string,
 ): string {
   const name = typer.displayName || "Someone";
   const isGuest = typer.isGuest || typer.actorId.startsWith("guest:");
@@ -35,6 +36,7 @@ function typerAvatarSrc(
     },
     48,
     authUser,
+    shareToken,
   );
 }
 
@@ -55,9 +57,10 @@ function TypingDots() {
 interface ChatTypingIndicatorProps {
   typers: ChatTyper[];
   auth: AuthStatus;
+  shareToken?: string;
 }
 
-export function ChatTypingIndicator({ typers, auth }: ChatTypingIndicatorProps) {
+export function ChatTypingIndicator({ typers, auth, shareToken }: ChatTypingIndicatorProps) {
   if (!typers.length) return null;
 
   const label = typingLabel(typers);
@@ -74,7 +77,7 @@ export function ChatTypingIndicator({ typers, auth }: ChatTypingIndicatorProps) 
     >
       <div className="flex items-center shrink-0">
         {shown.map((typer, index) => {
-          const avatarSrc = typerAvatarSrc(typer, auth.user);
+          const avatarSrc = typerAvatarSrc(typer, auth.user, shareToken);
           return (
           <span
             key={`${typer.actorId}-${typer.displayName}-${typer.avatarVariant ?? 0}-${typer.coverIcon ?? 0}-${typer.avatar ?? ""}`}

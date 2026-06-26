@@ -17,6 +17,7 @@ import {
 } from "../presence/sitePresence.js";
 import { refreshChatTypingForActor } from "../chat/chatTypingPublish.js";
 import { rejectExtensionOnWebBroadcasterRoute } from "../security/broadcastClient.js";
+import { hasSessionOrShareToken } from "../security/access.js";
 
 const WEB_BROADCASTER_LABEL = "Web UI";
 
@@ -79,9 +80,13 @@ function publishBroadcasterProfileUpdate(userId, profile) {
   });
 }
 
-export async function handleBroadcasterRoutes(req, res, pathname, method) {
+export async function handleBroadcasterRoutes(req, res, pathname, method, getSession = getAppSession) {
   const avatarMatch = pathname.match(/^\/api\/avatars\/(\d+)$/);
   if (avatarMatch && method === "GET") {
+    if (!hasSessionOrShareToken(req, getSession)) {
+      json(res, 401, { error: "Unauthorized" });
+      return true;
+    }
     const file = resolveAvatarFile(Number(avatarMatch[1]));
     if (!file) {
       json(res, 404, { error: "Not found" });

@@ -140,7 +140,7 @@ export async function tryHandleV2Request(req, res, pathname, method, configFile 
   const extensionResult = await handleExtensionRoutes(req, res, pathname, method);
   if (extensionResult !== false) return true;
 
-  const broadcasterResult = await handleBroadcasterRoutes(req, res, pathname, method);
+  const broadcasterResult = await handleBroadcasterRoutes(req, res, pathname, method, getAppSession);
   if (broadcasterResult !== false) return true;
 
   const guestBroadcastResult = await handleGuestBroadcastRoutes(req, res, pathname, method);

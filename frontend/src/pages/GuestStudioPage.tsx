@@ -113,26 +113,35 @@ export function GuestStudioPage({
     return () => window.clearInterval(id);
   }, [linkInfo?.expiresAt]);
 
-  const pushGuest = (identity: ReturnType<typeof getGuestIdentity>) => {
-    const next: GuestContext = { ...identity, shareToken, guestSession: guest.guestSession };
+  const pushGuest = (identity: ReturnType<typeof getGuestIdentity>, guestSession?: string) => {
+    const next: GuestContext = {
+      ...identity,
+      shareToken,
+      guestSession:
+        guestSession ??
+        (identity.guestId === guest.guestId ? guest.guestSession : ""),
+    };
     onGuestChange(next);
     setDisplayName(next.guestName);
     setAvatarVariant(next.avatarVariant);
     setCoverIcon(next.coverIcon);
   };
 
-  const syncGuestProfileToServer = async (identity: ReturnType<typeof getGuestIdentity>) => {
-    let guestSession = guest.guestSession;
-    if (!guestSession) {
-      try {
-        const info = await api.listenInfo(shareToken, identity.guestId);
-        guestSession = info.guestSession || "";
-      } catch {
-        setError("Could not save profile to the server. Try again in a moment.");
-        return;
-      }
+  const syncGuestProfileToServer = async (
+    identity: ReturnType<typeof getGuestIdentity>,
+  ): Promise<boolean> => {
+    let guestSession = "";
+    try {
+      const info = await api.listenInfo(shareToken, identity.guestId);
+      guestSession = info.guestSession || "";
+    } catch {
+      setError("Could not save profile to the server. Try again in a moment.");
+      return false;
     }
-    if (!guestSession) return;
+    if (!guestSession) {
+      setError("Could not save profile to the server. Try again in a moment.");
+      return false;
+    }
 
     try {
       await api.updateGuestProfile({
@@ -140,9 +149,12 @@ export function GuestStudioPage({
         shareToken,
         guestSession,
       });
+      pushGuest(identity, guestSession);
       window.dispatchEvent(new Event("radio-profile-updated"));
+      return true;
     } catch {
       setError("Could not save profile to the server. Try again in a moment.");
+      return false;
     }
   };
 
@@ -165,9 +177,9 @@ export function GuestStudioPage({
     }
     pushGuest(identity);
     setLinkIdDraft("");
-    setMessage("Profile saved.");
-    window.dispatchEvent(new Event("radio-profile-updated"));
-    void syncGuestProfileToServer(identity);
+    void syncGuestProfileToServer(identity).then((ok) => {
+      if (ok) setMessage("Profile saved.");
+    });
   };
 
   const handleResetNickname = () => {

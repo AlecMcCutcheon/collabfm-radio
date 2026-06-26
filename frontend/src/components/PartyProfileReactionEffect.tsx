@@ -21,6 +21,7 @@ export { isProfileReactionEffectType };
 
 interface PartyProfileReactionEffectProps {
   effect: PartyEffect;
+  shareToken?: string;
 }
 
 const RING = {
@@ -66,11 +67,11 @@ function Sparkle({
   );
 }
 
-export function PartyProfileReactionEffect({ effect }: PartyProfileReactionEffectProps) {
+export function PartyProfileReactionEffect({ effect, shareToken }: PartyProfileReactionEffectProps) {
   const type = effect.type as ProfilePartyEffectType;
   const ms = profileReactionDurationMs(type);
-  const reactorSrc = effect.reactor ? partyReactorAvatarSrc(effect.reactor, 128) : null;
-  const targetSrc = effect.target ? partyReactorAvatarSrc(effect.target, 128) : null;
+  const reactorSrc = effect.reactor ? partyReactorAvatarSrc(effect.reactor, 128, shareToken) : null;
+  const targetSrc = effect.target ? partyReactorAvatarSrc(effect.target, 128, shareToken) : null;
   const duel = effect.profileDuel;
   const ring = ringFor(type);
   const reactorWins = duel?.outcome === "reactor";

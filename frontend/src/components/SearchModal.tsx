@@ -6,7 +6,7 @@ import { api } from "../api/client";
 import type { GuestContext } from "../types/api";
 
 import { trackArtworkSrc } from "../utils/proceduralArt";
-import { albumArtFallbackHandler } from "../utils/brandingImage";
+import { AlbumArtImage } from "./AlbumArtImage";
 import { subscribeLiveEvent } from "../utils/liveEvents";
 import {
   REQUEST_STATUS_LABELS,
@@ -163,7 +163,12 @@ export function SearchModal({ open, onClose, guest }: SearchModalProps) {
 
     try {
 
-      const data = await api.searchSongs(songName.trim(), artist.trim() || undefined, nextPage);
+      const data = await api.searchSongs(
+        songName.trim(),
+        artist.trim() || undefined,
+        nextPage,
+        guest?.shareToken,
+      );
 
       const normalized = (data.results ?? []).map((r) => normalizeResult(r as Record<string, unknown>));
 
@@ -460,6 +465,8 @@ export function SearchModal({ open, onClose, guest }: SearchModalProps) {
                 const key = songRequestKey(track.name, track.artist);
 
                 const artwork = trackArtworkSrc(track.name, track.artist, track.image, 96);
+                const remoteArtwork =
+                  artwork.startsWith("data:") || artwork.startsWith("/") ? null : artwork;
 
                 const trackStatus = requestStatuses[key];
 
@@ -479,16 +486,13 @@ export function SearchModal({ open, onClose, guest }: SearchModalProps) {
 
                     <div className="relative w-12 h-12 flex-shrink-0 group">
 
-                      <img
-
-                        src={artwork}
-
+                      <AlbumArtImage
+                        remoteUrl={remoteArtwork}
+                        title={track.name}
+                        artist={track.artist}
+                        size={96}
                         alt={`${track.name} album art`}
-
                         className="w-full h-full rounded object-cover"
-
-                        onError={albumArtFallbackHandler(track.name, track.artist, 96)}
-
                       />
 
                       {track.url && (

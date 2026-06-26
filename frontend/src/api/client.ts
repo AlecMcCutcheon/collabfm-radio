@@ -119,11 +119,14 @@ export const api = {
 
   authStatus: () => json<AuthStatus>(apiUrl("/auth/status")),
 
-  broadcastStatus: () => json<BroadcastStatus>(apiUrl("/api/broadcast-status")),
+  broadcastStatus: (shareToken?: string) =>
+    json<BroadcastStatus>(apiUrl(`/api/broadcast-status${shareTokenQuery(shareToken)}`)),
 
-  metadataRaw: () => json<unknown>(apiUrl("/api/metadata")),
+  metadataRaw: (shareToken?: string) =>
+    json<unknown>(apiUrl(`/api/metadata${shareTokenQuery(shareToken)}`)),
 
-  statusJson: () => json<unknown>(apiUrl("/api/status-json.xsl")),
+  statusJson: (shareToken?: string) =>
+    json<unknown>(apiUrl(`/api/status-json.xsl${shareTokenQuery(shareToken)}`)),
 
   streamUrl: (token?: string) => {
     const live = `_live=${Date.now()}`;
@@ -350,14 +353,17 @@ export const api = {
   requests: (shareToken?: string) =>
     json<Record<string, SongRequest>>(`${API}/requests${shareTokenQuery(shareToken)}`),
 
-  searchSongs: (track: string, artist?: string, page = 1) =>
-    json<{ results: unknown[]; total: number; page: number }>(
-      `${API}/search?${new URLSearchParams({
-        track,
-        page: String(page),
-        ...(artist ? { artist } : {}),
-      })}`,
-    ),
+  searchSongs: (track: string, artist?: string, page = 1, shareToken?: string) => {
+    const params = new URLSearchParams({
+      track,
+      page: String(page),
+      ...(artist ? { artist } : {}),
+    });
+    if (shareToken) params.set("shareToken", shareToken);
+    return json<{ results: unknown[]; total: number; page: number }>(
+      `${API}/search?${params}`,
+    );
+  },
 
   requestSong: (title: string, artist: string, url?: string) =>
     json<SongRequestActionResponse>(`${API}/messages`, {

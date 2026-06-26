@@ -8,12 +8,12 @@ import { usePinnedMediaControl } from "../context/PinnedMediaControlContext";
 import { usePartyEffectActions } from "../context/PartyEffectsContext";
 import type { useRadioPlayer } from "../hooks/useRadioPlayer";
 import type { GuestContext, NowPlayingSocial } from "../types/api";
-import { trackArtworkSrc, proceduralAlbumArt } from "../utils/proceduralArt";
+import { proceduralAlbumArt } from "../utils/proceduralArt";
 import {
-  albumArtFallbackHandler,
   proceduralStationLogo,
   resolveBrandingImageUrl,
 } from "../utils/brandingImage";
+import { AlbumArtImage } from "./AlbumArtImage";
 import { subscribeLiveEvent } from "../utils/liveEvents";
 import { DjProfileVisualizer } from "./AlbumArtVisualizer";
 import { ListenerRosterModal } from "./ListenerRosterModal";
@@ -79,10 +79,7 @@ export function RadioPanel({
   const stageCountLabel = rosterFetched ? String(roster.stageCount ?? 0) : "0";
   const botConnectionCountLabel = rosterFetched ? String(roster.botConnectionCount ?? 0) : "0";
 
-  const albumArtSrc = player.hasTrackInfo
-    ? player.metadata.albumArt ??
-      trackArtworkSrc(player.metadata.title, player.metadata.artist, undefined, 192)
-    : null;
+  const albumArtRemote = player.hasTrackInfo ? player.metadata.albumArt : null;
   const albumArtFallback = player.hasTrackInfo
     ? proceduralAlbumArt(player.metadata.title, player.metadata.artist, 192)
     : "";
@@ -334,12 +331,13 @@ export function RadioPanel({
         {player.hasTrackInfo ? (
           <div className="flex w-full items-center gap-6">
             <div className="flex-shrink-0 relative group">
-              {albumArtSrc ? (
-                <img
-                  alt="Album artwork"
+              {player.hasTrackInfo ? (
+                <AlbumArtImage
+                  remoteUrl={albumArtRemote}
+                  title={player.metadata.title}
+                  artist={player.metadata.artist}
+                  size={192}
                   className="w-24 h-24 rounded-lg shadow-lg object-cover border-2 border-gray-600"
-                  src={albumArtSrc}
-                  onError={albumArtFallbackHandler(player.metadata.title, player.metadata.artist, 192)}
                 />
               ) : (
                 <img

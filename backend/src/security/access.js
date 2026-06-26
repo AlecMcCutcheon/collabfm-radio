@@ -9,7 +9,7 @@ export function shareTokenFromRequest(req) {
   }
 }
 
-/** GET routes that accept a valid UI share token (listener or guest broadcaster). */
+/** GET routes that accept session cookie or valid UI share token (query param). */
 export const SHARE_TOKEN_READ_API_PATHS = new Set([
   "/api/messages",
   "/api/chat/unread",
@@ -20,7 +20,23 @@ export const SHARE_TOKEN_READ_API_PATHS = new Set([
   "/api/party-effects",
   "/api/presence/roster",
   "/api/chat/typing",
+  "/api/broadcast-status",
+  "/api/metadata",
+  "/api/lastfm",
+  "/api/status-json.xsl",
+  "/api/search",
+  "/api/art/track",
+  "/art/track",
 ]);
+
+export function isShareTokenReadablePath(apiPath) {
+  if (SHARE_TOKEN_READ_API_PATHS.has(apiPath)) return true;
+  if (apiPath.startsWith("/api/metadata")) return true;
+  if (apiPath.startsWith("/api/lastfm")) return true;
+  if (apiPath.startsWith("/api/search")) return true;
+  if (/^\/api\/avatars\/\d+$/.test(apiPath)) return true;
+  return false;
+}
 
 /** POST routes that authenticate guest/session/device in the route handler (not at the API gate). */
 export const GUEST_HANDLER_AUTH_POST_PATHS = new Set([
@@ -46,7 +62,7 @@ export function hasSessionOrShareToken(req, getAppSession) {
 export function allowsShareTokenApiRead(req, getAppSession, apiPath) {
   return (
     req.method === "GET" &&
-    SHARE_TOKEN_READ_API_PATHS.has(apiPath) &&
+    isShareTokenReadablePath(apiPath) &&
     hasSessionOrShareToken(req, getAppSession)
   );
 }

@@ -29,6 +29,13 @@ const VOLUME_KEY = "radioVolume";
 /** Only show reconnect UI if the stream stalls longer than this (ms). */
 const STALL_UI_MS = 2500;
 
+function appendShareTokenToAssetUrl(url: string | undefined, shareToken?: string): string | undefined {
+  if (!url || !shareToken) return url;
+  if (/^https?:\/\//i.test(url) && !url.includes("/art/track")) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}shareToken=${encodeURIComponent(shareToken)}`;
+}
+
 function attachAudioListeners(
   audio: HTMLAudioElement,
   handlers: {
@@ -290,13 +297,14 @@ export function useRadioPlayer(options?: { shareToken?: string }) {
   const refreshStatus = useCallback(async () => {
     try {
       const [rawMeta, status, ice] = await Promise.all([
-        api.metadataRaw(),
-        api.broadcastStatus(),
-        api.statusJson().catch(() => null),
+        api.metadataRaw(shareToken),
+        api.broadcastStatus(shareToken),
+        api.statusJson(shareToken).catch(() => null),
       ]);
 
       const parsed = parseMetadataResponse(rawMeta);
       if (parsed) {
+        parsed.albumArt = appendShareTokenToAssetUrl(parsed.albumArt, shareToken);
         setMetadata(parsed);
       } else if (!playing) {
         setMetadata({ title: "N/A", artist: "N/A" });
@@ -358,7 +366,7 @@ export function useRadioPlayer(options?: { shareToken?: string }) {
     } finally {
       setStatusReady(true);
     }
-  }, [connecting, playing, stopPlayback, syncStallTelemetry]);
+  }, [connecting, playing, shareToken, stopPlayback, syncStallTelemetry]);
 
   const onStreamHandoff = useCallback(() => {
     if (!playing || offline) return;
@@ -434,7 +442,7 @@ export function useRadioPlayer(options?: { shareToken?: string }) {
     try {
       const maxAttempts = 6;
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const status = await api.broadcastStatus();
+        const status = await api.broadcastStatus(shareToken);
         if (!status.active) {
           expectingLiveStreamRef.current = false;
           stopPlayback();
@@ -462,7 +470,7 @@ export function useRadioPlayer(options?: { shareToken?: string }) {
     } finally {
       reconnectingRef.current = false;
     }
-  }, [startLivePlayback, stopPlayback]);
+  }, [shareToken, startLivePlayback, stopPlayback]);
 
   useEffect(() => {
     reconnectStreamRef.current = () => {

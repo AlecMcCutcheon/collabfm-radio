@@ -613,6 +613,9 @@ export async function handleAdminRoutes(req, res, pathname, method) {
 export async function handlePublicDiscordRoutes(req, res, pathname, method) {
   const wlMatch = pathname.match(/^\/api\/discord\/whitelist\/(.+)$/);
   if (wlMatch && method === "GET") {
+    if (!getAppSession(req)) {
+      return json(res, 401, { error: "Unauthorized" });
+    }
     const { isGuildWhitelisted } = await import("../db/index.js");
     const guildId = decodeURIComponent(wlMatch[1]);
     return json(res, 200, { guildId, allowed: isGuildWhitelisted(guildId) });

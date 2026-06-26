@@ -2,6 +2,7 @@ import { verifyGuestSession, isValidGuestId } from "../security/guestSession.js"
 import { validateShareToken } from "../db/shareLinks.js";
 import { consumeRateLimit, clientIp } from "../security/rateLimit.js";
 import { apiJsonHeaders } from "../security/httpHeaders.js";
+import { hasSessionOrShareToken } from "../security/access.js";
 import { avatarUrlForUserId } from "../db/userProfile.js";
 import { resolveProfileRps } from "../party/profileRps.js";
 import { petHeartDelayMs, petVariantForEffectId } from "../party/petTiming.js";
@@ -149,6 +150,10 @@ export async function handlePartyEffectsRoutes(req, res, pathname, method, getAp
   if (pathname !== "/api/party-effects") return false;
 
   if (method === "GET") {
+    if (!hasSessionOrShareToken(req, getAppSession)) {
+      json(res, 401, { error: "Unauthorized" });
+      return true;
+    }
     try {
       const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
       const since = Number(url.searchParams.get("since") || "0");

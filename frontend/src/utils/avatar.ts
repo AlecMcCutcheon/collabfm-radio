@@ -1,5 +1,5 @@
 import { proceduralAvatarArt } from "./proceduralArt";
-import { apiUrl } from "../config";
+import { apiUrlWithShareToken } from "../config";
 import { guestAvatarSeed, guestUserId, type GuestIdentity } from "./guestIdentity";
 
 /** Default DJ visualizer / station logo — not used for user profile avatars. */
@@ -29,7 +29,7 @@ export function stageMemberAvatarSrc(
   },
   size = 128,
   authUser?: { id: string; avatar?: string | null } | null,
-  guest?: Pick<GuestIdentity, "guestId" | "avatarVariant" | "coverIcon"> | null,
+  guest?: (Pick<GuestIdentity, "guestId" | "avatarVariant" | "coverIcon"> & { shareToken?: string }) | null,
 ): string {
   if (host.userId.startsWith("guest:")) {
     const guestId = host.userId.slice(6);
@@ -48,22 +48,23 @@ export function stageMemberAvatarSrc(
       host.guestCoverIcon ?? 0,
     );
   }
-  return hostAvatarSrc(host, size, authUser);
+  return hostAvatarSrc(host, size, authUser, guest?.shareToken);
 }
 
 export function hostAvatarSrc(
   host: { displayName?: string; userId: string; avatar?: string | null; avatarUrl?: string | null },
   size = 128,
   authUser?: { id: string; avatar?: string | null } | null,
+  shareToken?: string,
 ): string {
   const custom = host.avatar ?? host.avatarUrl;
-  if (custom) return apiUrl(custom);
+  if (custom) return apiUrlWithShareToken(custom, shareToken);
   if (
     authUser?.avatar &&
     authUser.id &&
     String(host.userId) === String(authUser.id)
   ) {
-    return apiUrl(authUser.avatar);
+    return apiUrlWithShareToken(authUser.avatar, shareToken);
   }
   return avatarSrc(host.userId || host.displayName || "guest", size);
 }

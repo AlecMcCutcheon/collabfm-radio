@@ -4,8 +4,7 @@ import { api } from "../api/client";
 import { usePartyEffectActions } from "../context/PartyEffectsContext";
 import type { BroadcastSessionLog, GuestContext, SessionSongLogEntry } from "../types/api";
 import { subscribeLiveEvent } from "../utils/liveEvents";
-import { trackArtworkSrc } from "../utils/proceduralArt";
-import { albumArtFallbackHandler } from "../utils/brandingImage";
+import { AlbumArtImage } from "./AlbumArtImage";
 
 interface SessionSongLogModalProps {
   open: boolean;
@@ -32,9 +31,7 @@ function SongLogRow({
 }) {
   const title = entry.title || "Track";
   const artist = entry.artist || "Artist";
-  const artSrc = entry.albumArt?.trim()
-    ? entry.albumArt
-    : trackArtworkSrc(title, artist, undefined, 96);
+  const remoteArt = entry.albumArt?.trim() || null;
   const djLabel = entry.broadcasterDisplayName?.trim() || "DJ";
 
   return (
@@ -45,11 +42,13 @@ function SongLogRow({
           : "border-transparent hover:bg-gray-700/50"
       }`}
     >
-      <img
-        src={artSrc}
+      <AlbumArtImage
+        remoteUrl={remoteArt}
+        title={title}
+        artist={artist}
+        size={96}
         alt=""
         className="w-11 h-11 rounded-lg object-cover border border-gray-600 shrink-0"
-        onError={albumArtFallbackHandler(title, artist, 96)}
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 min-w-0">
