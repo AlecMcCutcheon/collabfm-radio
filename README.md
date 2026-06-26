@@ -8,7 +8,7 @@ CollabFM is a self-hosted collaborative internet radio: multiple people can broa
 
 - **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - **Audio pipeline:** [docs/audio-pipeline.md](./docs/audio-pipeline.md)
-- **Guides (UI & integrations):** [docs/wiki/Home.md](./docs/wiki/Home.md) · [GitHub Wiki](https://github.com/AlecMcCutcheon/collabfm-radio/wiki) (sync with `./scripts/publish-wiki.sh` after creating the first Wiki page on GitHub)
+- **Guides (UI & integrations):** [docs/wiki/Home.md](./docs/wiki/Home.md)
 
 ---
 
@@ -17,6 +17,8 @@ CollabFM is a self-hosted collaborative internet radio: multiple people can broa
 CollabFM is something I have worked on off and on for quite a long time. Only recently has it become a standalone project worth sharing publicly. I plan to keep updating it—I use it myself—and I am open to [issues](https://github.com/AlecMcCutcheon/collabfm-radio/issues) (bugs, questions) and [pull requests](https://github.com/AlecMcCutcheon/collabfm-radio/pulls) (fixes, improvements, feature work).
 
 I cannot promise fixes or features on a fixed schedule, but if you open an issue or submit a PR I will read it, reply when I can, and do my best to help. Feature requests are welcome too; hearing how people use CollabFM helps shape what gets built next.
+
+If CollabFM helps you, [donations are appreciated](https://www.paypal.com/donate/?business=YSFG23ABNS6HY&no_recurring=0&item_name=If+my+projects+help+you%2C+donations+are+appreciated.+Feedback%2C+issues%2C+or+PRs+help+too%21&currency_code=USD)—issues and PRs help too.
 
 ---
 
@@ -323,3 +325,11 @@ Runtime data in dev goes under `backend/local/` (gitignored). See [docs/ARCHITEC
 | `backend/` | Radio server (`bot.js`), voice bot (`relay-bot.js`), SQLite |
 | `frontend/` | React UI (Vite + Tailwind) |
 | `docker/` | Dockerfile, compose, entrypoint |
+
+---
+
+## Support
+
+Guides live in [docs/wiki](./docs/wiki/). If you want a **Wiki** tab on GitHub: **Settings → General → Features → Wikis** (must be on), then open `https://github.com/AlecMcCutcheon/collabfm-radio/wiki`, create a placeholder Home page, and run `./scripts/publish-wiki.sh` to sync the full guide set.
+
+[Donate via PayPal](https://www.paypal.com/donate/?business=YSFG23ABNS6HY&no_recurring=0&item_name=If+my+projects+help+you%2C+donations+are+appreciated.+Feedback%2C+issues%2C+or+PRs+help+too%21&currency_code=USD) · [Issues](https://github.com/AlecMcCutcheon/collabfm-radio/issues) · [Pull requests](https://github.com/AlecMcCutcheon/collabfm-radio/pulls)
