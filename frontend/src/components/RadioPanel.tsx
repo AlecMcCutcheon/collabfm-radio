@@ -332,7 +332,7 @@ export function RadioPanel({
 
       <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-2xl p-3 sm:p-5 mt-2 sm:mt-3 mb-4 sm:mb-8 border border-gray-600 shadow-lg min-h-[8.5rem] flex items-center">
         {player.hasTrackInfo ? (
-          <div className="flex items-center gap-6">
+          <div className="flex w-full items-center gap-6">
             <div className="flex-shrink-0 relative group">
               {albumArtSrc ? (
                 <img
@@ -388,7 +388,7 @@ export function RadioPanel({
             )}
           </div>
         ) : showIdleBroadcast ? (
-          <div className="flex items-center gap-6">
+          <div className="flex w-full items-center gap-6">
             <div className="flex-shrink-0">
               <img
                 alt="Now playing artwork"
@@ -409,7 +409,7 @@ export function RadioPanel({
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-3 text-center">
+          <div className="flex w-full flex-col items-center justify-center py-3 text-center">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-radio-accent via-blue-500 to-purple-600 flex items-center justify-center mb-3 animate-pulse">
               <Volume2 className="w-8 h-8 text-white opacity-60" />
             </div>
