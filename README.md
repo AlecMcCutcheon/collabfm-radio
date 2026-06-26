@@ -4,9 +4,9 @@
 
 Licensed under [CC BY-NC 4.0](LICENSE) — © Alec McCutcheon
 
-CollabFM is a self-hosted **collaborative radio**: friends take turns as the live DJ while everyone else listens together. Broadcast from the browser or Chrome extension; listeners tune in on the web, via direct stream URLs, or through an optional Discord voice bot.
+CollabFM is a self-hosted **collaborative internet radio** platform built for friends and communities.
 
-On the **website and main stream**, everyone shares one **main station**—whoever is the promoted live DJ is what the room hears. In **Discord**, you can still follow that main feed, or **listen to a specific DJ on stage** on your own (handy when you want your own broadcast without pulling the whole group onto the shared stream).
+Instead of one person running a station, multiple broadcasters can join the **stage**, take turns DJing, chat with listeners, and hand off the live broadcast without interrupting the stream. Listeners tune in through the web interface, direct stream URLs, or an optional Discord voice bot—so you can share music and audio together across browsers, Discord, and media players.
 
 ## Preview
 
@@ -17,6 +17,16 @@ On the **website and main stream**, everyone shares one **main station**—whoev
 <p align="center">
   <img src="previews/CollabFM-Preview-demo.gif" alt="CollabFM demo — stage, chat, and now playing" width="900" />
 </p>
+
+## Why CollabFM?
+
+- 🎙️ Multiple DJs can join the stage and hand off the live broadcast
+- 🌐 Self-hosted with local accounts or OIDC
+- 💬 Live chat, synced reactions, and party effects
+- 🤖 Optional Discord voice bot
+- 👥 Guest listener and broadcaster links
+- 🎵 Browser or Chrome extension broadcasting
+- ❤️ XP, levels, hearts, and community-focused features
 
 ## Try a live instance
 
@@ -31,9 +41,9 @@ Want to play with a running CollabFM before self-hosting? Join the [Discord serv
 
 ## About this project
 
-CollabFM is something I have worked on off and on for quite a long time. Only recently has it become a standalone project worth sharing publicly. I plan to keep updating it—I use it myself—and I am open to [issues](https://github.com/AlecMcCutcheon/collabfm-radio/issues) (bugs, questions) and [pull requests](https://github.com/AlecMcCutcheon/collabfm-radio/pulls) (fixes, improvements, feature work).
+CollabFM started as a personal project because I wanted something that didn’t really exist: a **private internet radio where friends could take turns DJing** instead of relying on algorithmic playlists or commercial streaming services. Over time it grew into a standalone platform with browser broadcasting, guest access, Discord integration, and a real-time social layer on top of the stream.
 
-I cannot promise fixes or features on a fixed schedule, but if you open an issue or submit a PR I will read it, reply when I can, and do my best to help. Feature requests are welcome too; hearing how people use CollabFM helps shape what gets built next.
+I use CollabFM myself and plan to keep improving it. [Issues](https://github.com/AlecMcCutcheon/collabfm-radio/issues) (bugs, questions), feature requests, and [pull requests](https://github.com/AlecMcCutcheon/collabfm-radio/pulls) are welcome—I read them when I can, but I can’t promise fixes on a fixed schedule.
 
 For most users, DJ switching, Discord listening, and the web UI are a **smooth experience**. The live audio path can still hit **occasional hiccups**—brief stalls or encoding glitches that **usually self-recover** on the backend, but there is room to do better on latency, reliability, and edge cases. If you know streaming or audio pipelines, have stress-tested your own instance, or want to help harden the encode path, [issues](https://github.com/AlecMcCutcheon/collabfm-radio/issues) and [pull requests](https://github.com/AlecMcCutcheon/collabfm-radio/pulls) in that area are especially welcome. See [docs/audio-pipeline.md](./docs/audio-pipeline.md) for how the stack fits together.
 
