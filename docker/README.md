@@ -8,5 +8,6 @@ Compose, Dockerfile, and entrypoint for the GHCR image.
 |------|---------|
 | [docker-compose.yml](./docker-compose.yml) | Local build or pull |
 | [compose.unraid.yaml](./compose.unraid.yaml) | Unraid / homelab example |
-| [.env.example](./.env.example) | `APP_DATA`, ports, `IMAGE` |
+| [.env.example](./.env.example) | `APP_DATA`, ports, `IMAGE`, `COLLABFM_SYNC_MODE` |
+| [entrypoint.sh](./entrypoint.sh) | First-run seed, optional `update` sync, `npm install` |
 | [Dockerfile](./Dockerfile) | Multi-stage image build |

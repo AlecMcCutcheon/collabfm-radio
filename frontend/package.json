@@ -1,8 +1,10 @@
 {
-  "name": "jebes-cust-radio-frontend",
+  "name": "collabfm-radio-frontend",
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "author": "Alec McCutcheon",
+  "license": "CC-BY-NC-4.0",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

@@ -26,8 +26,7 @@
     {
       "matches": [
         "http://localhost/*",
-        "http://127.0.0.1/*",
-        "https://radio.app.ackvyn.org/*"
+        "http://127.0.0.1/*"
       ],
       "js": ["guest-profile-sync.js"],
       "run_at": "document_idle"
@@ -44,7 +43,6 @@
   "host_permissions": [
     "http://localhost/*",
     "http://127.0.0.1/*",
-    "https://radio.app.ackvyn.org/*",
     "<all_urls>"
   ],
   "icons": {

@@ -161,9 +161,9 @@ let RELAY_CLIENT_ID = "";
 const PCM_RELAY_PORT = config.server?.pcmRelayPort || 4100;
 const MANAGED_VOICE_BOT = process.env.VOICE_BOT_MANAGED === "1";
 const PCM_RELAY_HOST =
-  process.env.PCM_RELAY_HOST || (MANAGED_VOICE_BOT ? "127.0.0.1" : "jebes_cust_radio");
+  process.env.PCM_RELAY_HOST || (MANAGED_VOICE_BOT ? "127.0.0.1" : "collabfm");
 const BROADCAST_API_HOST =
-  process.env.BROADCAST_API_HOST || (MANAGED_VOICE_BOT ? "127.0.0.1" : "jebes_cust_radio");
+  process.env.BROADCAST_API_HOST || (MANAGED_VOICE_BOT ? "127.0.0.1" : "collabfm");
 const WEB_PORT = config.server?.webPort;
 
 // Audio format must match main server PCM bus (see pcmRelayProtocol.js)

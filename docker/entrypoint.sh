@@ -4,14 +4,31 @@ set -euo pipefail
 SEED=/usr/share/collabfm
 APP=/usr/src/app
 MARKER="$APP/.collabfm-seeded"
+SYNC_MODE="${COLLABFM_SYNC_MODE:-preserve}"
+SYNC_MODE="$(echo "$SYNC_MODE" | tr '[:upper:]' '[:lower:]')"
 
 mkdir -p "$APP"
+
+sync_app_from_image() {
+  echo "CollabFM: syncing app from image into $APP (preserving config, storage, logs, node_modules)..."
+  rsync -a --delete \
+    --exclude storage/ \
+    --exclude logs/ \
+    --exclude config.json \
+    --exclude node_modules/ \
+    --exclude .collabfm-seeded \
+    "$SEED/" "$APP/"
+  touch "$MARKER"
+  echo "CollabFM: sync complete. config.json, storage/, logs/, and node_modules/ were not modified."
+}
 
 if [ ! -f "$APP/package.json" ]; then
   echo "CollabFM: first run — seeding $APP from image..."
   cp -a "$SEED/." "$APP/"
   touch "$MARKER"
   echo "CollabFM: seed complete. Edit config.json in your appdata folder as needed."
+elif [ "$SYNC_MODE" = "update" ]; then
+  sync_app_from_image
 fi
 
 cd "$APP"

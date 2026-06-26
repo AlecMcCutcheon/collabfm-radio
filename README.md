@@ -2,10 +2,24 @@
 
 **GHCR:** `ghcr.io/alecmccutcheon/collabfm-radio:latest`
 
+Licensed under [CC BY-NC 4.0](LICENSE) — © Alec McCutcheon
+
 CollabFM is a self-hosted collaborative internet radio: multiple people can broadcast from the browser or the Chrome extension, listeners tune in on the web or via direct stream URLs, and an optional Discord voice bot can relay the same audio into voice channels.
 
 - **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - **Audio pipeline:** [docs/audio-pipeline.md](./docs/audio-pipeline.md)
+
+---
+
+## Legal & responsible use
+
+**Content you broadcast.** You are solely responsible for the audio and other material streamed through your CollabFM instance. Only broadcast content you have the right to share—your own recordings, royalty-free or properly licensed material, or content clearly permitted for redistribution. Do not use CollabFM to redistribute copyrighted music or other protected works without authorization from the rights holder.
+
+**Private and invited audiences.** CollabFM is intended as a self-hosted station for private or invited listeners—friends, community servers, homelab users—not as a public commercial broadcast service. You control who can listen through authentication, share links, and how you expose the service on your network.
+
+**Software disclaimer.** CollabFM is provided as-is, without warranty. The author is not liable for operator misuse, copyright claims, or other consequences arising from how you deploy or use the software.
+
+**License.** This project is licensed under [Creative Commons Attribution-NonCommercial 4.0 International](LICENSE). You may use and modify it for non-commercial purposes; commercial use is not permitted. If you share the software or derivatives, you must give appropriate credit to Alec McCutcheon and indicate if changes were made.
 
 ---
 
@@ -27,7 +41,7 @@ CollabFM is a self-hosted collaborative internet radio: multiple people can broa
 
 ### 1. Pull and run
 
-Mount a persistent folder to `/usr/src/app`. On **first start**, the entrypoint copies the app into that folder (config, code seed, empty `storage/`).
+Mount a persistent folder to `/usr/src/app`. On **first start**, the entrypoint copies the app into that folder (`config.json` is created if missing; `storage/` and `logs/` are created at runtime). After that, app files on the volume are **not** changed unless you opt in — see [Upgrading](#upgrading) below.
 
 ```yaml
 services:
@@ -38,6 +52,7 @@ services:
     command: ["node", "bot.js"]
     environment:
       COLLABFM_RUNTIME: docker
+      COLLABFM_SYNC_MODE: preserve
       WEB_PORT: "4002"
       WS_PORT: "4001"
       PCM_RELAY_PORT: "4100"
@@ -69,6 +84,39 @@ The bootstrap token changes on every restart until setup completes.
 ### 3. Log in
 
 Go to `/`, sign in with the account you created. Open **Admin** from the UI (admin role required).
+
+---
+
+## Upgrading
+
+CollabFM keeps **runtime data** on your appdata volume: `config.json`, `storage/` (SQLite database, uploads), and `logs/`. Those are never overwritten by the entrypoint.
+
+**App code** (`bot.js`, `src/`, `dist/`, extension bundle, etc.) is copied from the image **only on first run** by default. Pulling a newer GHCR image and recreating the container does **not** update those files unless you ask it to.
+
+### `COLLABFM_SYNC_MODE`
+
+| Value | Behavior |
+|-------|----------|
+| **`preserve`** (default) | Seed app files only when `package.json` is missing on the volume. Safe if you edit files under appdata. |
+| **`update`** | On each container start, sync app files from the image into appdata. **Preserves** `config.json`, `storage/`, `logs/`, and `node_modules/` (dependencies are reinstalled if `package.json` changed). |
+
+**Typical upgrade** (no local code edits):
+
+1. Pull the new image (`docker pull ghcr.io/alecmccutcheon/collabfm-radio:latest` or recreate in Portainer/Unraid).
+2. Set `COLLABFM_SYNC_MODE=update` in compose or your container env (see [`docker/.env.example`](./docker/.env.example)).
+3. Recreate the container once.
+4. Optional: set `COLLABFM_SYNC_MODE` back to `preserve` if you customize app files under appdata.
+
+Compose example:
+
+```yaml
+environment:
+  COLLABFM_SYNC_MODE: update
+```
+
+If you **do** customize files in appdata, leave `preserve` and merge upstream changes manually, or back up your edits before using `update` (sync uses `--delete` for app paths not in the exclude list).
+
+Re-download the Chrome extension from **Admin → System** after upgrades if broadcasting behavior changes.
 
 ---
 
@@ -228,7 +276,7 @@ The main container runs `bot.js` only. Discord voice needs a **second process** 
 - Package: `ghcr.io/alecmccutcheon/collabfm-radio`
 - Tags: `latest`, branch name, `v*` tags, commit SHA (see `.github/workflows/publish-ghcr.yml`)
 - **Private packages:** `docker login ghcr.io` in Portainer or on the host
-- After pulling a new image, **recreate** the container (appdata on the volume is preserved)
+- After pulling a new image, **recreate** the container. Set `COLLABFM_SYNC_MODE=update` for one start to refresh app files in appdata (see [Upgrading](#upgrading)); your database and `config.json` are preserved
 - Re-download the extension from Admin after upgrades if broadcasting behavior changes
 
 ---
@@ -238,7 +286,8 @@ The main container runs `bot.js` only. Discord voice needs a **second process** 
 | Symptom | Check |
 |---------|--------|
 | Cannot reach `/setup` | Use a current image; read bootstrap token from container logs |
-| Extension cannot connect | Relay on **4001** published or proxied at `/relay`; LAN host `http://ip:4002` |
+| Still on old version after image pull | App code lives in appdata; set `COLLABFM_SYNC_MODE=update`, recreate the container once (see [Upgrading](#upgrading)) |
+| Extension cannot connect | Relay on **4001** published or proxied at `/relay`; set **Radio host** in the extension to your public URL or `http://ip:4002` |
 | `Origin not allowed` | Admin allowed origins / public base URL match your browser origin |
 | No Discord audio | Voice bot process running; Admin → Discord configured; server whitelisted |
 | Stream works, WS fails | Proxy `/relay` → port **4001** with WebSocket Upgrade headers |

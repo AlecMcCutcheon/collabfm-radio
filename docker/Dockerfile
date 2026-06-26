@@ -22,7 +22,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ffmpeg \
         libopus0 \
-        ca-certificates && \
+        ca-certificates \
+        rsync && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

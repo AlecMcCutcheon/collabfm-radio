@@ -701,7 +701,7 @@ export const api = {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "jebes-broadcaster-extension.zip";
+    anchor.download = "collabfm-broadcaster-extension.zip";
     anchor.click();
     URL.revokeObjectURL(url);
   },
@@ -717,7 +717,7 @@ export const api = {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "jebes-broadcaster-extension.zip";
+    anchor.download = "collabfm-broadcaster-extension.zip";
     anchor.click();
     URL.revokeObjectURL(url);
   },

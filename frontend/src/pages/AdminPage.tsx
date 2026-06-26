@@ -588,7 +588,7 @@ export function AdminPage() {
               {voiceNote && <p className="text-gray-500 text-xs">{voiceNote}</p>}
               {voiceRuntime?.mode === "external" && (
                 <p className="text-amber-200/80 text-xs rounded-lg bg-amber-950/30 border border-amber-900/40 px-3 py-2">
-                  Docker mode: restart <code className="text-amber-100">jebes_cust_radio_voice</code> after token changes.
+                  Docker mode: restart <code className="text-amber-100">collabfm-voice</code> after token changes.
                 </p>
               )}
               <div className="flex flex-wrap gap-2">
@@ -738,10 +738,10 @@ export function AdminPage() {
               />
               <AdminField
                 label="SSO button nickname"
-                hint='Shown on the login screen as "Login With …" — e.g. Ackvyn'
+                hint='Shown on the login screen as "Login With …" — e.g. Authentik'
               >
                 <AdminInput
-                  placeholder="Ackvyn"
+                  placeholder="Authentik"
                   value={oidc.providerNickname || ""}
                   onChange={(e) => setOidc({ ...oidc, providerNickname: e.target.value })}
                 />

@@ -105,7 +105,7 @@ export async function handleExtensionRoutes(req, res, pathname, method) {
       }
       res.writeHead(200, {
         "Content-Type": "application/zip",
-        "Content-Disposition": 'attachment; filename="jebes-broadcaster-extension.zip"',
+        "Content-Disposition": 'attachment; filename="collabfm-broadcaster-extension.zip"',
         "Content-Length": zipBuffer.length,
       });
       res.end(zipBuffer);

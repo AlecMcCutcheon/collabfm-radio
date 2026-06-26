@@ -83,7 +83,7 @@ function voiceBotPayload() {
       ? `https://discord.com/api/oauth2/authorize?client_id=${encodeURIComponent(voiceBot.clientId)}&permissions=36700160&scope=bot%20applications.commands`
       : null,
     note: runtime.mode === "external"
-      ? "Voice bot runs as the jebes_cust_radio_voice Docker service. Verify credentials here; restart that container to apply token changes."
+      ? "Voice bot runs as the collabfm-voice Docker service. Verify credentials here; restart that container to apply token changes."
       : "Save credentials, verify them, then use Start bot — or leave enabled and the backend will start it automatically after verify/startup.",
   };
 }

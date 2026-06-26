@@ -77,7 +77,7 @@ export function startManagedVoiceBot() {
       ok: false,
       external: true,
       error:
-        "Voice bot runs as a separate Docker service (jebes_cust_radio_voice). Restart it with: docker compose restart jebes_cust_radio_voice",
+        "Voice bot runs as a separate Docker service (collabfm-voice). Restart it with: docker compose restart collabfm-voice",
     };
   }
 
@@ -117,7 +117,7 @@ export function stopManagedVoiceBot() {
       ok: false,
       external: true,
       error:
-        "Voice bot runs as a separate Docker service. Stop it with: docker compose stop jebes_cust_radio_voice",
+        "Voice bot runs as a separate Docker service. Stop it with: docker compose stop collabfm-voice",
     };
   }
 

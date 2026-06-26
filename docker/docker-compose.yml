@@ -8,6 +8,7 @@ services:
     working_dir: /usr/src/app
     environment:
       COLLABFM_RUNTIME: docker
+      COLLABFM_SYNC_MODE: ${COLLABFM_SYNC_MODE:-preserve}
       WEB_PORT: ${WEB_PORT:-4002}
       WS_PORT: ${WS_PORT:-4001}
       PCM_RELAY_PORT: ${PCM_RELAY_PORT:-4100}

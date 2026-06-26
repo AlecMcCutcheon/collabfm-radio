@@ -16,8 +16,8 @@ function isPrivateLanHost(hostname) {
   return false;
 }
 
-/** Default connection when no server is stored (production). */
-export const DEFAULT_RADIO_HOST = "https://radio.app.ackvyn.org";
+/** Default connection when no server is stored — empty; user must set Radio host in the extension. */
+export const DEFAULT_RADIO_HOST = "";
 
 function hostnamesEquivalent(a, b) {
   if (!a || !b) return false;
@@ -84,7 +84,10 @@ function directCollabfmEndpoints(hostname, { apiPort = "4002", webPort = "5173" 
 export function resolveRadioEndpoints(input) {
   const raw = normalizeHostInput(input);
   if (!raw) {
-    return resolveRadioEndpoints(DEFAULT_RADIO_HOST);
+    if (DEFAULT_RADIO_HOST) {
+      return resolveRadioEndpoints(DEFAULT_RADIO_HOST);
+    }
+    return { apiOrigin: "", webOrigin: "", wsUrl: "", hostKey: "" };
   }
 
   if (/^wss?:\/\//i.test(raw)) {

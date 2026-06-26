@@ -196,7 +196,7 @@ export interface OidcConfig {
   usernameFrom?: "sub" | "preferred_username" | "name";
   /** Link OIDC login to an existing local account when names match */
   linkByNameMatch?: boolean;
-  /** Short name shown on the login SSO button, e.g. "Ackvyn" */
+  /** Short name shown on the login SSO button, e.g. "Authentik" */
   providerNickname?: string;
   /** Provider end-session URL — OIDC users are redirected here after logout */
   logoutUrl?: string;
