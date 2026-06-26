@@ -17,6 +17,11 @@ fi
 REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
 WIKI_URL="https://github.com/${REPO}.wiki.git"
 TOKEN="$(gh auth token)"
+GH_USER="$(gh api user --jq '{name: .login, email: (.id|tostring) + "+" + .login + "@users.noreply.github.com"}')"
+export GIT_AUTHOR_NAME="$(echo "$GH_USER" | jq -r .name)"
+export GIT_AUTHOR_EMAIL="$(echo "$GH_USER" | jq -r .email)"
+export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
 
 rm -rf "$TMP"
 mkdir -p "$TMP"
