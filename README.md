@@ -1,121 +1,267 @@
-# CollabFM v2
+# CollabFM
 
-Evolution of the recovered radio stack: local/OIDC auth, SQLite config, universal voice bot, built-in stream hub.
+**GHCR:** `ghcr.io/alecmccutcheon/collabfm-radio:latest`
 
-- **Container deploy (GHCR):** [docker/README.md](./docker/README.md) — features, user flows, reverse proxy, Portainer
+CollabFM is a self-hosted collaborative internet radio: multiple people can broadcast from the browser or the Chrome extension, listeners tune in on the web or via direct stream URLs, and an optional Discord voice bot can relay the same audio into voice channels.
+
 - **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- **Audio pipeline:** [docs/audio-pipeline.md](./docs/audio-pipeline.md)
 
-## Quick start
+---
 
-From the project root:
+## What you get
 
-```bash
-npm install          # installs root + backend + frontend deps
-npm run dev          # backend on :4002 + Vite on :5173 (proxied API)
+| Area | Summary |
+|------|---------|
+| **Main station** | Live MP3 stream, now-playing metadata, album art, chat, party effects, request queue |
+| **Stage** | See who is on air, promote DJs, tune Discord bots per host, hearts / leveling |
+| **Broadcasters** | Chrome extension (tab audio), in-browser Web UI broadcaster, guest broadcaster links |
+| **Listeners** | Log in on the main site, or use **share links** for guest access without an account |
+| **Discord** | Optional voice bot (`relay-bot.js`) joins channels and plays the station; slash commands for join/leave |
+| **Auth** | Local accounts, optional OIDC (Authentik, etc.), device pairing for the extension |
+| **Admin** | Users, Discord bot, share links, SSO, audio tuning, branding, integrations |
+
+---
+
+## Quick start (Docker)
+
+### 1. Pull and run
+
+Mount a persistent folder to `/usr/src/app`. On **first start**, the entrypoint copies the app into that folder (config, code seed, empty `storage/`).
+
+```yaml
+services:
+  collabfm:
+    image: ghcr.io/alecmccutcheon/collabfm-radio:latest
+    container_name: CollabFM
+    working_dir: /usr/src/app
+    command: ["node", "bot.js"]
+    environment:
+      COLLABFM_RUNTIME: docker
+      WEB_PORT: "4002"
+      WS_PORT: "4001"
+      PCM_RELAY_PORT: "4100"
+    ports:
+      - "4002:4002"
+      - "4001:4001"
+    volumes:
+      - /path/to/appdata/collabfm-radio:/usr/src/app
+    restart: unless-stopped
 ```
 
-Open **http://localhost:5173** for development. The first visit runs the **setup wizard** when no users exist in `storage/radio.db`. Check the backend console for the one-time setup token (username `admin`).
+Compose helpers live in [`docker/`](./docker/) — copy `docker/.env.example` to `docker/.env` and use `docker-compose.yml` or `compose.unraid.yaml`.
 
-### Locked out of admin?
+### 2. First-time setup
 
-Inside the container or appdata directory:
+1. Start the container and open the logs.
+2. Find the banner:
+   ```
+   CollabFM — FIRST-TIME SETUP
+   Username: admin
+   Password: <one-time token>
+   ```
+3. Open **`/setup`** (e.g. `http://your-host:4002/setup`).
+4. Unlock with username **`admin`** and the token from the logs.
+5. Create your **real** admin username and password (do not use `admin` — that name is only for unlock).
 
-```bash
-npm run bootstrap-recovery --prefix backend
-# or: node scripts/bootstrap-recovery.js
+The bootstrap token changes on every restart until setup completes.
+
+### 3. Log in
+
+Go to `/`, sign in with the account you created. Open **Admin** from the UI (admin role required).
+
+---
+
+## Ports
+
+| Port | Env var | Purpose |
+|------|---------|---------|
+| **4002** | `WEB_PORT` | Web UI, REST API, MP3 streams, static assets |
+| **4001** | `WS_PORT` | Browser relay WebSocket (extension + web broadcaster) |
+| **4100** | `PCM_RELAY_PORT` | Internal PCM feed to `relay-bot.js` (voice bot only; do not expose publicly) |
+
+Host and container use the **same** port numbers in the default compose layout.
+
+### Without a reverse proxy (LAN / homelab)
+
+Publish **4002** and **4001**. Use:
+
+- Site: `http://<ip>:4002`
+- Relay (automatic in app/extension): `ws://<ip>:4001/relay`
+
+In the extension, set the radio host to `http://<ip>:4002` or `<ip>:4002`.
+
+### With a reverse proxy (recommended for the internet)
+
+Terminate TLS on the proxy. Route:
+
+- **Everything except relay** → `http://<container>:4002`
+- **`/relay` (WebSocket upgrade)** → `http://<container>:4001`
+
+Clients on HTTPS use `wss://your-domain/relay` on the **same public host** as the website. The path `/relay` is what matters on the proxy; internally it forwards to port **4001**, not 4002.
+
+After setup, set **Admin → System → Branding** / public base URL and ensure **allowed origins** include your public URL (setup usually seeds the origin you used during bootstrap).
+
+---
+
+## Reverse proxy examples
+
+Replace `collabfm` with your container name or `127.0.0.1` if the proxy runs on the same host.
+
+### nginx
+
+```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name radio.example.com;
+
+    # ssl_certificate ...;
+
+    location / {
+        proxy_pass http://collabfm:4002;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+    }
+
+    location /relay {
+        proxy_pass http://collabfm:4001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
+    }
+}
 ```
 
-Use the printed **admin + recovery token** on the normal login page (single use). Reset your password in Admin, then log out.
+### Caddy
 
-Production-style (backend serves built UI from `backend/dist`):
-
-```bash
-npm start            # builds frontend, stages to backend/dist, starts backend on :4002
+```caddy
+radio.example.com {
+    reverse_proxy /relay collabfm:4001 {
+        header_up Host {host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+    reverse_proxy collabfm:4002 {
+        header_up Host {host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
 ```
 
-Or manually: `npm run build` then open **http://localhost:4002**.
+---
 
-Optional Discord voice bot (separate process):
+## User flows
+
+### Station listener (logged in)
+
+1. Open `/` and sign in (local password or OIDC if enabled).
+2. Use the main player: volume, chat, stage view, song search (if enabled), request queue.
+3. Stream URL for this session: `/api/stream` (cookie auth).
+
+### Guest listener (share link)
+
+1. Admin or broadcaster creates a **share link** (see Admin below).
+2. Guest opens **`/listen/{token}`** — no account required.
+3. Guest gets the player, chat, stage, and party effects scoped to that link.
+4. For OBS/VLC/direct players, use a **stream** link or `/api/listen/{token}/stream`.
+
+### Broadcaster (registered user)
+
+1. Sign in on the main site.
+2. Open **Broadcaster Studio** (`/broadcaster`).
+3. Go on air via **Web UI broadcaster** (browser capture) or the **Chrome extension** (tab audio).
+4. Set on-air nickname, device label, and profile fields shown on stage.
+
+**Extension pairing:**
+
+1. Download the extension zip from **Admin → System**.
+2. In the extension popup, set **Radio host** to your site (`https://radio.example.com` or `http://ip:4002`).
+3. In Broadcaster Studio on the site, pair the device and approve in the extension.
+4. Select a tab and start broadcasting.
+
+### Guest broadcaster
+
+1. Create a **guest broadcaster** share link (UI link with broadcaster mode).
+2. Guest opens `/listen/{token}` → **Guest Studio** (`/listen/{token}/studio`).
+3. Guest broadcasts via the web UI and/or extension (guest auth mode).
+
+### Discord voice bot (optional)
+
+The main container runs `bot.js` only. Discord voice needs a **second process** (`node relay-bot.js`) with the same appdata mount. Configure **Admin → Discord** (bot token, application ID, server whitelist). Use `/join` / `/leave` in a whitelisted server.
+
+---
+
+## Admin (`/admin`)
+
+| Tab | What it controls |
+|-----|------------------|
+| **Users** | Accounts, roles, passwords, broadcast permission, leveling blocks |
+| **Discord** | Voice bot credentials, runtime status, **server whitelist** |
+| **Share links** | Site-wide link list (broadcasters also create links in Broadcaster Studio) |
+| **OIDC** | SSO provider, group → role mapping |
+| **Radio** | Max stage users (default 7, max 10), log retention, PCM/discord buffer tuning |
+| **System** | Guest XP rules, extension auth, Last.fm/Giphy, Turnstile, **branding**, extension download |
+
+**Share link types:**
+
+| Link type | Guest experience |
+|-----------|------------------|
+| **Guest view** | Full web UI at `/listen/{token}` |
+| **Stream** | Direct MP3 for OBS/VLC |
+| **Guest broadcaster** | Guest view + on-air via web or extension |
+
+---
+
+## GHCR
+
+- Package: `ghcr.io/alecmccutcheon/collabfm-radio`
+- Tags: `latest`, branch name, `v*` tags, commit SHA (see `.github/workflows/publish-ghcr.yml`)
+- **Private packages:** `docker login ghcr.io` in Portainer or on the host
+- After pulling a new image, **recreate** the container (appdata on the volume is preserved)
+- Re-download the extension from Admin after upgrades if broadcasting behavior changes
+
+---
+
+## Troubleshooting
+
+| Symptom | Check |
+|---------|--------|
+| Cannot reach `/setup` | Use a current image; read bootstrap token from container logs |
+| Extension cannot connect | Relay on **4001** published or proxied at `/relay`; LAN host `http://ip:4002` |
+| `Origin not allowed` | Admin allowed origins / public base URL match your browser origin |
+| No Discord audio | Voice bot process running; Admin → Discord configured; server whitelisted |
+| Stream works, WS fails | Proxy `/relay` → port **4001** with WebSocket Upgrade headers |
+
+---
+
+## Development
+
+For hacking on the repo locally (Node 20+, ffmpeg on `PATH`):
 
 ```bash
-npm run voice
+npm install
+npm run dev    # backend :4002 + Vite :5173
 ```
 
-### Requirements
+Production-style single port: `npm run build && npm start` → **http://localhost:4002**
 
-- **Node.js 20+**
-- **ffmpeg** on `PATH` (used by the audio worker; included in the Docker image)
+Optional voice bot: `npm run voice`
 
-On first run, `npm run dev` / `npm start` creates `backend/config.json` from `backend/config.example.json` defaults if it is missing. Local SQLite, logs, and uploads go under **`backend/local/`** (gitignored).
-
-## Project layout
+Runtime data in dev goes under `backend/local/` (gitignored). See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for layout.
 
 | Path | Role |
 |------|------|
-| `backend/` | Radio server (`bot.js`), voice bot (`relay-bot.js`), SQLite, stream hub |
-| `backend/local/` | **Local dev only** — storage, logs (gitignored) |
+| `backend/` | Radio server (`bot.js`), voice bot (`relay-bot.js`), SQLite |
 | `frontend/` | React UI (Vite + Tailwind) |
-| `docker/` | Dockerfile, compose, GHCR-oriented deploy |
-| `.github/workflows/` | CI — build & push to GHCR on push to main |
-
-## Admin (after setup)
-
-- **Discord bot** — Application ID + Bot Token for `/join` / `/leave`
-- **Server whitelist** — which Discord servers may use `/join`
-- **Share links** — guest listen URLs (web UI or direct MP3 for OBS/VLC), configurable TTL, revocable
-- **OIDC** — optional Authentik SSO
-
-## Docker (GHCR + appdata volume)
-
-Images are built in GitHub Actions and pushed to **`ghcr.io/alecmccutcheon/collabfm-radio`** (see `.github/workflows/publish-ghcr.yml`).
-
-**Full public guide:** [docker/README.md](./docker/README.md) (setup walkthrough, reverse proxy, admin tabs, guest/broadcaster flows).
-
-### First run (appdata seed)
-
-Mount a host folder to `/usr/src/app`. On first start the entrypoint **copies the image contents** into that folder so you get `config.json`, `storage/`, `logs/`, and app code on disk. Later runs use your local copy.
-
-**First-time setup:** watch the container logs for a bootstrap token. Open `/setup`, unlock with username `admin` and that token, then create your real admin account. The token is regenerated on every restart until setup completes.
-
-**Admin lockout:** run `node scripts/bootstrap-recovery.js` in the container (or `npm run bootstrap-recovery --prefix backend` from appdata). Log in with `admin` + the printed recovery token, reset your password in Admin, log out.
-
-### Ports via compose env
-
-Set in `docker/.env` (copy from `docker/.env.example`):
-
-| Variable | Default | Overrides `config.json` |
-|----------|---------|-------------------------|
-| `WEB_PORT` | 4002 | `server.webPort` |
-| `WS_PORT` | 4001 | `server.wsPort` |
-| `PCM_RELAY_PORT` | 4100 | `server.pcmRelayPort` |
-
-Host and container use the **same** port numbers — map `${WEB_PORT}:${WEB_PORT}` in compose.
-
-### Local compose (build or pull)
-
-```bash
-cd docker
-cp .env.example .env   # edit APP_DATA, ports, IMAGE
-docker compose up -d --build
-```
-
-### Unraid
-
-Use `docker/compose.unraid.yaml` — set `APP_DATA` and `IMAGE=ghcr.io/you/collabfm:latest`. Ensure the **`matrix`** network exists or remove the `networks:` block.
-
-| Port | Role |
-|------|------|
-| `${WEB_PORT}` | Web UI + API |
-| `${WS_PORT}` | WebSocket relay (`/relay`) |
-
-Optional: run the voice bot with `docker compose run --rm collabfm node relay-bot.js` (same appdata mount).
-
-## Listening
-
-| Audience | URL |
-|----------|-----|
-| Logged-in users | `/api/stream` (session cookie) |
-| Guest web player | `/listen/{token}` (admin share link) |
-| OBS / VLC / other players | `/api/listen/{token}/stream` or `/api/stream?token={token}` |
-
-Share links are created in **Admin → Share links** with TTL options from 24 hours through permanent.
+| `docker/` | Dockerfile, compose, entrypoint |
