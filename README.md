@@ -11,6 +11,14 @@ CollabFM is a self-hosted collaborative internet radio: multiple people can broa
 
 ---
 
+## About this project
+
+CollabFM is something I have worked on off and on for quite a long time. Only recently has it become a standalone project worth sharing publicly. I plan to keep updating it—I use it myself—and I am open to [issues](https://github.com/AlecMcCutcheon/collabfm-radio/issues) (bugs, questions) and [pull requests](https://github.com/AlecMcCutcheon/collabfm-radio/pulls) (fixes, improvements, feature work).
+
+I cannot promise fixes or features on a fixed schedule, but if you open an issue or submit a PR I will read it, reply when I can, and do my best to help. Feature requests are welcome too; hearing how people use CollabFM helps shape what gets built next.
+
+---
+
 ## Legal & responsible use
 
 **Content you broadcast.** You are solely responsible for the audio and other material streamed through your CollabFM instance. Only broadcast content you have the right to share—your own recordings, royalty-free or properly licensed material, or content clearly permitted for redistribution. Do not use CollabFM to redistribute copyrighted music or other protected works without authorization from the rights holder.
