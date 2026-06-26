@@ -2,7 +2,7 @@
 
 Evolution of the recovered radio stack: local/OIDC auth, SQLite config, universal voice bot, built-in stream hub.
 
-- **Reference (frozen):** [`../jebes_cust_radio_recovered`](../jebes_cust_radio_recovered)
+- **Container deploy (GHCR):** [docker/README.md](./docker/README.md) — features, user flows, reverse proxy, Portainer
 - **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 
 ## Quick start
@@ -67,7 +67,9 @@ On first run, `npm run dev` / `npm start` creates `backend/config.json` from `ba
 
 ## Docker (GHCR + appdata volume)
 
-Images are built in GitHub Actions and pushed to **`ghcr.io/<owner>/<repo>`** (see `.github/workflows/publish-ghcr.yml`).
+Images are built in GitHub Actions and pushed to **`ghcr.io/alecmccutcheon/collabfm-radio`** (see `.github/workflows/publish-ghcr.yml`).
+
+**Full public guide:** [docker/README.md](./docker/README.md) (setup walkthrough, reverse proxy, admin tabs, guest/broadcaster flows).
 
 ### First run (appdata seed)
 
