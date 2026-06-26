@@ -8,10 +8,10 @@ export function apiJsonHeaders(extra = {}) {
   };
 }
 
-/** Icecast-style status document (path ends in .xsl but body is XML JSON). */
+/** Icecast-compatible status JSON (`/api/status-json.xsl` — body is JSON, not XML). */
 export function icecastStatusHeaders(extra = {}) {
   return {
-    "Content-Type": "text/xml; charset=utf-8",
+    "Content-Type": "application/json; charset=utf-8",
     "X-Content-Type-Options": "nosniff",
     "Cache-Control": "no-store",
     ...extra,
