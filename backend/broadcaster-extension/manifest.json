@@ -1,0 +1,55 @@
+{
+  "manifest_version": 3,
+  "name": "CollabFM Broadcaster",
+  "version": "2.0.3",
+  "description": "Broadcast your tab audio to CollabFM with a modern UI.",
+  "permissions": [
+    "storage",
+    "tabCapture",
+    "tabs",
+    "offscreen",
+    "scripting"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*",
+        "https://radio.app.ackvyn.org/*"
+      ],
+      "js": ["guest-profile-sync.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://music.youtube.com/*",
+        "https://soundcloud.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://radio.app.ackvyn.org/*",
+    "<all_urls>"
+  ],
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

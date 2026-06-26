@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebSocket Relay Test</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background: #1a1a1a;
+      color: #e5e5e5;
+    }
+    input {
+      padding: 8px;
+      width: 300px;
+      background: #2a2a2a;
+      color: #e5e5e5;
+      border: 1px solid #404040;
+      margin-right: 10px;
+    }
+    button {
+      padding: 8px 16px;
+      background: #667eea;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #5568d3;
+    }
+    #log {
+      margin-top: 20px;
+      padding: 10px;
+      background: #2a2a2a;
+      border: 1px solid #404040;
+      min-height: 200px;
+      font-size: 12px;
+    }
+    .success { color: #10b981; }
+    .error { color: #ef4444; }
+    .info { color: #3b82f6; }
+  </style>
+</head>
+<body>
+  <h1>🔌 WebSocket Relay Server Test</h1>
+  
+  <div>
+    <input type="text" id="wsUrl" value="ws://172.16.16.202:8081" placeholder="WebSocket URL">
+    <button onclick="testConnection()">Test Connection</button>
+  </div>
+  
+  <div id="log"></div>
+
+  <script>
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const timestamp = new Date().toLocaleTimeString();
+      logDiv.innerHTML += `<div class="${type}">[${timestamp}] ${message}</div>`;
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function testConnection() {
+      const url = document.getElementById('wsUrl').value;
+      log(`Testing connection to: ${url}`, 'info');
+      
+      try {
+        const ws = new WebSocket(url);
+        
+        const timeout = setTimeout(() => {
+          log('❌ Connection timeout (10 seconds)', 'error');
+          ws.close();
+        }, 10000);
+        
+        ws.onopen = () => {
+          clearTimeout(timeout);
+          log('✅ WebSocket connected successfully!', 'success');
+          log('📡 Connection is working. Your relay server is accessible.', 'success');
+          
+          // Send test data
+          ws.send('test');
+          log('📤 Sent test message', 'info');
+          
+          setTimeout(() => {
+            ws.close();
+            log('🔌 Closed connection', 'info');
+          }, 2000);
+        };
+        
+        ws.onerror = (error) => {
+          clearTimeout(timeout);
+          log('❌ WebSocket error! Server might not be running.', 'error');
+          console.error('WebSocket error:', error);
+        };
+        
+        ws.onclose = (event) => {
+          if (!event.wasClean) {
+            log(`❌ Connection closed unexpectedly (code: ${event.code})`, 'error');
+          }
+        };
+        
+        ws.onmessage = (event) => {
+          log(`📥 Received: ${event.data}`, 'success');
+        };
+        
+      } catch (error) {
+        log(`❌ Error creating WebSocket: ${error.message}`, 'error');
+      }
+    }
+    
+    log('Ready to test. Enter your WebSocket URL and click "Test Connection"', 'info');
+  </script>
+</body>
+</html>
+

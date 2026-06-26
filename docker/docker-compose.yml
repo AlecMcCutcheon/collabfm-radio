@@ -1,0 +1,21 @@
+services:
+  collabfm:
+    image: ${IMAGE:-collabfm:local}
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: collabfm
+    working_dir: /usr/src/app
+    environment:
+      COLLABFM_RUNTIME: docker
+      WEB_PORT: ${WEB_PORT:-4002}
+      WS_PORT: ${WS_PORT:-4001}
+      PCM_RELAY_PORT: ${PCM_RELAY_PORT:-4100}
+      STORAGE_DIR: ${STORAGE_DIR:-}
+      DEBUG_LOG_DIR: ${DEBUG_LOG_DIR:-}
+    ports:
+      - "${WEB_PORT:-4002}:${WEB_PORT:-4002}"
+      - "${WS_PORT:-4001}:${WS_PORT:-4001}"
+    volumes:
+      - ${APP_DATA:-./appdata}:/usr/src/app
+    restart: unless-stopped

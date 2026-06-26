@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Local dev runtime (npm run dev / start) — not pushed to git
+backend/local/
+local/
+
+# Legacy runtime paths (if still present from older installs)
+backend/storage/
+backend/logs/
+
+# Build output (CI/Docker builds frontend/dist into the image)
+backend/dist/
+frontend/dist/
+
+# Local config (use config.example.json as template)
+backend/config.json
+
+# Docker runtime appdata (when using compose from repo)
+docker/appdata/
+appdata/
+
+# Env / logs
+.env
+.env.*
+!.env.example
+!docker/.env.example
+*.log
+
+# Lighthouse audit output (may contain prod URLs/tokens)
+lighthouse-reports/
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# OS / IDE
+.DS_Store

@@ -1,0 +1,23 @@
+# Docker build context — source + docker only; runtime data and build artifacts excluded
+
+.git
+.github
+**/.git
+**/node_modules
+**/local
+backend/storage
+backend/logs
+backend/local
+backend/dist
+backend/config.json
+frontend/dist
+local
+appdata
+*.log
+.env
+.env.*
+!.env.example
+!docker/.env.example
+**/*.md
+lighthouse-reports
+jebes_cust_radio_recovered

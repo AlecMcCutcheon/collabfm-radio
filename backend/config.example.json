@@ -1,0 +1,10 @@
+{
+  "server": {
+    "webPort": 4002,
+    "wsPort": 4001,
+    "allowedOrigins": ["http://localhost:5173", "http://localhost:4002"],
+    "storageDir": "./local/storage",
+    "debugLogDir": "./local/logs",
+    "pcmRelayPort": 4100
+  }
+}

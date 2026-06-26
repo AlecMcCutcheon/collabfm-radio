@@ -1,0 +1,28 @@
+# Unraid / homelab example — set APP_DATA to your appdata path and IMAGE to your GHCR package.
+
+services:
+  CollabFM:
+    image: ${IMAGE:-ghcr.io/your-org/collabfm:latest}
+    container_name: CollabFM
+    working_dir: /usr/src/app
+    command: ["node", "bot.js"]
+    environment:
+      COLLABFM_RUNTIME: docker
+      WEB_PORT: ${WEB_PORT:-4002}
+      WS_PORT: ${WS_PORT:-4001}
+      PCM_RELAY_PORT: ${PCM_RELAY_PORT:-4100}
+    ports:
+      - "${WEB_PORT:-4002}:${WEB_PORT:-4002}"
+      - "${WS_PORT:-4001}:${WS_PORT:-4001}"
+    volumes:
+      - ${APP_DATA:-/mnt/user/appdata/collabfm-radio}:/usr/src/app
+    restart: unless-stopped
+    networks:
+      - matrix
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+
+networks:
+  matrix:
+    external: true

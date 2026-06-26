@@ -1,0 +1,22 @@
+{
+  "name": "jebes-cust-radio",
+  "private": true,
+  "version": "2.0.0",
+  "description": "CollabFM — backend + frontend",
+  "scripts": {
+    "postinstall": "npm install --prefix backend && npm install --prefix frontend",
+    "dev": "concurrently -k -n backend,frontend -c cyan,magenta \"npm run dev --prefix backend\" \"node scripts/wait-for-backend.mjs && npm run dev --prefix frontend\"",
+    "start": "npm run build --prefix frontend && npm start --prefix backend",
+    "build": "npm run build --prefix frontend && node scripts/stage-dist.mjs",
+    "lighthouse:guest": "npx --yes lighthouse \"$LIGHTHOUSE_URL\" --config-path=./lighthouse.config.cjs --output=json --output=html --output-path=./lighthouse-reports/guest --chrome-flags=\"--headless --no-sandbox\"",
+    "backend": "npm start --prefix backend",
+    "frontend": "npm run dev --prefix frontend",
+    "voice": "npm run voice --prefix backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

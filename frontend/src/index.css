@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-gray-900 text-gray-100 font-sans antialiased;
+}
+
+input[type="range"].slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 0.5rem;
+  border-radius: 0.5rem;
+}
+
+input[type="range"].slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  background: #87cefa;
+  cursor: pointer;
+  border: 2px solid #1f2937;
+}
+
+input[type="range"].slider::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  background: #87cefa;
+  cursor: pointer;
+  border: 2px solid #1f2937;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 #1f2937;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 9999px;
+}
+
+.scrollbar-party {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.55) rgba(31, 41, 55, 0.55);
+}
+
+.scrollbar-party::-webkit-scrollbar {
+  width: 7px;
+}
+
+.scrollbar-party::-webkit-scrollbar-track {
+  background: rgba(31, 41, 55, 0.55);
+  border-radius: 9999px;
+  margin: 4px 0;
+}
+
+.scrollbar-party::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.55);
+  border-radius: 9999px;
+  border: 1px solid rgba(17, 24, 39, 0.35);
+}
+
+.scrollbar-party::-webkit-scrollbar-thumb:hover {
+  background: rgba(129, 140, 248, 0.75);
+}
+
+@keyframes flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes chat-typing-icon-pulse {
+  0%,
+  100% {
+    color: #ffffff;
+  }
+  50% {
+    color: #87cefa;
+  }
+}
+
+@keyframes chat-typing-nav-pulse {
+  0%,
+  100% {
+    color: #9ca3af;
+  }
+  50% {
+    color: #87cefa;
+  }
+}
+
+.chat-typing-icon-pulse-fab {
+  animation: chat-typing-icon-pulse 2s ease-in-out infinite;
+}
+
+.chat-typing-icon-pulse-nav {
+  animation: chat-typing-nav-pulse 2s ease-in-out infinite;
+}
