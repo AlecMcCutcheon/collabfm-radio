@@ -8,6 +8,7 @@ Detailed guides beyond the [main README](https://github.com/AlecMcCutcheon/colla
 |-------|----------------|
 | [Navigating the UI](./Navigating-the-UI.md) | Chat, admin entry, mobile vs desktop, main radio screen |
 | [Broadcasting & Stage](./Broadcasting-and-Stage.md) | Go live, extension pairing, promote a DJ, media controls |
+| [Chat & Party Effects](./Chat-and-Party-Effects.md) | Live chat, GIFs, synced party effects, hearts, hotkeys |
 | [Admin Panel](./Admin-Panel.md) | All admin tabs and what each setting does |
 | [Discord Voice Bot Setup](./Discord-Voice-Bot-Setup.md) | Discord Developer Portal → CollabFM Admin |
 | [Authentik SSO Setup](./Authentik-SSO-Setup.md) | OpenID Connect app for CollabFM login |
@@ -34,6 +35,15 @@ Voice channel → `/join` (starts on Main station — same as the website)
 
 **Discord: one DJ only (personal feed)**  
 After `/join` → `/station` or **Switch station** on the Now Playing message
+
+**Party effects (synced for everyone)**  
+Right-click **radio background** → **Party time** menu
+
+**React to someone**  
+Right-click their **avatar** on **Stage** or in **Chat**
+
+**Open live chat (desktop)**  
+Bottom-right **message icon**
 
 **Media controls (YouTube Music, SoundCloud, etc.)**  
 Open **Stage** → click host **avatar** → green **music note** icon → Play / Pause / Previous / Next

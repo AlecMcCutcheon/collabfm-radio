@@ -38,7 +38,7 @@ If CollabFM helps you, [donations are appreciated](https://www.paypal.com/donate
 
 ## Shared radio experience
 
-The main idea is a **shared station** where people **take turns DJing**—promote someone on the **Stage**, chat, request songs, and listen to whoever is live on the **main stream**.
+The main idea is a **shared station** where people **take turns DJing**—promote someone on the **Stage**, **chat** with the room, fire **synced party effects** everyone sees on the web UI, request songs, and listen to whoever is live on the **main stream**.
 
 | Where you listen | What you hear |
 |------------------|---------------|
@@ -46,6 +46,16 @@ The main idea is a **shared station** where people **take turns DJing**—promot
 | **Discord voice bot** | **Main station** (follows the live DJ) **or** a **specific DJ’s feed** on stage—your choice per voice channel. |
 
 That split is intentional: if you want to focus on **your own broadcast** (or one DJ) without the group following along on the website, use Discord and pick that DJ with `/station` or the station dropdown on the now-playing message. On the open web stream, you’re always on the shared main station with everyone else.
+
+### Social layer (web UI)
+
+Everyone on the website sees the same room in real time:
+
+- **Live chat** — open the message icon (desktop) or **Chat** tab (mobile); role badges, typing indicator, optional **GIF** posts when Giphy is configured.
+- **Party effects** — **right-click** the radio background for fireworks, arrivals, flying reactions, and more; effects play for **all listeners and guests** on that station. **Right-click** someone’s avatar on **Stage** or in **chat** for profile reactions (wave, high five, etc.).
+- **Hearts** — support the live DJ from the now-playing area (DJ leveling / XP).
+
+Step-by-step: [Chat & Party Effects](docs/wiki/Chat-and-Party-Effects.md).
 
 See [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md) for `/join`, `/station`, `/leave`, and the live now-playing embed.
 
@@ -55,7 +65,7 @@ See [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md) for `/join`,
 
 | Area | Summary |
 |------|---------|
-| **Main station** | Live MP3 stream, now-playing metadata, album art, chat, party effects, request queue |
+| **Main station** | Live MP3 stream, now-playing metadata, album art, **live chat** (GIFs when configured), **synced party effects**, request queue, hearts for DJs |
 | **Stage** | See who is on air, promote DJs, tune Discord bots per host, hearts / leveling |
 | **Broadcasters** | Chrome extension (tab audio), in-browser Web UI broadcaster, guest broadcaster links |
 | **Listeners** | Log in on the main site, or use **share links** for guest access without an account |
@@ -242,7 +252,7 @@ radio.example.com {
 ### Station listener (logged in)
 
 1. Open `/` and sign in (local password or OIDC if enabled).
-2. Use the main player: volume, chat, stage view, song search (if enabled), request queue.
+2. Use the main player: volume, chat, stage view, party effects, song search (if enabled), request queue.
 3. Stream URL for this session: `/api/stream` (cookie auth).
 
 ### Guest listener (share link)
