@@ -1,0 +1,132 @@
+# Admin Panel
+
+Open **Admin settings** via chat: **message icon → Live Chat header → gear → Admin settings**. You must have the **Admin** role.
+
+Header: **Radio Admin** — *Manage users, streaming, Discord, and sign-in settings.*
+
+Use **Back to radio** (top-left arrow) to return to the main player.
+
+---
+
+## Tab: Users
+
+Manage local accounts (SSO users may also appear here after first login).
+
+**Per user:**
+
+- **Role** — Listener, Broadcaster, or Admin.
+- **Set password** / **Save password** — local accounts only.
+- **Delete** — remove account.
+- **Block guest-action XP** — hearts/approvals from guests on the same IP won’t grant XP to this user.
+- **Reset XP** — zero DJ level progress.
+
+**Add user** — username, password, role, **Add user**.
+
+---
+
+## Tab: Discord bot
+
+Optional voice bot that plays your station in Discord voice channels.
+
+| Field | Purpose |
+|-------|---------|
+| **Enable voice bot** | Turn Discord integration on/off |
+| **Application ID (Client ID)** | From Discord Developer Portal |
+| **Bot Token** | Bot token (masked after save) |
+| **Public site URL** | Your HTTPS station URL (embed thumbnails, cover art) |
+
+**Actions:**
+
+- **Invite bot to server** — OAuth invite link (after Client ID is saved).
+- **Save** — store credentials.
+- **Verify credentials** — test token with Discord API.
+- **Start bot** / **Stop bot** — run `relay-bot.js` process (Docker: may need separate voice container).
+
+**Server whitelist** — Discord **Guild ID** + optional label. The bot only joins whitelisted servers. In Discord, use `/join` and `/leave` in a voice channel.
+
+See [Discord Voice Bot Setup](./Discord-Voice-Bot-Setup.md) for creating the Discord application.
+
+---
+
+## Tab: Share links
+
+Site-wide list of guest links (broadcasters also create links in **Broadcaster Studio**).
+
+- **Copy UI link** — guest web player.
+- **Copy stream link** — direct MP3 for OBS/VLC.
+- **Revoke** — invalidate link.
+
+Shows active listener count for stream access.
+
+---
+
+## Tab: OIDC / SSO
+
+Single sign-on via OpenID Connect (Authentik and other providers).
+
+| Field | Purpose |
+|-------|---------|
+| **Enable OIDC login** | Show SSO button on login page |
+| **Callback URL** | Read-only: `{your-site}/auth/oidc/callback` — register this in your IdP |
+| **Issuer URL** | OIDC issuer (Authentik application issuer URL) |
+| **Client ID** | OAuth client ID |
+| **Client Secret** | OAuth client secret |
+| **Redirect URI (optional)** | Usually auto-detected; must match IdP |
+| **Scopes** | Default: `openid profile email groups` |
+| **Groups claim name** | JWT field for groups (often `groups`) |
+| **Logout URL** | IdP end-session URL for full SSO logout |
+| **Radio username from** | `sub`, `preferred_username`, or `name` |
+| **Link to existing local account on name match** | Attach SSO login to matching local username |
+| **SSO button nickname** | Shown as “Login With …” on the login page |
+
+**Group → role mapping** — map IdP group names to Listener / Broadcaster / Admin.
+
+**Save OIDC settings** at the bottom.
+
+See [Authentik SSO Setup](./Authentik-SSO-Setup.md) for a step-by-step Authentik guide.
+
+---
+
+## Tab: Radio
+
+**Stage & logs**
+
+- **Max stage users** (1–10) — simultaneous broadcaster WebSocket connections.
+- **Debug log retention** — how long debug logs are kept.
+
+**PCM pipeline** — buffer tuning for broadcaster audio (applies live).
+
+**Discord voice buffer** — relay join buffer and Discord frame settings.
+
+**Save radio settings**
+
+---
+
+## Tab: System
+
+**DJ leveling**
+
+- **Allow guest hearts and request approvals to grant XP**
+- **Block guest XP when IP matches someone on stage**
+
+**Extension broadcasting**
+
+- **Require device pairing for the browser extension**
+
+**Integrations**
+
+- **Last.fm API key** + default user — song search and metadata.
+- **Giphy API key** — GIF button in chat.
+
+**Login security (Cloudflare Turnstile)**
+
+- Site key + secret — bot protection for local login (SSO unaffected).
+
+**Branding**
+
+- **Radio display name** — station title in UI and stream metadata.
+- **Visualizer logo** — drag/drop or upload; **Reset visualizer to default**.
+
+**Extension download** — ZIP served to broadcasters from this tab’s area (also linked in Go live modal).
+
+**System info** — database path, runtime mode (read-only reference).

@@ -8,6 +8,7 @@ CollabFM is a self-hosted collaborative internet radio: multiple people can broa
 
 - **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 - **Audio pipeline:** [docs/audio-pipeline.md](./docs/audio-pipeline.md)
+- **Guides (UI & integrations):** [docs/wiki/Home.md](./docs/wiki/Home.md) · [GitHub Wiki](https://github.com/AlecMcCutcheon/collabfm-radio/wiki) (sync with `./scripts/publish-wiki.sh` after creating the first Wiki page on GitHub)
 
 ---
 
