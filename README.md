@@ -15,8 +15,8 @@ On the **website and main stream**, everyone shares one **main station**—whoev
 </p>
 
 <p align="center">
-  <video src="previews/CollabFM-Preview-1.webm" controls width="900">
-    <a href="previews/CollabFM-Preview-1.webm">Watch the CollabFM preview video</a>
+  <video src="previews/CollabFM-Preview-1.mp4" controls width="900">
+    <a href="previews/CollabFM-Preview-1.mp4">Watch the CollabFM preview video</a>
   </video>
 </p>
 
