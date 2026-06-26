@@ -19,7 +19,7 @@ On the **website and main stream**, everyone shares one **main station**—whoev
 </p>
 
 <p align="center">
-  <a href="https://github.com/AlecMcCutcheon/collabfm-radio/raw/main/previews/CollabFM-Preview-1.mp4"><strong>Watch full demo video (2 min)</strong></a> — GIF above is a 20s preview.
+  <a href="https://github.com/AlecMcCutcheon/collabfm-radio/raw/main/previews/CollabFM-Preview-1.mp4"><strong>Watch full demo (MP4)</strong></a>
 </p>
 
 - **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
