@@ -28,6 +28,7 @@ import { imageFallbackHandler, proceduralStationLogo, resolveBrandingImageUrl } 
 type Tab = "users" | "discord" | "sharing" | "oidc" | "radio" | "system";
 
 const DEFAULT_LIMITS: LimitsSettings = { maxStageUsers: 7, logRetentionCount: 5 };
+const MAX_STAGE_USERS = 10;
 const DEFAULT_AUDIO: AudioPipelineSettings = {
   discordBufferFrames: 100,
   discordRelayBufferMs: 3000,
@@ -811,15 +812,21 @@ export function AdminPage() {
             >
               <AdminField
                 label="Max stage users"
-                hint="Maximum simultaneous broadcaster WebSocket connections (1–50). Applies live to new connection checks."
+                hint={`Maximum simultaneous broadcaster WebSocket connections (1–${MAX_STAGE_USERS}, default ${DEFAULT_LIMITS.maxStageUsers}). Applies live to new connection checks.`}
               >
                 <AdminInput
                   type="number"
                   min={1}
-                  max={50}
+                  max={MAX_STAGE_USERS}
                   value={limits.maxStageUsers}
                   onChange={(e) =>
-                    setLimits({ ...limits, maxStageUsers: Number(e.target.value) || DEFAULT_LIMITS.maxStageUsers })
+                    setLimits({
+                      ...limits,
+                      maxStageUsers: Math.min(
+                        MAX_STAGE_USERS,
+                        Math.max(1, Number(e.target.value) || DEFAULT_LIMITS.maxStageUsers),
+                      ),
+                    })
                   }
                 />
               </AdminField>

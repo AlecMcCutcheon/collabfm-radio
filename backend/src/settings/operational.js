@@ -7,6 +7,9 @@ export const DEFAULT_LIMITS = {
   logRetentionCount: 5,
 };
 
+/** Hard ceiling for maxStageUsers (admin can set 1–this value). */
+export const MAX_STAGE_USERS = 10;
+
 export const DEFAULT_AUDIO = {
   discordBufferFrames: 100,
   discordRelayBufferMs: 3000,
@@ -38,7 +41,7 @@ function clampFloat(value, min, max, fallback) {
 
 export function normalizeLimitsSettings(raw = {}) {
   return {
-    maxStageUsers: clampInt(raw.maxStageUsers, 1, 50, DEFAULT_LIMITS.maxStageUsers),
+    maxStageUsers: clampInt(raw.maxStageUsers, 1, MAX_STAGE_USERS, DEFAULT_LIMITS.maxStageUsers),
     logRetentionCount: clampInt(raw.logRetentionCount, 1, 100, DEFAULT_LIMITS.logRetentionCount),
   };
 }

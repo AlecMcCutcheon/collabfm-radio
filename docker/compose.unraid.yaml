@@ -2,7 +2,7 @@
 
 services:
   CollabFM:
-    image: ${IMAGE:-ghcr.io/your-org/collabfm:latest}
+    image: ${IMAGE:-ghcr.io/alecmccutcheon/collabfm-radio:latest}
     container_name: CollabFM
     working_dir: /usr/src/app
     command: ["node", "bot.js"]
