@@ -32,7 +32,7 @@ Instead of one person running a station, multiple broadcasters can join the **st
 
 Want to play with a running CollabFM before self-hosting? Join the [Discord server](https://discord.gg/7bTRzEunSz). Guest access is at the admin’s discretion—when `@Jebes_Cust` is online and using it, say you’d like to try it. No guarantees on timing or access.
 
-- **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) (includes [API access tiers](./docs/ARCHITECTURE.md#api-access))
 - **Audio pipeline:** [docs/audio-pipeline.md](./docs/audio-pipeline.md)
 - **Roadmap:** [docs/ROADMAP.md](./docs/ROADMAP.md)
 - **Guides (UI & integrations):** [docs/wiki/Home.md](./docs/wiki/Home.md)
@@ -376,6 +376,7 @@ Details: [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md).
 | Still on old version after image pull | App code lives in appdata; set `COLLABFM_SYNC_MODE=update`, recreate the container once (see [Upgrading](#upgrading)) |
 | Extension cannot connect | Relay on **4001** published or proxied at `/relay`; set **Radio host** in the extension to your public URL or `http://ip:4002` |
 | `Origin not allowed` | Admin allowed origins / public base URL match your browser origin |
+| `401` on `/api/metadata`, `/api/broadcast-status`, etc. | Expected without login or share token — see [API access](./docs/ARCHITECTURE.md#api-access) |
 | No Discord audio | Voice bot process running; Admin → Discord configured; server whitelisted |
 | Stream works, WS fails | Proxy `/relay` → port **4001** with WebSocket Upgrade headers |
 
