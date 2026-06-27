@@ -331,16 +331,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       else if (message.type === 'START_METADATA_MONITORING') {
         try {
           const tabId = message.tabId;
-          try {
-            await chrome.tabs.sendMessage(tabId, { type: 'PING_CONTENT_SCRIPT' });
-          } catch {
-            await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
-            await new Promise((resolve) => setTimeout(resolve, 400));
+          if (typeof tabId !== 'number') {
+            sendResponse({ success: false, error: 'Invalid tabId' });
+            return;
           }
-          await chrome.tabs.sendMessage(tabId, {
+          const ready = await ensureTabContentScript(tabId);
+          if (!ready) {
+            sendResponse({ success: false, error: 'Content script unavailable' });
+            return;
+          }
+          const tabResponse = await chrome.tabs.sendMessage(tabId, {
             type: 'START_METADATA_MONITORING',
             forceRestart: message.forceRestart !== false,
           });
+          if (tabResponse?.success === false) {
+            sendResponse(tabResponse);
+            return;
+          }
           extensionLog("background", "Metadata monitoring started", { tabId: message.tabId });
           sendResponse({ success: true });
         } catch (error) {

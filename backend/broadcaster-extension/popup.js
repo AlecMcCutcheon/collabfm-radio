@@ -1064,6 +1064,8 @@ function updateStatus(_text, type = "info") {
   if (type !== "error") return;
 }
 
+let lastDisplayedMetadata = null;
+
 function updateMetadataDisplay(metadata) {
   const metadataDisplay = document.getElementById("metadataDisplay");
   const titleEl = document.getElementById("metadataTitle");
@@ -1079,6 +1081,9 @@ function updateMetadataDisplay(metadata) {
   metadataDisplay.style.display = "block";
 
   if (!metadata?.title || !metadata?.artist) {
+    if (lastDisplayedMetadata?.title && lastDisplayedMetadata?.artist) {
+      return;
+    }
     titleEl.textContent = "Waiting for track info…";
     artistEl.textContent = "—";
     if (artworkImgEl) artworkImgEl.style.display = "none";
@@ -1086,6 +1091,7 @@ function updateMetadataDisplay(metadata) {
     return;
   }
 
+  lastDisplayedMetadata = metadata;
   titleEl.textContent = metadata.title;
   artistEl.textContent = metadata.artist;
   if (metadata.albumArt && artworkImgEl) {
@@ -1101,6 +1107,7 @@ function updateMetadataDisplay(metadata) {
 }
 
 function hideMetadataDisplay() {
+  lastDisplayedMetadata = null;
   document.getElementById("metadataDisplay").style.display = "none";
 }
 

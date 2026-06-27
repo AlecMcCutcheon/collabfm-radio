@@ -108,6 +108,10 @@ import { isMutationOriginAllowed } from "./src/security/origin.js";
 import { mirrorInternalSongInfo } from "./src/voice/internalSongMirror.js";
 import { createRailPlaybackResolver } from "./src/voice/railPlaybackResolver.js";
 import {
+  buildConnectionCountByUser,
+  formatConnectionStationLabel,
+} from "./src/radio/connectionStationLabel.js";
+import {
   handleProceduralTrackArtRoute,
   proceduralTrackArtPath,
 } from "./src/art/proceduralTrackArt.js";
@@ -966,6 +970,54 @@ function beginFreshBroadcastSession(wsId, userId) {
       site: null,
       lastUpdated: now,
     };
+  }
+}
+
+function hydrateNowPlayingFromRail(wsId) {
+  if (!wsId) return false;
+
+  let native = getStoredNativeMetadataByKey(nativeMetadataRailKey(wsId));
+  if (!native?.title || !native?.artist) {
+    native = getStoredNativeMetadataForRail(wsId);
+  }
+  if (!native?.title || !native?.artist) {
+    const snapshot = getRailPlaybackSnapshot(wsId);
+    if (snapshot?.title && snapshot?.artist) {
+      native = {
+        title: snapshot.title,
+        artist: snapshot.artist,
+        albumArt: snapshot.albumArt ?? null,
+      };
+    }
+  }
+  const wsInfo = wsConnections.get(wsId);
+  if ((!native?.title || !native?.artist) && wsInfo?.trackTitle && wsInfo?.trackArtist) {
+    native = {
+      title: wsInfo.trackTitle,
+      artist: wsInfo.trackArtist,
+      albumArt: wsInfo.trackAlbumArt ?? null,
+    };
+  }
+  if (!native?.title || !native?.artist) return false;
+
+  forceImmediateNowPlayingMetadata(native.title, native.artist, native.albumArt, wsId);
+  syncInternalSongMirror();
+  return true;
+}
+
+/** Switch active rail without wiping per-connection metadata (Chrome ↔ Thorium, etc.). */
+function beginSwitchedBroadcastSession(targetWsId) {
+  const targetInfo = wsConnections.get(targetWsId);
+  if (targetInfo) {
+    delete targetInfo.metadataInvalidatedAt;
+    targetInfo.contentPolicyMuted = false;
+    targetInfo.contentPolicyPending = false;
+  }
+  clearNowPlayingMetaState();
+  streamMetadataDisabled = false;
+  if (!hydrateNowPlayingFromRail(targetWsId)) {
+    currentSong = "N/A";
+    currentArtist = "N/A";
   }
 }
 
@@ -2551,6 +2603,14 @@ function logStationMetadataOnce(railId, station) {
 function getBestNativeMetadataForUser(userId) {
   if (!userId) return null;
 
+  if (activeWsId && broadcastStatus.active) {
+    const active = wsConnections.get(activeWsId);
+    if (active && String(active.userId) === String(userId)) {
+      const railMeta = getStoredNativeMetadataByKey(nativeMetadataRailKey(activeWsId));
+      if (railMeta) return railMeta;
+    }
+  }
+
   const namedEntries = nativeMetadataStore.filter(
     (item) => item.key.startsWith(`${userId}:`) && item.metadata,
   );
@@ -2700,7 +2760,8 @@ function getStoredNativeMetadataForRail(wsId) {
 
   const info = wsConnections.get(wsId);
   if (!info?.userId) return null;
-  const broadcastName = String(info.broadcastName || info.displayName || "").trim() || null;
+  const broadcastName = String(info.broadcastName || "").trim() || null;
+  if (!broadcastName) return null;
   return getStoredNativeMetadataForUser(info.userId, broadcastName);
 }
 
@@ -2713,7 +2774,7 @@ function resolveWsIdForMetadataPost(userId, { railId = null, broadcastName = nul
     }
   }
   return resolveWsIdForUser(userId, {
-    preferActive: false,
+    preferActive: true,
     broadcastName: broadcastName?.trim() || null,
   });
 }
@@ -2871,6 +2932,10 @@ function initRailPlaybackResolver() {
         return publicAlbumArtUrl(stable.albumArt);
       }
       return publicAlbumArtUrl(fallbackAlbumArtUrl(trackTitle, trackArtist));
+    },
+    formatConnectionStationLabel: (info) => {
+      const counts = buildConnectionCountByUser(wsConnections);
+      return formatConnectionStationLabel(info, counts.get(String(info.userId)) || 1);
     },
   });
   resolveRailPlayback = resolver.resolveRailPlayback;
@@ -3282,10 +3347,14 @@ http.createServer(async (req, res) => {
     }
 
     try {
+      const counts = buildConnectionCountByUser(wsConnections);
       const stations = Array.from(wsConnections.entries())
         .map(([wsId, info]) => ({
           wsId,
-          displayName: String(info.displayName || info.broadcastName || "DJ").trim() || "DJ",
+          displayName: formatConnectionStationLabel(
+            info,
+            counts.get(String(info.userId)) || 1,
+          ),
           isLive: wsId === activeWsId,
         }))
         .sort((a, b) => a.displayName.localeCompare(b.displayName));
@@ -3942,24 +4011,16 @@ http.createServer(async (req, res) => {
 
             storeNativeMetadataByKey(storageKey, metadata);
 
-            const userIdKey = String(userId);
-            const unnamedIndex = nativeMetadataStore.findIndex((item) => item.key === userIdKey);
-            if (unnamedIndex >= 0) {
-              nativeMetadataStore[unnamedIndex].metadata = { ...metadata };
-            } else {
-              nativeMetadataStore.push({ key: userIdKey, metadata: { ...metadata } });
-            }
-
-            // Smart routing: If this is a named broadcaster, also update any unnamed entries for this user
+            // Smart routing log (shared user key updated after rail wsId is finalized below)
             if (broadcasterName && broadcasterName.trim()) {
-              const unnamedKey = userIdKey;
-              const namedUnnamedIndex = nativeMetadataStore.findIndex((item) => item.key === unnamedKey);
+              const userIdKey = String(userId);
+              const namedUnnamedIndex = nativeMetadataStore.findIndex((item) => item.key === userIdKey);
               if (namedUnnamedIndex >= 0) {
                 const unnamedExisting = nativeMetadataStore[namedUnnamedIndex].metadata;
                 if (!nativeMetadataUnchanged(unnamedExisting, metadata)) {
                   logNativeMetadataOnce(
                     `route:${userId}`,
-                    `📡 Smart routing: Updated unnamed entry for user ${userId} with metadata from broadcaster "${broadcasterName}"`,
+                    `📡 Smart routing: named broadcaster "${broadcasterName}" posted metadata for user ${userId}`,
                     metadata,
                   );
                 }
@@ -4005,6 +4066,17 @@ http.createServer(async (req, res) => {
               }
             }
 
+            const postsToMainStream = isMainStreamRail(userWsId);
+            if (postsToMainStream) {
+              const userIdKey = String(userId);
+              const unnamedIndex = nativeMetadataStore.findIndex((item) => item.key === userIdKey);
+              if (unnamedIndex >= 0) {
+                nativeMetadataStore[unnamedIndex].metadata = { ...metadata };
+              } else {
+                nativeMetadataStore.push({ key: userIdKey, metadata: { ...metadata } });
+              }
+            }
+
             const touchedRailIds = policyDeferred
               ? new Set()
               : setRailPlaybackSnapshotsForUser(
@@ -4021,8 +4093,6 @@ http.createServer(async (req, res) => {
                 invalidateRailPlayback(railId);
               }
             }
-
-            const postsToMainStream = isMainStreamRail(userWsId);
 
             if (policyMuted && postsToMainStream) {
               forceImmediateNowPlayingMetadata(displayTitle, displayArtist, metadata.albumArt, userWsId);
@@ -5123,25 +5193,8 @@ http.createServer(async (req, res) => {
         }
       } catch {}
       switchLiveBroadcaster(targetWsId);
-      beginFreshBroadcastSession(targetWsId, info.userId);
+      beginSwitchedBroadcastSession(targetWsId);
 
-      // Clear metadata stabilization state to force fresh metadata fetch for new websocket
-      try {
-        if (typeof globalThis.__metaState !== 'undefined') {
-          globalThis.__metaState.lastStabilized = null;
-          globalThis.__metaState.lastPayload = null;
-          globalThis.__metaState.pending = null;
-          if (globalThis.__metaState.pendingTimer) {
-            clearTimeout(globalThis.__metaState.pendingTimer);
-            globalThis.__metaState.pendingTimer = null;
-          }
-          if (globalThis.__metaState.discordBotTimer) {
-            clearTimeout(globalThis.__metaState.discordBotTimer);
-            globalThis.__metaState.discordBotTimer = null;
-          }
-        }
-      } catch {}
-      
       if (isSetupComplete()) {
         try {
           onDjSwitch({
@@ -7946,22 +7999,7 @@ relayWSS.on("connection", (ws, req) => {
           console.log(`🟢 Auto-promoted active WS: wsId=${activeWsId}`);
           resetLiveSilenceState();
           switchLiveBroadcaster(activeWsId);
-          beginFreshBroadcastSession(activeWsId, info.userId);
-          try {
-            if (typeof globalThis.__metaState !== 'undefined') {
-              globalThis.__metaState.lastStabilized = null;
-              globalThis.__metaState.lastPayload = null;
-              globalThis.__metaState.pending = null;
-              if (globalThis.__metaState.pendingTimer) {
-                clearTimeout(globalThis.__metaState.pendingTimer);
-                globalThis.__metaState.pendingTimer = null;
-              }
-              if (globalThis.__metaState.discordBotTimer) {
-                clearTimeout(globalThis.__metaState.discordBotTimer);
-                globalThis.__metaState.discordBotTimer = null;
-              }
-            }
-          } catch {}
+          beginSwitchedBroadcastSession(activeWsId);
           break;
         }
         if (!promotedWsId) {

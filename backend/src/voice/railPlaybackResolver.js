@@ -36,6 +36,7 @@ export function createRailPlaybackResolver({
   getRailPlaybackSnapshot,
   getLiveStabilizedMetadata,
   lookupAlbumArt,
+  formatConnectionStationLabel,
 }) {
   async function resolveRailPlayback(railId) {
     const cached = railCache.get(railId);
@@ -58,8 +59,9 @@ export function createRailPlaybackResolver({
     }
 
     const activeWsId = getActiveWsId();
-    const displayName =
-      String(info.displayName || info.broadcastName || "DJ").trim() || "DJ";
+    const displayName = formatConnectionStationLabel
+      ? formatConnectionStationLabel(info)
+      : String(info.displayName || info.broadcastName || "DJ").trim() || "DJ";
 
     const snapshot = getRailPlaybackSnapshot?.(railId);
     let title = normalizeText(snapshot?.title) ?? normalizeText(info.trackTitle);

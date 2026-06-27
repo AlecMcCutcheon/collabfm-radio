@@ -9,6 +9,11 @@ import {
   extensionStorageSet,
 } from "./extension-storage.js";
 
+/** Route to background only — offscreen must not intercept its own proxy requests. */
+function sendToBackground(message) {
+  return chrome.runtime.sendMessage({ ...message, _backgroundTarget: true });
+}
+
 let ws = null;
 let recorder = null;
 let audioCtx = null;
@@ -30,6 +35,8 @@ let lastKnownTabId = null; // Track tab changes to reset metadata state
 let contentHeartbeatTimer = null; // periodic check to ensure content script exists
 let metadataBootstrapPollTimer = null;
 let metadataMonitoringActive = false;
+let metadataMonitoringStarting = false;
+let contentScriptMissCount = 0;
 let currentBroadcastName = null; // Store current broadcaster name for metadata routing
 let currentRailId = null; // Server-assigned wsId for this relay session
 // Auth gating for metadata POSTs
@@ -129,6 +136,11 @@ async function sendMetadataToBackend(metadata) {
     const authed = await ensureAuthenticated();
     if (!authed) {
       extensionLog("offscreen", "Metadata POST skipped (not signed in)", null, "warn");
+      return;
+    }
+
+    if (broadcastStatus === "connected" && !currentRailId) {
+      extensionLog("offscreen", "Metadata POST skipped (rail not assigned yet)");
       return;
     }
 
@@ -300,8 +312,14 @@ async function publishTabCapabilities(capabilities = lastTabCapabilities) {
 function startMetadataResync() {
   if (metadataResyncTimer) clearInterval(metadataResyncTimer);
   metadataResyncTimer = setInterval(() => {
-    if (broadcastStatus !== "connected" || !currentMetadata?.title || !currentMetadata?.artist) return;
-    void sendMetadataToBackend(currentMetadata);
+    if (broadcastStatus !== "connected") return;
+    if (currentMetadata?.title && currentMetadata?.artist) {
+      void sendMetadataToBackend(currentMetadata);
+      return;
+    }
+    if (currentTabId) {
+      void syncCurrentMetadataToBackend({ reason: "resync-empty", attempts: 1, delayMs: 0 });
+    }
   }, 30000);
 }
 
@@ -366,7 +384,7 @@ function stopCapabilityResync() {
 async function refreshCapabilitiesFromTab() {
   if (!currentTabId) return;
   try {
-    const caps = await chrome.runtime.sendMessage({
+    const caps = await sendToBackground({
       type: 'GET_MEDIA_CAPABILITIES_FROM_CONTENT',
       tabId: currentTabId,
     });
@@ -409,7 +427,7 @@ async function ensureContentScriptReady(maxAttempts = 8) {
   }
 
   try {
-    const ensure = await chrome.runtime.sendMessage({
+    const ensure = await sendToBackground({
       type: "ENSURE_CONTENT_SCRIPT",
       tabId: currentTabId,
     });
@@ -439,7 +457,7 @@ async function checkContentScriptAvailability() {
     console.log(`[Offscreen] Pinging content script in tab ${currentTabId} via background script`);
     
     // Use background script as proxy since offscreen documents can't use chrome.tabs API
-    const response = await chrome.runtime.sendMessage({
+    const response = await sendToBackground({
       type: 'PING_CONTENT_SCRIPT',
       tabId: currentTabId
     });
@@ -462,8 +480,29 @@ async function checkContentScriptAvailability() {
   }
 }
 
+async function pullMetadataFromTab() {
+  if (!currentTabId) return null;
+  try {
+    const response = await sendToBackground({
+      type: "GET_CURRENT_METADATA_FROM_CONTENT",
+      tabId: currentTabId,
+    });
+    const metadata = response?.metadata || null;
+    if (metadata?.title && metadata?.artist) {
+      currentMetadata = metadata;
+      return metadata;
+    }
+  } catch {}
+  return null;
+}
+
 // Function to start metadata monitoring via content script
 async function startContentScriptMetadataMonitoring() {
+  if (metadataMonitoringStarting) {
+    return;
+  }
+  metadataMonitoringStarting = true;
+  try {
   console.log('[Offscreen] startContentScriptMetadataMonitoring called');
   
   if (!currentTabId) {
@@ -478,7 +517,6 @@ async function startContentScriptMetadataMonitoring() {
 
     if (!contentScriptReady) {
       console.log('[Offscreen] Content script not available after ensure/retry');
-      sendMetadataUpdateToPopup(null, 'Content script not available');
       setTimeout(() => {
         if (currentTabId && (broadcastStatus === 'connected' || broadcastStatus === 'connecting')) {
           void startContentScriptMetadataMonitoring();
@@ -491,7 +529,7 @@ async function startContentScriptMetadataMonitoring() {
     
     // Send message to content script to start monitoring via background script
     console.log('[Offscreen] Sending START_METADATA_MONITORING message to content script via background');
-    const response = await chrome.runtime.sendMessage({
+    const response = await sendToBackground({
       type: 'START_METADATA_MONITORING',
       tabId: currentTabId,
       forceRestart: true,
@@ -501,6 +539,7 @@ async function startContentScriptMetadataMonitoring() {
     
     if (response && response.success) {
       console.log('[Offscreen] Content script metadata monitoring started successfully');
+      await pullMetadataFromTab();
       sendMetadataUpdateToPopup(
         currentMetadata,
         currentMetadata ? 'Active metadata detected' : 'Monitoring metadata from tab...',
@@ -513,18 +552,19 @@ async function startContentScriptMetadataMonitoring() {
     } else {
       console.error('[Offscreen] Failed to start content script monitoring, response:', response);
       try {
-        const ensured = await chrome.runtime.sendMessage({
+        const ensured = await sendToBackground({
           type: 'ENSURE_CONTENT_SCRIPT',
           tabId: currentTabId,
         });
         if (ensured?.success) {
-          const retry = await chrome.runtime.sendMessage({
+          const retry = await sendToBackground({
             type: 'START_METADATA_MONITORING',
             tabId: currentTabId,
             forceRestart: true,
           });
           if (retry?.success) {
             console.log('[Offscreen] Metadata monitoring started after ENSURE_CONTENT_SCRIPT retry');
+            await pullMetadataFromTab();
             sendMetadataUpdateToPopup(
               currentMetadata,
               currentMetadata ? 'Active metadata detected' : 'Monitoring metadata from tab...',
@@ -540,11 +580,12 @@ async function startContentScriptMetadataMonitoring() {
       } catch (retryError) {
         console.error('[Offscreen] Metadata monitoring retry failed:', retryError);
       }
-      sendMetadataUpdateToPopup(null, 'Failed to start metadata monitoring');
     }
   } catch (error) {
     console.error('[Offscreen] Error starting content script metadata monitoring:', error);
-    sendMetadataUpdateToPopup(null, 'Error starting metadata monitoring');
+  }
+  } finally {
+    metadataMonitoringStarting = false;
   }
 }
 
@@ -557,7 +598,7 @@ async function stopContentScriptMetadataMonitoring(tabId = currentTabId) {
 
   try {
     // Send message to content script to stop monitoring via background script
-    await chrome.runtime.sendMessage({
+    await sendToBackground({
       type: 'STOP_METADATA_MONITORING',
       tabId: targetTabId
     });
@@ -574,18 +615,33 @@ async function stopContentScriptMetadataMonitoring(tabId = currentTabId) {
 }
 
 // Function to send metadata update to popup for display
-function sendMetadataUpdateToPopup(metadata, status = null) {
+function sendMetadataUpdateToPopup(metadata, status = null, { allowClear = false } = {}) {
   try {
+    const isLive = broadcastStatus === "connected" || broadcastStatus === "connecting";
+
+    if (allowClear) {
+      currentMetadata = null;
+    } else if (metadata?.title && metadata?.artist) {
+      currentMetadata = metadata;
+    }
+
+    let displayMetadata = metadata;
+    if (allowClear) {
+      displayMetadata = null;
+    } else if (!(displayMetadata?.title && displayMetadata?.artist) && isLive) {
+      if (currentMetadata?.title && currentMetadata?.artist) {
+        displayMetadata = currentMetadata;
+      }
+    }
+
     const message = {
       type: 'METADATA_UPDATE',
-      metadata: metadata
+      metadata: displayMetadata,
     };
     
-    // Add status information if provided
     if (status) {
       message.status = status;
-    } else if (!metadata) {
-      // If no metadata, set appropriate status
+    } else if (!displayMetadata?.title) {
       message.status = 'No media session detected';
     } else {
       message.status = 'Active metadata detected';
@@ -632,11 +688,18 @@ async function startMetadataMonitoring() {
       // Ping content script; if missing, ensure and restart monitoring
       const ok = await checkContentScriptAvailability();
       if (!ok) {
+        contentScriptMissCount += 1;
+        if (contentScriptMissCount < 4) {
+          return;
+        }
+        contentScriptMissCount = 0;
         console.log('[Offscreen] Heartbeat: content script missing, re-injecting and restarting monitoring');
         try {
-          await chrome.runtime.sendMessage({ type: 'ENSURE_CONTENT_SCRIPT', tabId: currentTabId });
+          await sendToBackground({ type: 'ENSURE_CONTENT_SCRIPT', tabId: currentTabId });
         } catch {}
         await startContentScriptMetadataMonitoring();
+      } else {
+        contentScriptMissCount = 0;
       }
     } catch (e) {
       // ignore
@@ -661,7 +724,7 @@ async function syncCurrentMetadataToBackend({ reason = "connect", attempts = 6, 
         return null;
       }
 
-      const response = await chrome.runtime.sendMessage({
+      const response = await sendToBackground({
         type: 'GET_CURRENT_METADATA_FROM_CONTENT',
         tabId: currentTabId,
       });
@@ -709,13 +772,17 @@ async function stopMetadataMonitoring() {
   lastKnownTabId = null;
   
   // Clear popup display when monitoring stops
-  sendMetadataUpdateToPopup(null);
+  sendMetadataUpdateToPopup(null, null, { allowClear: true });
   
   console.log('Stopped content script metadata monitoring');
 }
 
 // Listen for commands from background/popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message._backgroundTarget) {
+    return false;
+  }
+
   // Handle synchronous status requests immediately
   if (message.type === 'GET_BROADCAST_STATUS') {
     sendResponse({ 
@@ -735,7 +802,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         try {
           console.log('[Offscreen] Popup requested metadata, ensuring monitoring is active');
           await startContentScriptMetadataMonitoring();
-          const response = await chrome.runtime.sendMessage({
+          const response = await sendToBackground({
             type: 'GET_CURRENT_METADATA_FROM_CONTENT',
             tabId: currentTabId
           });
@@ -822,10 +889,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return; // Don't return true - not expecting response
   }
 
-  // Handle async operations
+  if (!message._offscreenTarget) {
+    return false;
+  }
+
+  const offscreenCommandTypes = new Set([
+    'START_BROADCAST',
+    'STOP_BROADCAST',
+    'SWITCH_TAB',
+  ]);
+  if (!offscreenCommandTypes.has(message.type)) {
+    return false;
+  }
+
   (async () => {
     try {
-      if (message.type === 'START_BROADCAST' && message._offscreenTarget) {
+      if (message.type === 'START_BROADCAST') {
         const result = await startBroadcast(
           message.tabId,
           message.streamId,
@@ -837,11 +916,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         );
         sendResponse(result);
       } 
-      else if (message.type === 'STOP_BROADCAST' && message._offscreenTarget) {
+      else if (message.type === 'STOP_BROADCAST') {
         await stopBroadcastAsync();
         sendResponse({ success: true, status: 'disconnected' });
       }
-      else if (message.type === 'SWITCH_TAB' && message._offscreenTarget) {
+      else if (message.type === 'SWITCH_TAB') {
         const result = await switchTab(
           message.tabId,
           message.streamId,
@@ -858,7 +937,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
   })();
   
-  return true; // Keep message channel open for async response
+  return true;
 });
 
 async function startBroadcast(tabId, streamId, relayUrl, volume, apiOriginOpt, deviceTokenOpt, guestAuthOpt) {

@@ -554,23 +554,29 @@ if (window.radioBroadcasterContentScriptLoaded) {
     console.log('[Radio Broadcaster] Received message:', message.type);
 
     if (message.type === 'PING_CONTENT_SCRIPT') {
-      // Simple ping to verify content script is available
       console.log('[Radio Broadcaster] Responding to ping');
       sendResponse({ success: true });
-    } else if (message.type === 'GET_CURRENT_METADATA_FROM_CONTENT') {
-      // Return current metadata immediately
+      return;
+    }
+
+    if (message.type === 'GET_CURRENT_METADATA_FROM_CONTENT') {
       console.log('[Radio Broadcaster] Getting current metadata on request');
       getCurrentMetadata().then((currentMetadata) => {
         console.log('[Radio Broadcaster] Current metadata response:', currentMetadata);
         sendResponse({ metadata: currentMetadata });
       });
       return true;
-    } else if (message.type === 'GET_MEDIA_CAPABILITIES') {
+    }
+
+    if (message.type === 'GET_MEDIA_CAPABILITIES') {
       sendResponse({
         supportsMediaControls: isSupportedMediaSite(),
         site: window.location.hostname,
       });
-    } else if (message.type === 'MEDIA_CONTROL') {
+      return;
+    }
+
+    if (message.type === 'MEDIA_CONTROL') {
       // Handle media control commands
       console.log('[Radio Broadcaster] Processing media control:', message.action);
 
@@ -581,7 +587,10 @@ if (window.radioBroadcasterContentScriptLoaded) {
         console.error('[Radio Broadcaster] Media control simulation failed:', error);
         sendResponse({ success: false, error: error.message });
       }
-    } else if (message.type === 'START_METADATA_MONITORING') {
+      return;
+    }
+
+    if (message.type === 'START_METADATA_MONITORING') {
       console.log('[Radio Broadcaster] Starting MediaSession metadata monitoring');
       console.log('[Radio Broadcaster] Current MediaSession state:', {
         hasMediaSession: !!navigator.mediaSession,
@@ -645,7 +654,10 @@ if (window.radioBroadcasterContentScriptLoaded) {
 
       console.log('[Radio Broadcaster] Metadata monitoring started successfully');
       sendResponse({ success: true });
-    } else if (message.type === 'STOP_METADATA_MONITORING') {
+      return;
+    }
+
+    if (message.type === 'STOP_METADATA_MONITORING') {
       console.log('[Radio Broadcaster] Stopping MediaSession metadata monitoring');
 
       if (metadataInterval) {
@@ -663,9 +675,10 @@ if (window.radioBroadcasterContentScriptLoaded) {
       sendMetadataUpdate(null);
 
       sendResponse({ success: true });
+      return;
     }
 
-    return true; // Keep message channel open for async response
+    return false;
   });
 
   // Cleanup on page unload
