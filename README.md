@@ -31,7 +31,7 @@ Instead of one person running a show alone, multiple broadcasters can join the *
 
 ## Try a live instance
 
-Want to play with a running CollabFM before self-hosting? Join the [Discord server](https://discord.gg/7bTRzEunSz). Guest access is at the admin’s discretion—when `@Jebes_Cust` is online and using it, say you’d like to try it. No guarantees on timing or access.
+Want to play with a running CollabFM before self-hosting? Join the [Discord server](https://discord.gg/7bTRzEunSz). Guest access is at the admin’s discretion—when `@Jebes_Cust` or another radio admin is online and using it, say you’d like to try it. No guarantees on timing or access.
 
 - **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) (includes [API access tiers](./docs/ARCHITECTURE.md#api-access))
 - **Audio pipeline:** [docs/audio-pipeline.md](./docs/audio-pipeline.md)
