@@ -98,7 +98,7 @@ export function AboutModal({ open, onClose }: AboutModalProps) {
         <div className="grid gap-4 sm:gap-5 sm:grid-cols-2 text-sm text-gray-300 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 pr-1 min-h-0 flex-1">
           {sections.map((section) => {
             const fullWidth =
-              section.title === "Live web radio" || section.title === "Music & copyright";
+              section.title === "Collaborative social radio" || section.title === "Music & copyright";
             const highlighted = section.title === "Music & copyright";
             return (
             <div
