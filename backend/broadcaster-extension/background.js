@@ -330,7 +330,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
       else if (message.type === 'START_METADATA_MONITORING') {
         try {
-          await chrome.tabs.sendMessage(message.tabId, { 
+          const tabId = message.tabId;
+          try {
+            await chrome.tabs.sendMessage(tabId, { type: 'PING_CONTENT_SCRIPT' });
+          } catch {
+            await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+            await new Promise((resolve) => setTimeout(resolve, 400));
+          }
+          await chrome.tabs.sendMessage(tabId, {
             type: 'START_METADATA_MONITORING',
             forceRestart: message.forceRestart !== false,
           });

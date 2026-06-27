@@ -988,24 +988,32 @@ function invalidateMetadataForSiteChange(userWsId, authUserId = null) {
       (item) => item.key !== uid && !item.key.startsWith(`${uid}:`),
     );
   }
-  clearNowPlayingMetaState();
+  if (isMainStreamRail(userWsId)) {
+    clearNowPlayingMetaState();
+  }
 }
 
 function isNowPlayingMetadataStale() {
   if (!activeWsId || !broadcastStatus.active) return false;
   const wsInfo = wsConnections.get(activeWsId);
-  if (!wsInfo?.broadcastSessionStartedAt) return true;
-  const staleAfter = Math.max(
-    wsInfo.metadataInvalidatedAt || 0,
-    wsInfo.broadcastSessionStartedAt || 0,
-  );
-  if (!staleAfter) return false;
+  if (!wsInfo) return true;
+
   const native = getNativeMetadataForActiveRail();
   if (!native) return true;
   if (isContentPolicyMutedMetadata(native.title, native.artist)) {
     return false;
   }
-  return native.timestamp <= staleAfter;
+
+  if (!wsInfo.broadcastSessionStartedAt) {
+    return false;
+  }
+
+  const staleAfter = Math.max(
+    wsInfo.metadataInvalidatedAt || 0,
+    wsInfo.broadcastSessionStartedAt || 0,
+  );
+  if (!staleAfter) return false;
+  return native.timestamp < staleAfter;
 }
 
 function shouldHoldNowPlayingForPolicy() {
@@ -2757,10 +2765,10 @@ function getNativeMetadataForActiveRail() {
     if (stored.sourceSite && currentSite && stored.sourceSite !== currentSite) {
       return null;
     }
-    if (info?.metadataInvalidatedAt && stored.timestamp <= info.metadataInvalidatedAt) {
+    if (info?.metadataInvalidatedAt && stored.timestamp < info.metadataInvalidatedAt) {
       return null;
     }
-    if (info?.broadcastSessionStartedAt && stored.timestamp <= info.broadcastSessionStartedAt) {
+    if (info?.broadcastSessionStartedAt && stored.timestamp < info.broadcastSessionStartedAt) {
       return null;
     }
     return stored;
@@ -5115,6 +5123,7 @@ http.createServer(async (req, res) => {
         }
       } catch {}
       switchLiveBroadcaster(targetWsId);
+      beginFreshBroadcastSession(targetWsId, info.userId);
 
       // Clear metadata stabilization state to force fresh metadata fetch for new websocket
       try {
@@ -7937,6 +7946,7 @@ relayWSS.on("connection", (ws, req) => {
           console.log(`🟢 Auto-promoted active WS: wsId=${activeWsId}`);
           resetLiveSilenceState();
           switchLiveBroadcaster(activeWsId);
+          beginFreshBroadcastSession(activeWsId, info.userId);
           try {
             if (typeof globalThis.__metaState !== 'undefined') {
               globalThis.__metaState.lastStabilized = null;

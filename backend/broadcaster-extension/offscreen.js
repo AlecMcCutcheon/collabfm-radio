@@ -512,6 +512,34 @@ async function startContentScriptMetadataMonitoring() {
       void syncCurrentMetadataToBackend({ reason: "monitoring-started", attempts: 10, delayMs: 750 });
     } else {
       console.error('[Offscreen] Failed to start content script monitoring, response:', response);
+      try {
+        const ensured = await chrome.runtime.sendMessage({
+          type: 'ENSURE_CONTENT_SCRIPT',
+          tabId: currentTabId,
+        });
+        if (ensured?.success) {
+          const retry = await chrome.runtime.sendMessage({
+            type: 'START_METADATA_MONITORING',
+            tabId: currentTabId,
+            forceRestart: true,
+          });
+          if (retry?.success) {
+            console.log('[Offscreen] Metadata monitoring started after ENSURE_CONTENT_SCRIPT retry');
+            sendMetadataUpdateToPopup(
+              currentMetadata,
+              currentMetadata ? 'Active metadata detected' : 'Monitoring metadata from tab...',
+            );
+            await refreshCapabilitiesFromTab();
+            startCapabilityResync();
+            startMetadataResync();
+            startMetadataBootstrapPoll();
+            void syncCurrentMetadataToBackend({ reason: "monitoring-retry", attempts: 10, delayMs: 750 });
+            return;
+          }
+        }
+      } catch (retryError) {
+        console.error('[Offscreen] Metadata monitoring retry failed:', retryError);
+      }
       sendMetadataUpdateToPopup(null, 'Failed to start metadata monitoring');
     }
   } catch (error) {
