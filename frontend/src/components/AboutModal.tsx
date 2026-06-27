@@ -16,8 +16,8 @@ interface AboutSection {
 function buildSections(): AboutSection[] {
   return [
     {
-      title: "Live web radio",
-      body: "CollabFM is a self-hosted collaborative internet radio where multiple people can broadcast from their browser or the Chrome extension. Listeners can tune in through the web interface, direct stream URLs, or an optional Discord voice bot.",
+      title: "Collaborative social radio",
+      body: "CollabFM is a collaborative, self-hosted social radio platform where multiple people can broadcast from their browser or the Chrome extension. Listeners tune in through the web interface, direct stream URLs, or an optional Discord voice bot.",
     },
     {
       title: "Music & copyright",

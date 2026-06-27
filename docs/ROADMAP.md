@@ -4,6 +4,12 @@ Ideas under consideration—not commitments, and not in any fixed order. If some
 
 ---
 
+## Completed
+
+~~**Content policy**~~ — **Shipped.** Configurable broadcast allowlists for permitted sources and artists, **enforced by default**. The policy engine is a **filtering tool**, not a copyright detector—it applies rules to metadata reported by the browser extension (site, title, artist), not to raw audio. Includes Admin → System configuration, extension mute and handoff behavior, synchronized metadata on the web UI and Discord, conservative defaults, and the [Content Policy wiki](./wiki/Content-Policy.md).
+
+---
+
 ## Hybrid users & account management
 
 Today, users may sign in through an identity provider (e.g. Authentik SSO) or local accounts, but the model is fairly either/or.

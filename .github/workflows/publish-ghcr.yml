@@ -12,6 +12,10 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
+  IMAGE_DESCRIPTION_BASE: >-
+    Collaborative self-hosted social radio platform for friends and communities.
+    Multi-DJ stage, live chat, guest links, Discord voice bot, browser extension
+    broadcasting, and metadata-based content policy filtering.
 
 jobs:
   build-and-push:
@@ -30,22 +34,49 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Prepare image metadata
+        id: image
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            BUILD="${GITHUB_REF#refs/tags/}"
+          elif [ -n "$COMMIT_MESSAGE" ]; then
+            BUILD=$(printf '%s' "$COMMIT_MESSAGE" | head -1 | tr -d '\r' | cut -c1-180)
+          else
+            BUILD="${GITHUB_SHA::7}"
+          fi
+          DESC="${IMAGE_DESCRIPTION_BASE} This build: ${BUILD}."
+          {
+            echo "description<<EOF"
+            echo "$DESC"
+            echo "EOF"
+            echo "version=${BUILD}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: index,manifest
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}
           tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
             type=ref,event=branch
             type=ref,event=tag
             type=sha,prefix=
             type=raw,value=latest,enable={{is_default_branch}}
           labels: |
             org.opencontainers.image.title=CollabFM
-            org.opencontainers.image.description=Self-hosted collaborative internet radio: multi-DJ stage, live chat, content policy enforced by default, browser extension broadcasting, guest links, and optional Discord voice bot.
+            org.opencontainers.image.description=${{ steps.image.outputs.description }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.licenses=CC-BY-NC-4.0
             org.opencontainers.image.vendor=Alec McCutcheon
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.image.outputs.version }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -56,4 +87,10 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: |
-            org.opencontainers.image.description=Self-hosted collaborative internet radio: multi-DJ stage, live chat, content policy enforced by default, browser extension broadcasting, guest links, and optional Discord voice bot.
+            index:org.opencontainers.image.title=CollabFM
+            index:org.opencontainers.image.description=${{ steps.image.outputs.description }}
+            index:org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            index:org.opencontainers.image.licenses=CC-BY-NC-4.0
+            index:org.opencontainers.image.vendor=Alec McCutcheon
+            index:org.opencontainers.image.revision=${{ github.sha }}
+            index:org.opencontainers.image.version=${{ steps.image.outputs.version }}

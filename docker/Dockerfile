@@ -19,7 +19,7 @@ COPY --from=frontend-build /build/frontend/dist ./dist
 
 FROM node:22-bookworm-slim AS runtime
 LABEL org.opencontainers.image.title="CollabFM" \
-    org.opencontainers.image.description="Self-hosted collaborative internet radio: multi-DJ stage, live chat, content policy enforced by default, browser extension broadcasting, guest links, and optional Discord voice bot." \
+    org.opencontainers.image.description="Collaborative self-hosted social radio platform for friends and communities. Multi-DJ stage, live chat, guest links, Discord voice bot, browser extension broadcasting, and metadata-based content policy filtering." \
     org.opencontainers.image.source="https://github.com/AlecMcCutcheon/collabfm-radio" \
     org.opencontainers.image.licenses="CC-BY-NC-4.0" \
     org.opencontainers.image.vendor="Alec McCutcheon"

@@ -15,7 +15,7 @@
   "keywords": [],
   "author": "Alec McCutcheon",
   "license": "CC-BY-NC-4.0",
-  "description": "CollabFM radio server",
+  "description": "CollabFM collaborative social radio server",
   "dependencies": {
     "@discordjs/voice": "^0.19.0",
     "@snazzah/davey": "^0.1.9",

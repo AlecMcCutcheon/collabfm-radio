@@ -4,9 +4,9 @@
 
 Licensed under [CC BY-NC 4.0](LICENSE) — © Alec McCutcheon
 
-CollabFM is a self-hosted **collaborative internet radio** platform built for friends and communities.
+CollabFM is a **collaborative, self-hosted social radio platform** built for friends and communities.
 
-Instead of one person running a station, multiple broadcasters can join the **stage**, take turns DJing, chat with listeners, and hand off the live broadcast without interrupting the stream. Listeners tune in through the web interface, direct stream URLs, or an optional Discord voice bot—so you can share music and audio together across browsers, Discord, and media players.
+Instead of one person running a show alone, multiple broadcasters can join the **stage**, take turns DJing, chat with listeners, and hand off the live broadcast without interrupting the stream. Listeners tune in through the web interface, direct stream URLs, or an optional Discord voice bot—so you can share live audio together across browsers, Discord, and media players.
 
 ## Preview
 
@@ -42,7 +42,7 @@ Want to play with a running CollabFM before self-hosting? Join the [Discord serv
 
 ## About this project
 
-CollabFM started as a personal project because I wanted something that didn’t really exist: a **private internet radio where friends could take turns DJing** instead of relying on algorithmic playlists or commercial streaming services. Over time it grew into a standalone platform with browser broadcasting, guest access, Discord integration, and a real-time social layer on top of the stream.
+CollabFM started as a personal project because I wanted something that didn’t really exist: a **private social radio where friends could take turns DJing** instead of relying on algorithmic playlists or commercial streaming services. Over time it grew into a standalone platform with browser broadcasting, guest access, Discord integration, and a real-time social layer on top of the stream.
 
 I use CollabFM myself and plan to keep improving it. [Issues](https://github.com/AlecMcCutcheon/collabfm-radio/issues) (bugs, questions), feature requests, and [pull requests](https://github.com/AlecMcCutcheon/collabfm-radio/pulls) are welcome—I read them when I can, but I can’t promise fixes on a fixed schedule.
 
@@ -56,6 +56,7 @@ If CollabFM helps you, [donations are appreciated](https://www.paypal.com/donate
 
 Planned directions and ideas—not a schedule or promise of delivery:
 
+- ~~**Content policy** — configurable source and artist allowlists enforced by default; metadata-based filtering (not audio analysis), admin UI, extension integration, and [wiki guide](./docs/wiki/Content-Policy.md).~~ *(shipped)*
 - **Hybrid users** — optional local password on SSO-linked accounts (and related account management).
 - **Gated registration** — access-request form, admin approve/deny queue, one-time enrollment tokens.
 - **Dynamic stage UI** — stage slots in the GUI match the configured max stage users.
@@ -188,7 +189,7 @@ CollabFM keeps **runtime data** on your appdata volume: `config.json`, `storage/
 
 **Typical upgrade** (no local code edits):
 
-1. Pull the new image (`docker pull ghcr.io/alecmccutcheon/collabfm-radio:latest` or recreate in Portainer/Unraid).
+1. Pull the new image (`docker pull ghcr.io/alecmccutcheon/collabfm-radio:latest` or recreate in Portainer/Unraid). For a pinned release, use a version tag such as `v1.2.3` (push a Git tag `v1.2.3` on the repo to publish it).
 2. Set `COLLABFM_SYNC_MODE=update` in compose or your container env (see [`docker/.env.example`](./docker/.env.example)).
 3. Recreate the container once.
 4. Optional: set `COLLABFM_SYNC_MODE` back to `preserve` if you customize app files under appdata.
@@ -225,7 +226,7 @@ Publish **4002** and **4001**. Use:
 
 In the extension, set the radio host to `http://<ip>:4002` or `<ip>:4002`.
 
-### With a reverse proxy (recommended for the internet)
+### With a reverse proxy (recommended for public access)
 
 Terminate TLS on the proxy. Route:
 
@@ -370,7 +371,8 @@ Details: [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md).
 ## GHCR
 
 - Package: `ghcr.io/alecmccutcheon/collabfm-radio`
-- Tags: `latest`, branch name, `v*` tags, commit SHA (see `.github/workflows/publish-ghcr.yml`)
+- Tags: `latest`, branch name, semver `v*` tags (e.g. `v1.2.3`), commit SHA (see `.github/workflows/publish-ghcr.yml`)
+- Each published image includes a short **package description** on GHCR noting what that build contains (commit message or release tag)
 - **Private packages:** `docker login ghcr.io` in Portainer or on the host
 - After pulling a new image, **recreate** the container. Set `COLLABFM_SYNC_MODE=update` for one start to refresh app files in appdata (see [Upgrading](#upgrading)); your database and `config.json` are preserved
 - **Re-download and reinstall** the browser extension from Admin → System after upgrades—especially when content policy or broadcasting behavior changes
