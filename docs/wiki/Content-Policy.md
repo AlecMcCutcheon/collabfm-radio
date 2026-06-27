@@ -1,6 +1,6 @@
 # Content Policy
 
-CollabFM includes a **content policy** to help server operators and broadcasters manage what audio sources are permitted during live broadcasts. The platform ships with conservative default settings intended to reduce accidental misuse and encourage responsible streaming practices.
+CollabFM includes a **content policy enforced by default** to help server operators and broadcasters manage what audio sources are permitted during live broadcasts. The platform ships with conservative default settings intended to reduce accidental misuse and encourage responsible streaming practices.
 
 CollabFM does **not** verify licensing or guarantee legal compliance. Administrators and broadcasters remain responsible for this instance's configuration and for ensuring broadcasts comply with applicable copyright and licensing requirements.
 
@@ -8,7 +8,7 @@ CollabFM does **not** verify licensing or guarantee legal compliance. Administra
 
 ## What the policy does
 
-When enforcement is enabled, the policy engine evaluates broadcasts using metadata from the **browser extension** (and related API paths). It checks:
+The policy engine evaluates broadcasts using metadata from the **browser extension** (and related API paths). It checks:
 
 1. **Source** — the website hostname reported by the extension (e.g. `ncs.io`, `pixabay.com`).
 2. **Artist / title** — track metadata when source alone is not enough to decide.

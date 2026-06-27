@@ -46,7 +46,7 @@ Share links: admin-created tokens with TTL and revoke.
 
 ## Content policy
 
-Rule-based broadcast policy for the browser extension and metadata API paths. Admins configure rules in **Admin → System → Content policy**. On first boot, a strict default is created automatically (example allowed sources such as `ncs.io` and `pixabay.com`, artist allowlist for NoCopyrightSounds, **deny** on missing metadata and unmatched source/artist).
+Rule-based broadcast policy for the browser extension and metadata API paths. **Enforced by default** on new installs. Admins configure rules in **Admin → System → Content policy** (a strict default is created automatically: example allowed sources such as `ncs.io` and `pixabay.com`, artist allowlist for NoCopyrightSounds, **deny** on missing metadata and unmatched source/artist).
 
 Evaluation order: known **source** is checked first when reported by the extension; otherwise the engine may defer until source or artist metadata is available. Allowed sources can permit a broadcast without artist allowlist matching. Denied broadcasts mute relay audio and show a policy notice on now-playing. Real track metadata is withheld from the website and Discord while a decision is pending.
 

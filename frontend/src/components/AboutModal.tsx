@@ -21,7 +21,7 @@ function buildSections(): AboutSection[] {
     },
     {
       title: "Music & copyright",
-      body: "CollabFM includes a content policy to help operators and broadcasters manage what gets streamed. Default settings may reference royalty-free, Creative Commons, or creator-friendly sources as examples—not guarantees that every track is cleared for your use. You are responsible for securing appropriate rights and licenses. These platforms are common starting points:",
+      body: "CollabFM enforces a content policy by default to help operators and broadcasters manage what gets streamed. Default settings may reference royalty-free, Creative Commons, or creator-friendly sources as examples—not guarantees that every track is cleared for your use. You are responsible for securing appropriate rights and licenses. These platforms are common starting points:",
       links: [
         { href: "https://ncs.io", label: "NoCopyrightSounds (ncs.io)" },
         { href: "https://pixabay.com/music/", label: "Pixabay Music" },

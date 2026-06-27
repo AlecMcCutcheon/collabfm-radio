@@ -104,11 +104,11 @@ See [Authentik SSO Setup](./Authentik-SSO-Setup.md) for a step-by-step Authentik
 
 ## Tab: System
 
-**Content policy**
+**Content policy** *(enforced by default)*
 
-CollabFM provides tools to help operators manage permitted audio sources during live broadcasts. Default settings use conservative example allowlists (e.g. NCS, Pixabay)—not a licensing guarantee. Administrators and broadcasters remain responsible for rights and compliance.
+CollabFM enforces a content policy out of the box to help operators manage permitted audio sources during live broadcasts. Default settings use conservative example allowlists (e.g. NCS, Pixabay)—not a licensing guarantee. Administrators can adjust rules in this tab; broadcasters remain responsible for rights and compliance.
 
-- **Enable content policy enforcement**
+- **Enable content policy enforcement** — on by default; turning off allows all broadcasts
 - **Safety rails** — global fallbacks locked until an admin confirms responsibility
 - **Fallback actions** — missing metadata, unmatched artist, unmatched source
 - **Source and artist allowlists**
