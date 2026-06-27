@@ -13,6 +13,12 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { Worker, isMainThread, parentPort, workerData } from "node:worker_threads";
 import {
+  CONTENT_POLICY_MUTED_TITLE,
+  CONTENT_POLICY_MUTED_ARTIST,
+  isContentPolicyMutedMetadata,
+  resolveContentPolicyForBroadcast,
+} from "./src/http/contentPolicy.js";
+import {
   initV2,
   isSetupComplete,
   getAppSession,
@@ -700,6 +706,124 @@ const broadcastStatus = {
 const wsConnections = new Map();
 let activeWsId = null;
 
+function setContentPolicyMutedForUser(userId, muted) {
+  const uid = String(userId);
+  for (const info of wsConnections.values()) {
+    if (String(info.userId) === uid) {
+      info.contentPolicyMuted = !!muted;
+      if (muted) {
+        info.contentPolicyPending = false;
+      }
+    }
+  }
+}
+
+function setContentPolicyPendingForUser(userId, pending) {
+  const uid = String(userId);
+  for (const info of wsConnections.values()) {
+    if (String(info.userId) === uid) {
+      info.contentPolicyPending = !!pending;
+    }
+  }
+}
+
+function isActiveRelayContentPolicyPending() {
+  if (!activeWsId || !broadcastStatus.active) return false;
+  return !!wsConnections.get(activeWsId)?.contentPolicyPending;
+}
+
+function unwrapPolicyMutedNativeMetadata(metadata) {
+  if (!metadata) return null;
+  if (!isContentPolicyMutedMetadata(metadata.title, metadata.artist)) {
+    return metadata;
+  }
+  const rawTitle = String(metadata.rawTitle || "").trim();
+  const rawArtist = String(metadata.rawArtist || "").trim();
+  if (!rawTitle || !rawArtist) return null;
+  return {
+    title: rawTitle,
+    artist: rawArtist,
+    albumArt: metadata.rawAlbumArt ?? metadata.albumArt ?? null,
+    timestamp: metadata.timestamp,
+  };
+}
+
+function getRelayNativeMetadataForPolicy(authUserId, userWsId) {
+  const railMeta = userWsId ? getStoredNativeMetadataByKey(nativeMetadataRailKey(userWsId)) : null;
+  const railResolved = unwrapPolicyMutedNativeMetadata(railMeta);
+  if (railResolved) return railResolved;
+
+  const userMeta = getBestNativeMetadataForUser(authUserId);
+  const userResolved = unwrapPolicyMutedNativeMetadata(userMeta);
+  if (userResolved) return userResolved;
+
+  return null;
+}
+
+function reapplyContentPolicyAfterCapabilitiesUpdate(authUserId, userWsId) {
+  if (!userWsId || !broadcastStatus.active) {
+    return { muted: false, deferred: false, decision: null, metadata: null };
+  }
+
+  const stored = getRelayNativeMetadataForPolicy(authUserId, userWsId);
+  const wsInfo = wsConnections.get(userWsId);
+  const policyInput = {
+    source: wsInfo?.capabilities?.site || null,
+    title: stored?.title ?? null,
+    artist: stored?.artist ?? null,
+  };
+
+  const { decision, deferred, muted } = resolveContentPolicyForBroadcast(policyInput, {
+    userId: authUserId,
+    broadcasterName: broadcastStatus.broadcasterDisplayName,
+  });
+
+  setContentPolicyMutedForUser(authUserId, muted);
+  setContentPolicyPendingForUser(authUserId, deferred && !muted);
+
+  if (!stored?.title || !stored?.artist) {
+    if (muted) {
+      forceImmediateNowPlayingMetadata(
+        CONTENT_POLICY_MUTED_TITLE,
+        CONTENT_POLICY_MUTED_ARTIST,
+        null,
+      );
+    } else if (!deferred) {
+      clearPolicyMuteFromMetaState();
+    }
+    return { muted, deferred, decision, metadata: null };
+  }
+
+  const displayTitle = muted ? CONTENT_POLICY_MUTED_TITLE : stored.title;
+  const displayArtist = muted ? CONTENT_POLICY_MUTED_ARTIST : stored.artist;
+  const displayAlbumArt = muted ? null : stored.albumArt ?? null;
+  const metadata = {
+    title: displayTitle,
+    artist: displayArtist,
+    albumArt: coalesceTrackAlbumArt(displayTitle, displayArtist, displayAlbumArt),
+    timestamp: Date.now(),
+    sourceSite: wsInfo?.capabilities?.site ?? null,
+    policyPending: deferred && !muted,
+    ...(muted
+      ? {
+          rawTitle: stored.title,
+          rawArtist: stored.artist,
+          rawAlbumArt: stored.albumArt ?? null,
+        }
+      : {}),
+  };
+
+  storeNativeMetadataByKey(nativeMetadataRailKey(userWsId), metadata);
+
+  if (muted) {
+    forceImmediateNowPlayingMetadata(displayTitle, displayArtist, metadata.albumArt);
+  } else if (!deferred) {
+    forceImmediateNowPlayingMetadata(stored.title, stored.artist, stored.albumArt ?? null);
+  }
+
+  return { muted, deferred, decision, metadata };
+}
+
 function syncInternalSongMirror() {
   try {
     const art =
@@ -737,6 +861,197 @@ function syncInternalSongMirror() {
       });
     }
   } catch {}
+}
+
+function clearNowPlayingMetaState() {
+  try {
+    const metaState = globalThis.__metaState;
+    if (!metaState) return;
+    if (metaState.pendingTimer) {
+      clearTimeout(metaState.pendingTimer);
+      metaState.pendingTimer = null;
+    }
+    if (metaState.discordBotTimer) {
+      clearTimeout(metaState.discordBotTimer);
+      metaState.discordBotTimer = null;
+    }
+    metaState.pending = null;
+    metaState.lastStabilized = null;
+    metaState.lastPayload = null;
+  } catch (error) {
+    console.error("Failed to clear now playing meta state:", error.message);
+  }
+}
+
+function clearPolicyMuteFromMetaState() {
+  try {
+    const metaState = globalThis.__metaState;
+    if (!metaState) return;
+    if (!isContentPolicyMutedMetadata(metaState.lastStabilized?.title, metaState.lastStabilized?.artist)) {
+      return;
+    }
+    clearNowPlayingMetaState();
+    console.log("📡 Cleared policy-muted now playing placeholder; awaiting fresh metadata");
+  } catch (error) {
+    console.error("Failed to clear policy mute meta state:", error.message);
+  }
+}
+
+function purgeNativeMetadataForBroadcaster(userId, wsId = null) {
+  if (userId != null) {
+    const uid = String(userId);
+    nativeMetadataStore = nativeMetadataStore.filter(
+      (item) => item.key !== uid && !item.key.startsWith(`${uid}:`),
+    );
+  }
+  if (wsId) {
+    const railKey = nativeMetadataRailKey(wsId);
+    nativeMetadataStore = nativeMetadataStore.filter((item) => item.key !== railKey);
+    invalidateRailPlayback(wsId);
+    const wsInfo = wsConnections.get(wsId);
+    if (wsInfo) {
+      wsInfo.trackTitle = null;
+      wsInfo.trackArtist = null;
+      wsInfo.trackAlbumArt = null;
+      wsInfo.trackUpdatedAt = null;
+    }
+  }
+}
+
+function resetBroadcastNowPlayingState(userId, wsId = null) {
+  purgeNativeMetadataForBroadcaster(userId, wsId);
+  clearNowPlayingMetaState();
+  currentSong = "N/A";
+  currentArtist = "N/A";
+  streamMetadataDisabled = false;
+  console.log("📡 Broadcast now playing metadata reset");
+}
+
+function beginFreshBroadcastSession(wsId, userId) {
+  resetBroadcastNowPlayingState(userId, wsId);
+  const wsInfo = wsConnections.get(wsId);
+  if (wsInfo) {
+    const now = Date.now();
+    wsInfo.metadataInvalidatedAt = now;
+    wsInfo.broadcastSessionStartedAt = now;
+    wsInfo.contentPolicyMuted = false;
+    wsInfo.contentPolicyPending = false;
+    wsInfo.capabilities = {
+      supportsMediaControls: false,
+      site: null,
+      lastUpdated: now,
+    };
+  }
+}
+
+function invalidateMetadataForSiteChange(userWsId, authUserId = null) {
+  if (userWsId) {
+    const railKey = nativeMetadataRailKey(userWsId);
+    nativeMetadataStore = nativeMetadataStore.filter((item) => item.key !== railKey);
+    invalidateRailPlayback(userWsId);
+    const wsInfo = wsConnections.get(userWsId);
+    if (wsInfo) {
+      wsInfo.trackTitle = null;
+      wsInfo.trackArtist = null;
+      wsInfo.trackAlbumArt = null;
+      wsInfo.trackUpdatedAt = null;
+    }
+  }
+  if (authUserId != null) {
+    const uid = String(authUserId);
+    nativeMetadataStore = nativeMetadataStore.filter(
+      (item) => item.key !== uid && !item.key.startsWith(`${uid}:`),
+    );
+  }
+  clearNowPlayingMetaState();
+}
+
+function isNowPlayingMetadataStale() {
+  if (!activeWsId || !broadcastStatus.active) return false;
+  const wsInfo = wsConnections.get(activeWsId);
+  if (!wsInfo?.broadcastSessionStartedAt) return true;
+  const staleAfter = Math.max(
+    wsInfo.metadataInvalidatedAt || 0,
+    wsInfo.broadcastSessionStartedAt || 0,
+  );
+  if (!staleAfter) return false;
+  const native = getNativeMetadataForActiveRail();
+  if (!native) return true;
+  if (isContentPolicyMutedMetadata(native.title, native.artist)) {
+    return false;
+  }
+  return native.timestamp <= staleAfter;
+}
+
+function shouldHoldNowPlayingForPolicy() {
+  return isNowPlayingMetadataStale() || isActiveRelayContentPolicyPending();
+}
+
+function forceImmediateNowPlayingMetadata(title, artist, albumArt = null) {
+  try {
+    const displayTitle = String(title || "").trim();
+    const displayArtist = String(artist || "").trim();
+    if (!displayTitle || !displayArtist) return;
+
+    const art = albumArt || fallbackAlbumArtUrl(displayTitle, displayArtist);
+    if (typeof globalThis.__metaState === "undefined") {
+      globalThis.__metaState = {
+        lastStabilized: null,
+        lastPayload: null,
+        pending: null,
+        pendingTimer: null,
+        discordBotTimer: null,
+      };
+    }
+    const metaState = globalThis.__metaState;
+    if (metaState.pendingTimer) {
+      clearTimeout(metaState.pendingTimer);
+      metaState.pendingTimer = null;
+    }
+    if (metaState.discordBotTimer) {
+      clearTimeout(metaState.discordBotTimer);
+      metaState.discordBotTimer = null;
+    }
+    metaState.pending = null;
+
+    const imageEntry = art
+      ? [
+          { size: "small", "#text": art },
+          { size: "medium", "#text": art },
+          { size: "large", "#text": art },
+          { size: "extralarge", "#text": art },
+        ]
+      : [];
+
+    metaState.lastPayload = {
+      recenttracks: {
+        track: [
+          {
+            name: displayTitle,
+            artist: { "#text": displayArtist },
+            "@attr": { nowplaying: "true" },
+            image: imageEntry,
+          },
+        ],
+      },
+    };
+    metaState.lastStabilized = {
+      title: displayTitle,
+      artist: displayArtist,
+      albumArt: art || null,
+      url: null,
+    };
+
+    updateDiscordBotFromMetadata(displayTitle, displayArtist, false, null);
+    syncInternalSongMirror();
+    if (isContentPolicyMutedMetadata(displayTitle, displayArtist)) {
+      console.log(`🔇 Content policy mute: now playing set to "${displayTitle}" / "${displayArtist}"`);
+    } else {
+      console.log(`📡 Now playing updated immediately: "${displayTitle}" / "${displayArtist}"`);
+    }
+  } catch (error) {
+    console.error("Failed to force immediate now playing metadata:", error.message);
+  }
 }
 
 function lookupAlbumArtForLiveTrack(title, artist, { stored = false } = {}) {
@@ -799,22 +1114,28 @@ function setBroadcastActive(isActive) {
       broadcastStatus.startTime = new Date().toISOString();
       beginBroadcastSession(broadcastStatus.startTime);
     }
+    if (!wasActive) {
+      clearNowPlayingMetaState();
+    }
     broadcastStatus.lastDisconnect = null;
     console.log("📡 Broadcast status: ACTIVE");
 
   } else {
+    const endingUserId = broadcastStatus.broadcasterUserId;
+    const endingWsId = activeWsId;
     broadcastStatus.lastDisconnect = new Date().toISOString();
     broadcastStatus.startTime = null;
     endBroadcastSession();
     console.log("📡 Broadcast status: IDLE");
-    // Clear broadcaster info when stream goes idle
-    broadcastStatus.broadcasterUserId = null;
-    broadcastStatus.broadcasterDisplayName = null;
 
     if (wasActive) {
+      resetBroadcastNowPlayingState(endingUserId, endingWsId);
       try { flushStreamHubForBroadcasterSwitch(); } catch {}
       try { stopLiveMp3Publisher(); } catch {}
     }
+
+    broadcastStatus.broadcasterUserId = null;
+    broadcastStatus.broadcasterDisplayName = null;
   }
   syncInternalSongMirror();
   if (wasActive !== isActive) {
@@ -2265,6 +2586,51 @@ function isPlaceholderPlaybackTitle(title) {
   return / is playing music$/i.test(text);
 }
 
+function metadataPayloadIsPolicyMuted(payload) {
+  try {
+    const raw = payload?.recenttracks?.track;
+    const track = Array.isArray(raw) ? raw[0] : raw;
+    if (!track) return false;
+    const title = track.name;
+    const artist =
+      typeof track.artist === "string" ? track.artist : track.artist?.["#text"];
+    return isContentPolicyMutedMetadata(title, artist);
+  } catch {
+    return false;
+  }
+}
+
+function activeBroadcastWaitingMetadataPayload() {
+  return {
+    recenttracks: { track: [] },
+    waiting: true,
+    broadcaster: {
+      userId: broadcastStatus.broadcasterUserId || null,
+      displayName: broadcastStatus.broadcasterDisplayName || null,
+    },
+  };
+}
+
+function contentPolicyMutedNowPlayingPayload() {
+  return {
+    recenttracks: {
+      track: [
+        {
+          name: CONTENT_POLICY_MUTED_TITLE,
+          artist: { "#text": CONTENT_POLICY_MUTED_ARTIST },
+          "@attr": { nowplaying: "true" },
+          image: [],
+        },
+      ],
+    },
+  };
+}
+
+function isActiveRelayContentPolicyMuted() {
+  if (!activeWsId) return false;
+  return !!wsConnections.get(activeWsId)?.contentPolicyMuted;
+}
+
 function nativeMetadataRailKey(wsId) {
   return `rail:${String(wsId || "").trim()}`;
 }
@@ -2337,23 +2703,47 @@ function getNativeMetadataForActiveRail() {
 
   const { wsId, userId, info } = ctx;
 
-  if (wsId) {
-    const storedByRail = getStoredNativeMetadataForRail(wsId);
+  if (info?.contentPolicyPending) {
+    return null;
+  }
+
+  const resolveStoredForDisplay = (stored) => {
+    if (!stored?.title || !stored?.artist) return null;
+    if (stored.policyPending) return null;
+    if (info?.contentPolicyMuted) {
+      if (isContentPolicyMutedMetadata(stored.title, stored.artist)) {
+        return stored;
+      }
+      return null;
+    }
     if (
-      storedByRail?.title &&
-      storedByRail?.artist &&
-      !isPlaceholderPlaybackTitle(storedByRail.title)
+      isContentPolicyMutedMetadata(stored.title, stored.artist) &&
+      !info?.contentPolicyMuted
     ) {
+      return unwrapPolicyMutedNativeMetadata(stored) || stored;
+    }
+    const currentSite = info?.capabilities?.site ?? null;
+    if (stored.sourceSite && currentSite && stored.sourceSite !== currentSite) {
+      return null;
+    }
+    if (info?.metadataInvalidatedAt && stored.timestamp <= info.metadataInvalidatedAt) {
+      return null;
+    }
+    if (info?.broadcastSessionStartedAt && stored.timestamp <= info.broadcastSessionStartedAt) {
+      return null;
+    }
+    return stored;
+  };
+
+  if (wsId) {
+    const storedByRail = resolveStoredForDisplay(getStoredNativeMetadataForRail(wsId));
+    if (storedByRail && !isPlaceholderPlaybackTitle(storedByRail.title)) {
       return storedByRail;
     }
   }
 
-  const storedByUser = getStoredNativeMetadataForUser(userId);
-  if (
-    storedByUser?.title &&
-    storedByUser?.artist &&
-    !isPlaceholderPlaybackTitle(storedByUser.title)
-  ) {
+  const storedByUser = resolveStoredForDisplay(getStoredNativeMetadataForUser(userId));
+  if (storedByUser && !isPlaceholderPlaybackTitle(storedByUser.title)) {
     if (broadcastStatus.active) return storedByUser;
     const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
     if (storedByUser.timestamp > fiveMinutesAgo) return storedByUser;
@@ -3414,6 +3804,47 @@ http.createServer(async (req, res) => {
               return;
             }
 
+            const {
+              resolveContentPolicyForBroadcast,
+            } = await import('./src/http/contentPolicy.js');
+            const wsIdForPolicy = resolveWsIdForMetadataPost(authUserId, {
+              railId: postData.railId || postData.wsId || null,
+              broadcastName: broadcasterName?.trim() || null,
+            });
+            const wsForPolicy = wsIdForPolicy ? wsConnections.get(wsIdForPolicy) : null;
+            const policySource =
+              wsForPolicy?.capabilities?.site ||
+              postData.source ||
+              postData.site ||
+              null;
+            const policyInput = {
+              source: policySource,
+              artist: artist.trim(),
+              title: title.trim(),
+            };
+            const {
+              decision: policyDecision,
+              deferred: policyDeferred,
+              muted: policyMuted,
+            } = resolveContentPolicyForBroadcast(
+              policyInput,
+              {
+                userId: authUserId,
+                broadcasterName: broadcasterName?.trim() || null,
+              },
+            );
+            setContentPolicyMutedForUser(authUserId, policyMuted);
+            setContentPolicyPendingForUser(authUserId, policyDeferred && !policyMuted);
+
+            let displayTitle = title.trim();
+            let displayArtist = artist.trim();
+            let displayAlbumArt = albumArt;
+            if (policyMuted) {
+              displayTitle = CONTENT_POLICY_MUTED_TITLE;
+              displayArtist = CONTENT_POLICY_MUTED_ARTIST;
+              displayAlbumArt = null;
+            }
+
             let userWsId = resolveWsIdForMetadataPost(authUserId, {
               railId: postData.railId || postData.wsId || null,
               broadcastName: broadcasterName?.trim() || null,
@@ -3451,12 +3882,28 @@ http.createServer(async (req, res) => {
             const existingIndex = nativeMetadataStore.findIndex(item => item.key === storageKey);
             const existingMeta = existingIndex >= 0 ? nativeMetadataStore[existingIndex].metadata : null;
             const metadata = {
-              title: title.trim(),
-              artist: artist.trim(),
-              albumArt: coalesceTrackAlbumArt(title.trim(), artist.trim(), albumArt),
-              timestamp: Date.now()
+              title: displayTitle,
+              artist: displayArtist,
+              albumArt: coalesceTrackAlbumArt(displayTitle, displayArtist, displayAlbumArt),
+              timestamp: Date.now(),
+              sourceSite: policySource || null,
+              policyPending: policyDeferred && !policyMuted,
+              ...(policyMuted
+                ? {
+                    rawTitle: title.trim(),
+                    rawArtist: artist.trim(),
+                    rawAlbumArt: albumArt ?? null,
+                  }
+                : {}),
             };
             const unchanged = nativeMetadataUnchanged(existingMeta, metadata);
+            const priorMuted =
+              isContentPolicyMutedMetadata(existingMeta?.title, existingMeta?.artist) ||
+              isContentPolicyMutedMetadata(
+                globalThis.__metaState?.lastStabilized?.title,
+                globalThis.__metaState?.lastStabilized?.artist,
+              ) ||
+              isActiveRelayContentPolicyMuted();
 
             storeNativeMetadataByKey(storageKey, metadata);
 
@@ -3487,16 +3934,21 @@ http.createServer(async (req, res) => {
             if (!unchanged) {
               logMetadataPostOutcome(
                 "stored",
-                `user=${userId} key=${storageKey} track="${title}" / "${artist}" ${describeAlbumArtForLog(metadata.albumArt)}${userWsId ? ` ws=${userWsId}` : " (relay pending)"}`,
+                `user=${userId} key=${storageKey} track="${displayTitle}" / "${displayArtist}" ${describeAlbumArtForLog(metadata.albumArt)}${userWsId ? ` ws=${userWsId}` : " (relay pending)"}${policyDeferred ? " (policy-pending)" : ""}${policyMuted ? " (policy-muted)" : ""}`,
               );
               logNativeMetadataOnce(
                 storageKey,
-                `📡 Native metadata stored for key=${storageKey}: ${title} by ${artist} (${describeAlbumArtForLog(metadata.albumArt)})`,
+                `📡 Native metadata stored for key=${storageKey}: ${displayTitle} by ${displayArtist} (${describeAlbumArtForLog(metadata.albumArt)})${policyDeferred ? " [policy-pending]" : ""}${policyMuted ? " [policy-muted]" : ""}`,
                 metadata,
               );
-              if (metadata.albumArt) {
+              if (metadata.albumArt && !policyDeferred) {
                 applySessionLogAlbumArt(metadata.title, metadata.artist, metadata.albumArt);
               }
+            } else if (policyMuted) {
+              logMetadataPostOutcome(
+                "stored",
+                `user=${userId} key=${storageKey} track="${displayTitle}" / "${displayArtist}" (policy-muted, unchanged)`,
+              );
             }
 
             if (!userWsId) {
@@ -3507,19 +3959,32 @@ http.createServer(async (req, res) => {
             }
             if (userWsId) {
               storeNativeMetadataByKey(nativeMetadataRailKey(userWsId), metadata);
+              const wsForStore = wsConnections.get(userWsId);
+              if (
+                wsForStore?.metadataInvalidatedAt &&
+                metadata.timestamp > wsForStore.metadataInvalidatedAt &&
+                metadata.sourceSite &&
+                metadata.sourceSite === wsForStore.capabilities?.site
+              ) {
+                delete wsForStore.metadataInvalidatedAt;
+              }
             }
 
-            const touchedRailIds = setRailPlaybackSnapshotsForUser(
-              userId,
-              {
-                title: metadata.title,
-                artist: metadata.artist,
-                albumArt: metadata.albumArt,
-              },
-              userWsId,
-            );
-            for (const railId of touchedRailIds) {
-              invalidateRailPlayback(railId);
+            const touchedRailIds = policyDeferred
+              ? new Set()
+              : setRailPlaybackSnapshotsForUser(
+                  userId,
+                  {
+                    title: metadata.title,
+                    artist: metadata.artist,
+                    albumArt: metadata.albumArt,
+                  },
+                  userWsId,
+                );
+            if (!policyDeferred) {
+              for (const railId of touchedRailIds) {
+                invalidateRailPlayback(railId);
+              }
             }
 
             const activeInfo = activeWsId ? wsConnections.get(activeWsId) : null;
@@ -3528,15 +3993,22 @@ http.createServer(async (req, res) => {
               (activeInfo && String(activeInfo.userId) === String(userId)) ||
               (broadcastStatus.active &&
                 String(broadcastStatus.broadcasterUserId) === String(userId));
-            if (postsToActiveRail) {
+
+            if (policyMuted && broadcastStatus.active) {
+              forceImmediateNowPlayingMetadata(displayTitle, displayArtist, metadata.albumArt);
+            } else if (postsToActiveRail && !policyDeferred) {
               if (isUsableAlbumArtUrl(metadata.albumArt)) {
                 albumArtCache.set(`${metadata.title.trim()}|||${metadata.artist.trim()}`, {
                   url: metadata.albumArt,
                   timestamp: Date.now(),
                 });
               }
-              updateDiscordBotFromMetadata(metadata.title, metadata.artist, false, null);
-              syncInternalSongMirror();
+              if (priorMuted) {
+                forceImmediateNowPlayingMetadata(metadata.title, metadata.artist, metadata.albumArt);
+              } else {
+                updateDiscordBotFromMetadata(metadata.title, metadata.artist, false, null);
+                syncInternalSongMirror();
+              }
             }
 
             // Clean up old entries (older than 5 minutes)
@@ -3546,7 +4018,13 @@ http.createServer(async (req, res) => {
             );
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: true, message: 'Metadata stored' }));
+            res.end(JSON.stringify({
+              success: true,
+              message: policyDeferred ? 'Metadata stored (policy pending)' : 'Metadata stored',
+              muted: policyMuted,
+              deferred: policyDeferred,
+              policy: policyMuted || policyDeferred ? policyDecision : undefined,
+            }));
           } catch (error) {
             console.error('Error parsing POST metadata:', error.message);
             res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -3597,6 +4075,9 @@ http.createServer(async (req, res) => {
 
       // Native metadata from extension (active broadcaster rail)
       let nativeMetadata = getNativeMetadataForActiveRail();
+      if (nativeMetadata && shouldHoldNowPlayingForPolicy()) {
+        nativeMetadata = null;
+      }
       if (nativeMetadata) {
         logNativeMetadataOnce(
           `use:active:${activeWsId}`,
@@ -3608,6 +4089,16 @@ http.createServer(async (req, res) => {
       // If no Last.fm data AND no native metadata, treat as disabled (idle only)
       if (!nativeMetadata && !user && !apiKey && !hasValidWsOverride && !activeWsHasLastfm) {
         if (broadcastStatus.active) {
+          if (isActiveRelayContentPolicyMuted()) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify(contentPolicyMutedNowPlayingPayload()));
+            return;
+          }
+          if (shouldHoldNowPlayingForPolicy()) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify(activeBroadcastWaitingMetadataPayload()));
+            return;
+          }
           if (metaState.lastPayload) {
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify(metaState.lastPayload));
@@ -3615,14 +4106,7 @@ http.createServer(async (req, res) => {
           }
 
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({
-            recenttracks: { track: [] },
-            waiting: true,
-            broadcaster: {
-              userId: broadcastStatus.broadcasterUserId || null,
-              displayName: broadcastStatus.broadcasterDisplayName || null,
-            },
-          }));
+          res.end(JSON.stringify(activeBroadcastWaitingMetadataPayload()));
           return;
         }
 
@@ -3880,6 +4364,26 @@ http.createServer(async (req, res) => {
         return;
       }
 
+      if (usingNativeMetadata && title === CONTENT_POLICY_MUTED_TITLE) {
+        commitNow();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(out));
+        return;
+      }
+
+      const leavingPolicyMute = !!(
+        current &&
+        current.title === CONTENT_POLICY_MUTED_TITLE &&
+        newMeta.title !== CONTENT_POLICY_MUTED_TITLE
+      );
+
+      if (leavingPolicyMute) {
+        commitNow();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(out));
+        return;
+      }
+
       if (anyChanged) {
         // If the same pending meta is already queued, do not reset the timer
         const samePending = !!(metaState.pending &&
@@ -3931,6 +4435,12 @@ http.createServer(async (req, res) => {
           }, STABILIZE_MS);
         }
 
+        if (shouldHoldNowPlayingForPolicy()) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(activeBroadcastWaitingMetadataPayload()));
+          return;
+        }
+
         // Serve the last stabilized payload if available; else serve current
         const payload = metaState.lastPayload || out;
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -3939,6 +4449,11 @@ http.createServer(async (req, res) => {
       }
 
       // No change: return last stabilized payload if present to avoid redundant UI updates
+      if (shouldHoldNowPlayingForPolicy()) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(activeBroadcastWaitingMetadataPayload()));
+        return;
+      }
       if (metaState.lastPayload) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(metaState.lastPayload));
@@ -4030,19 +4545,37 @@ http.createServer(async (req, res) => {
 
           const { supportsMediaControls, site, broadcasterName } = postData;
 
-          // Store capabilities for this websocket connection
           const wsInfo = wsConnections.get(userWsId);
+          const previousSite = wsInfo?.capabilities?.site ?? null;
+          const newSite = site || null;
+          const siteChanged = !!wsInfo && previousSite !== newSite;
+
           if (wsInfo) {
+            if (siteChanged) {
+              wsInfo.metadataInvalidatedAt = Date.now();
+              invalidateMetadataForSiteChange(userWsId, authUserId);
+              console.log(
+                `📡 Capabilities site changed ${previousSite ?? "(none)"} → ${newSite ?? "(none)"}; stale metadata cleared`,
+              );
+            }
             wsInfo.capabilities = {
               supportsMediaControls: !!supportsMediaControls,
-              site: site || null,
-              lastUpdated: Date.now()
+              site: newSite,
+              lastUpdated: Date.now(),
             };
             console.log(`📡 Capabilities updated for wsId ${userWsId}:`, wsInfo.capabilities);
           }
 
+          const policyResult = reapplyContentPolicyAfterCapabilitiesUpdate(authUserId, userWsId);
+
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, message: 'Capabilities stored' }));
+          res.end(JSON.stringify({
+            success: true,
+            message: 'Capabilities stored',
+            muted: policyResult.muted,
+            deferred: policyResult.deferred,
+            policy: policyResult.muted || policyResult.deferred ? policyResult.decision : undefined,
+          }));
         } catch (error) {
           console.error('Error parsing POST capabilities:', error.message);
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -6872,7 +7405,9 @@ function attachRailPcmFeed(wsId, outStream) {
       try {
         if (!Buffer.isBuffer(chunk) || chunk.length === 0) return;
 
-        sendAudioDataToWorker(chunk, wsId);
+        const connection = wsConnections.get(wsId);
+        const payload = connection?.contentPolicyMuted ? Buffer.alloc(chunk.length) : chunk;
+        sendAudioDataToWorker(payload, wsId);
       } catch {}
     };
 
@@ -7084,7 +7619,6 @@ relayWSS.on("connection", (ws, req) => {
           presenceActor: relayPresenceActor,
           remoteAddress: relayIp,
         });
-        backfillRailPlaybackFromNativeStore(wsId, userIdStr, broadcastName);
 
         try {
           ws.send(JSON.stringify({
@@ -7111,6 +7645,7 @@ relayWSS.on("connection", (ws, req) => {
           activeWsId = wsId;
           broadcastStatus.broadcasterUserId = userIdStr;
           broadcastStatus.broadcasterDisplayName = displayName;
+          beginFreshBroadcastSession(wsId, userIdStr);
           publishBroadcastStatusChanged("broadcaster");
           ensureBroadcasterRail(wsId);
           setLiveRail(wsId);

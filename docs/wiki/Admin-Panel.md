@@ -32,7 +32,7 @@ Optional voice bot that plays your station in Discord voice channels.
 |-------|---------|
 | **Enable voice bot** | Turn Discord integration on/off |
 | **Application ID (Client ID)** | From Discord Developer Portal |
-| **Bot Token** | Bot token (masked after save) |
+| **Bot Token** | Bot token (hidden by default; use the reveal control to view) |
 | **Public site URL** | Your HTTPS station URL (embed thumbnails, cover art) |
 
 **Actions:**
@@ -103,6 +103,17 @@ See [Authentik SSO Setup](./Authentik-SSO-Setup.md) for a step-by-step Authentik
 ---
 
 ## Tab: System
+
+**Content policy**
+
+CollabFM provides tools to help operators manage permitted audio sources during live broadcasts. Default settings use conservative example allowlists (e.g. NCS, Pixabay)—not a licensing guarantee. Administrators and broadcasters remain responsible for rights and compliance.
+
+- **Enable content policy enforcement**
+- **Safety rails** — global fallbacks locked until an admin confirms responsibility
+- **Fallback actions** — missing metadata, unmatched artist, unmatched source
+- **Source and artist allowlists**
+
+See [Content Policy](./Content-Policy.md) for full detail.
 
 **DJ leveling**
 

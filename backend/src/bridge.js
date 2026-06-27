@@ -20,6 +20,7 @@ import {
 import { handlePublicUserRoutes } from "./http/publicUser.js";
 import { handlePresenceRoutes } from "./http/presence.js";
 import { handleChatTypingRoutes } from "./http/chatTyping.js";
+import { handleContentPolicyRoutes } from "./http/contentPolicy.js";
 import { serveAuthenticatedStream, isStreamPath } from "./http/stream.js";
 export { verifyBroadcastDeviceFromRequest } from "./db/broadcastDevices.js";
 export { setPartyEffectsContext } from "./http/partyEffects.js";
@@ -33,6 +34,7 @@ import {
 import { ensureDefaultSettings } from "./settings/runtime.js";
 import { ensureOperationalSettings } from "./settings/operational.js";
 import { ensureIntegrationsSettings } from "./settings/integrations.js";
+import { ensureContentPolicySettings } from "./settings/contentPolicy.js";
 import { maybeAutoStartManagedVoiceBot } from "./voice/voiceBotManager.js";
 import { pruneOrphanBroadcastDevices } from "./db/broadcastDevices.js";
 import { purgeExpiredShareLinks } from "./db/shareLinks.js";
@@ -46,6 +48,7 @@ export function initV2({ storageDir, config }) {
   ensureDefaultSettings(config || {});
   ensureOperationalSettings(config || {});
   ensureIntegrationsSettings(config || {});
+  ensureContentPolicySettings();
   pruneExpiredSessions();
   setInterval(() => pruneExpiredSessions(), 60 * 60 * 1000);
   v2Ready = true;
@@ -124,6 +127,9 @@ export async function tryHandleV2Request(req, res, pathname, method, configFile 
 
   const discordResult = await handlePublicDiscordRoutes(req, res, pathname, method);
   if (discordResult !== false) return true;
+
+  const contentPolicyResult = await handleContentPolicyRoutes(req, res, pathname, method);
+  if (contentPolicyResult !== false) return true;
 
   const adminResult = await handleAdminRoutes(req, res, pathname, method);
   if (adminResult !== false) return true;

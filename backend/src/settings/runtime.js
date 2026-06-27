@@ -28,9 +28,10 @@ export function ensureDefaultSettings(configFile = {}) {
 
 export function getVoiceBotConfig(configFile = {}) {
   const stored = getSetting("voiceBot", {});
-  const legacy = configFile.relayBot || {};
+  const legacy = configFile.relayBot || configFile.discord || {};
   return {
     ...VOICE_BOT_DEFAULTS,
+    ...stored,
     clientId: stored.clientId || legacy.clientId || "",
     botToken: stored.botToken || legacy.botToken || "",
     enabled: stored.enabled !== false,

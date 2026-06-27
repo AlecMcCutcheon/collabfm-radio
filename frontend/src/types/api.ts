@@ -209,9 +209,30 @@ export interface WhitelistEntry {
   created_at?: string;
 }
 
+export type ContentPolicyAction = "allow" | "warn" | "deny";
+export type ContentPolicyMatch = "source" | "artist" | "metadata_missing";
+
+export interface ContentPolicyRule {
+  id: string;
+  match: ContentPolicyMatch;
+  value: string;
+  action: ContentPolicyAction;
+  altNames?: string[];
+}
+
+export interface ContentPolicy {
+  enabled: boolean;
+  rules: ContentPolicyRule[];
+  metadataMissing: ContentPolicyAction;
+  sourceNoMatch: ContentPolicyAction;
+  artistNoMatch: ContentPolicyAction;
+  defaultAction: ContentPolicyAction;
+}
+
 export interface VoiceBotConfig {
   clientId: string;
   botToken: string;
+  botTokenConfigured?: boolean;
   enabled: boolean;
   publicBaseUrl?: string;
   verified?: VoiceBotVerified | null;

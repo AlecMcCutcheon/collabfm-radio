@@ -12,6 +12,7 @@ import {
 import { getUserById } from "../db/index.js";
 import { publishNowPlayingSocialChanged, publishBroadcastSessionLogChanged } from "./liveEvents.js";
 import { appendSessionTrack } from "../radio/broadcastSessionLog.js";
+import { isContentPolicyMutedMetadata } from "../content/contentPolicy.js";
 import { pushDiscordHeartReaction } from "./partyEffects.js";
 
 let trackSessionId = "";
@@ -24,10 +25,14 @@ export function setLevelingContext(ctx = {}) {
 }
 
 export function bumpTrackSession(title, artist, albumArt = null) {
-  trackSessionId = `${String(title || "").trim()}|||${String(artist || "").trim()}:${Date.now()}`;
-  const status = broadcastCtx.getBroadcastStatus?.() ?? {};
   const trackTitle = String(title || "").trim();
   const trackArtist = String(artist || "").trim();
+  if (isContentPolicyMutedMetadata(trackTitle, trackArtist)) {
+    return trackSessionId;
+  }
+
+  trackSessionId = `${trackTitle}|||${trackArtist}:${Date.now()}`;
+  const status = broadcastCtx.getBroadcastStatus?.() ?? {};
   const resolvedArt =
     albumArt ||
     broadcastCtx.getAlbumArtForTrack?.(trackTitle, trackArtist) ||

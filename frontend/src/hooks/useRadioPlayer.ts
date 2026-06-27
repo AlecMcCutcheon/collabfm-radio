@@ -303,14 +303,15 @@ export function useRadioPlayer(options?: { shareToken?: string }) {
       ]);
 
       const parsed = parseMetadataResponse(rawMeta);
+      const broadcast = status as BroadcastStatus;
       if (parsed) {
         parsed.albumArt = appendShareTokenToAssetUrl(parsed.albumArt, shareToken);
         setMetadata(parsed);
+      } else if (broadcast.active || playing) {
+        setMetadata({ title: "N/A", artist: "N/A" });
       } else if (!playing) {
         setMetadata({ title: "N/A", artist: "N/A" });
       }
-
-      const broadcast = status as BroadcastStatus;
       setStreamActive(!!broadcast.active);
       setBroadcastStartTime(broadcast.startTime ? new Date(broadcast.startTime) : null);
       setLastDisconnect(broadcast.lastDisconnect ? new Date(broadcast.lastDisconnect) : null);

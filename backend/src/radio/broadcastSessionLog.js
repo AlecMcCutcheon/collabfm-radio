@@ -1,3 +1,5 @@
+import { isContentPolicyMutedMetadata } from "../content/contentPolicy.js";
+
 const MAX_SESSION_SONGS = 100;
 
 /** @type {string | null} */
@@ -29,6 +31,10 @@ export function appendSessionTrack({
 }) {
   if (!sessionKey || !trackSessionId) return;
 
+  const trackTitle = String(title || "").trim();
+  const trackArtist = String(artist || "").trim();
+  if (isContentPolicyMutedMetadata(trackTitle, trackArtist)) return;
+
   const now = Number(startedAt) || Date.now();
   if (sessionSongs.length > 0) {
     const prev = sessionSongs[sessionSongs.length - 1];
@@ -38,8 +44,8 @@ export function appendSessionTrack({
 
   sessionSongs.push({
     trackSessionId: String(trackSessionId),
-    title: String(title || "").trim(),
-    artist: String(artist || "").trim(),
+    title: trackTitle,
+    artist: trackArtist,
     albumArt: albumArt ? String(albumArt) : null,
     fromRequest: false,
     requestSongKey: null,
@@ -60,6 +66,7 @@ export function updateSessionTrackAlbumArtByTitleArtist(title, artist, albumArt)
   const trackTitle = String(title || "").trim();
   const trackArtist = String(artist || "").trim();
   if (!sessionKey || !art || !trackTitle || !trackArtist) return null;
+  if (isContentPolicyMutedMetadata(trackTitle, trackArtist)) return null;
 
   for (let i = sessionSongs.length - 1; i >= 0; i--) {
     const song = sessionSongs[i];
@@ -123,6 +130,8 @@ export function markSessionTrackFromRequest({
 export function getBroadcastSessionLogSnapshot() {
   return {
     sessionKey,
-    songs: sessionSongs.map((song) => ({ ...song })),
+    songs: sessionSongs
+      .filter((song) => !isContentPolicyMutedMetadata(song.title, song.artist))
+      .map((song) => ({ ...song })),
   };
 }

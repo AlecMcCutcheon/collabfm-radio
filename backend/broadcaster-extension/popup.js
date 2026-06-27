@@ -1128,6 +1128,12 @@ chrome.runtime.onMessage.addListener(async (message) => {
     }
   } else if (message.type === "METADATA_UPDATE") {
     updateMetadataDisplay(message.metadata);
+  } else if (message.type === "POLICY_MUTED") {
+    updateStatus(message.message || "Stream muted by content policy", "warn");
+  } else if (message.type === "POLICY_UNMUTED") {
+    updateStatus("Broadcasting live", "success");
+  } else if (message.type === "POLICY_BLOCKED") {
+    updateStatus(message.message || "Blocked by station content policy", "error");
   }
 });
 

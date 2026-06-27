@@ -5,11 +5,13 @@ import { notifyStationFeaturesChanged } from "../context/BrandingFeaturesContext
 import { useAuthStatus } from "../hooks/useAuthStatus";
 import { AdminBackButton } from "../components/admin/AdminNavButton";
 import { AdminUserRow } from "../components/admin/AdminUserRow";
+import { ContentPolicyAdminSection } from "../components/admin/ContentPolicyAdminSection";
 import {
   AdminBtn,
   AdminCheckbox,
   AdminField,
   AdminInput,
+  AdminSecretInput,
   AdminSection,
   AdminSelect,
   AdminTabBar,
@@ -572,7 +574,15 @@ export function AdminPage() {
                 <AdminInput className="font-mono text-xs" value={voiceBot.clientId} onChange={(e) => setVoiceBot({ ...voiceBot, clientId: e.target.value })} placeholder="123456789012345678" />
               </AdminField>
               <AdminField label="Bot Token">
-                <AdminInput type="password" className="font-mono text-xs" value={voiceBot.botToken} onChange={(e) => setVoiceBot({ ...voiceBot, botToken: e.target.value })} placeholder={voiceBot.botToken === "********" ? "********" : "Paste bot token"} />
+                <AdminSecretInput
+                  className="font-mono text-xs"
+                  value={voiceBot.botToken}
+                  onChange={(e) => setVoiceBot({ ...voiceBot, botToken: e.target.value })}
+                  placeholder={voiceBot.botToken ? "Bot token saved" : "Paste bot token"}
+                  revealLabel="Show bot token"
+                  hideLabel="Hide bot token"
+                  autoComplete="off"
+                />
               </AdminField>
               <AdminField
                 label="Public site URL"
@@ -1009,6 +1019,8 @@ export function AdminPage() {
                 Save broadcast settings
               </AdminBtn>
             </AdminSection>
+
+            <ContentPolicyAdminSection flash={flash} onError={setError} />
 
             <AdminSection
               title="Integrations"

@@ -32,6 +32,7 @@ import type {
   LevelingSettings,
   BroadcastSettings,
   BroadcastSessionLog,
+  ContentPolicy,
 } from "../types/api";
 
 const API = apiUrl("/api");
@@ -560,6 +561,29 @@ export const api = {
     ),
 
   adminStream: () => json<StreamInfo>(`${API}/admin/stream`),
+
+  adminContentPolicy: () =>
+    json<{ policy: ContentPolicy }>(`${API}/admin/content-policy`),
+
+  saveAdminContentPolicy: (policy: ContentPolicy) =>
+    json<{ ok: boolean; policy: ContentPolicy }>(
+      `${API}/admin/content-policy`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ policy }),
+      },
+    ),
+
+  resetAdminContentPolicy: () =>
+    json<{ ok: boolean; policy: ContentPolicy }>(
+      `${API}/admin/content-policy`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetDefaults: true }),
+      },
+    ),
 
   adminShareLinks: () =>
     json<{ links: ShareLink[]; ttlOptions: string[] }>(`${API}/admin/share-links`),

@@ -3,6 +3,11 @@ import { extensionLog } from "./extension-log.js";
 import { resolveRadioEndpoints } from "./radio-config.js";
 import { syncGuestAuthDisplayName } from "./guest-auth.js";
 import { syncPairedDeviceDisplayName } from "./pair-auth.js";
+import {
+  extensionStorageGet,
+  extensionStorageRemove,
+  extensionStorageSet,
+} from "./extension-storage.js";
 
 let ws = null;
 let recorder = null;
@@ -12,6 +17,8 @@ let tabStream = null;
 let currentTabId = null;
 let currentAudioSource = null; // Track current audio source for proper cleanup
 let broadcastStatus = 'disconnected';
+let contentPolicyMuted = false;
+let currentStreamVolume = 1;
 let isOperating = false; // Prevent overlapping operations
 let isCleaningUp = false; // Prevent overlapping cleanups
 
@@ -64,7 +71,7 @@ function authHeaders() {
 
 async function reloadAuthFromStorage() {
   try {
-    const stored = await chrome.storage.local.get([
+    const stored = await extensionStorageGet([
       "pairedDevice",
       "guestAuth",
       "apiOrigin",
@@ -90,6 +97,24 @@ async function ensureAuthenticated() {
   return !!(currentDeviceToken || (currentGuestAuth?.shareToken && currentGuestAuth?.guestId));
 }
 
+function applyContentPolicyMuteState(muted, summary) {
+  const nextMuted = !!muted;
+  const wasMuted = contentPolicyMuted;
+  contentPolicyMuted = nextMuted;
+  if (gainNode) {
+    gainNode.gain.value = contentPolicyMuted ? 0 : currentStreamVolume;
+  }
+  if (nextMuted && !wasMuted) {
+    const message = summary
+      ? `Content policy: ${summary} — stream muted until an allowed track plays.`
+      : "Content policy: stream muted until an allowed track plays.";
+    extensionLog("offscreen", "Content policy mute active", { message }, "warn");
+    chrome.runtime.sendMessage({ type: "POLICY_MUTED", message }).catch(() => {});
+  } else if (!nextMuted && wasMuted) {
+    chrome.runtime.sendMessage({ type: "POLICY_UNMUTED" }).catch(() => {});
+  }
+}
+
 // Function to send metadata to backend (gated by broadcast + auth)
 async function sendMetadataToBackend(metadata) {
   try {
@@ -112,6 +137,7 @@ async function sendMetadataToBackend(metadata) {
       ...metadata,
       broadcasterName: currentBroadcastName,
       railId: currentRailId,
+      source: lastTabCapabilities?.site || null,
     });
 
     const maxAttempts = 3;
@@ -125,11 +151,18 @@ async function sendMetadataToBackend(metadata) {
           body: JSON.stringify(metadataWithBroadcaster)
         });
         if (response.ok) {
-          const result = await response.json();
+          const result = await response.json().catch(() => ({}));
+          if (result?.muted) {
+            applyContentPolicyMuteState(true, result?.policy?.summary || null);
+          } else {
+            applyContentPolicyMuteState(false);
+          }
           extensionLog("offscreen", "Metadata synced to radio site", {
             api: apiBase,
             title: metadataWithBroadcaster.title,
             artist: metadataWithBroadcaster.artist,
+            muted: !!result?.muted,
+            deferred: !!result?.deferred,
             result,
           });
           void publishTabCapabilities();
@@ -199,11 +232,18 @@ async function sendCapabilityToBackend(capabilities) {
           body: JSON.stringify(capabilitiesWithBroadcaster)
         });
         if (response.ok) {
-          const result = await response.json();
+          const result = await response.json().catch(() => ({}));
+          if (result?.muted) {
+            applyContentPolicyMuteState(true, result?.policy?.summary || null);
+          } else {
+            applyContentPolicyMuteState(false);
+          }
           extensionLog("offscreen", "Media controls registered on site", {
             api: apiBase,
             supportsMediaControls: capabilitiesWithBroadcaster.supportsMediaControls,
             site: capabilitiesWithBroadcaster.site,
+            muted: !!result?.muted,
+            deferred: !!result?.deferred,
           });
           return;
         }
@@ -278,7 +318,7 @@ function startCapabilityResync() {
     void (async () => {
       if (currentGuestAuth && currentApiOrigin) {
         try {
-          const stored = await chrome.storage.local.get(["guestAuth"]);
+          const stored = await extensionStorageGet(["guestAuth"]);
           if (
             stored.guestAuth?.guestId === currentGuestAuth.guestId &&
             stored.guestAuth?.guestName
@@ -288,18 +328,19 @@ function startCapabilityResync() {
         } catch {
           /* ignore */
         }
-        const synced = await syncGuestAuthDisplayName(currentGuestAuth, currentApiOrigin);
+        let synced = currentGuestAuth;
+        try {
+          synced = await syncGuestAuthDisplayName(currentGuestAuth, currentApiOrigin);
+        } catch {
+          /* ignore */
+        }
         if (synced.guestName !== currentGuestAuth.guestName) {
           currentGuestAuth = synced;
-          try {
-            await chrome.storage.local.set({ guestAuth: synced });
-          } catch {
-            /* ignore */
-          }
+          await extensionStorageSet({ guestAuth: synced });
         }
       } else if (currentDeviceToken && currentApiOrigin) {
         try {
-          const stored = await chrome.storage.local.get(["pairedDevice"]);
+          const stored = await extensionStorageGet(["pairedDevice"]);
           const paired = stored.pairedDevice;
           if (paired?.deviceToken) {
             await syncPairedDeviceDisplayName(paired, currentApiOrigin);
@@ -480,8 +521,9 @@ async function startContentScriptMetadataMonitoring() {
 }
 
 // Function to stop metadata monitoring via content script
-async function stopContentScriptMetadataMonitoring() {
-  if (!currentTabId) {
+async function stopContentScriptMetadataMonitoring(tabId = currentTabId) {
+  const targetTabId = tabId;
+  if (!targetTabId) {
     return;
   }
 
@@ -489,16 +531,18 @@ async function stopContentScriptMetadataMonitoring() {
     // Send message to content script to stop monitoring via background script
     await chrome.runtime.sendMessage({
       type: 'STOP_METADATA_MONITORING',
-      tabId: currentTabId
+      tabId: targetTabId
     });
-    console.log('Content script metadata monitoring stopped');
+    console.log(`Content script metadata monitoring stopped for tab ${targetTabId}`);
   } catch (error) {
     // Tab might have closed or navigation occurred - this is expected
-    console.log('Could not stop content script monitoring (tab may have changed):', error.message);
+    console.log(`Could not stop content script monitoring for tab ${targetTabId}:`, error.message);
   }
-  // Stop heartbeat timer
-  try { if (contentHeartbeatTimer) clearInterval(contentHeartbeatTimer); } catch {}
-  contentHeartbeatTimer = null;
+
+  if (targetTabId === currentTabId) {
+    try { if (contentHeartbeatTimer) clearInterval(contentHeartbeatTimer); } catch {}
+    contentHeartbeatTimer = null;
+  }
 }
 
 // Function to send metadata update to popup for display
@@ -753,7 +797,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Handle async operations
   (async () => {
     try {
-      if (message.type === 'START_BROADCAST') {
+      if (message.type === 'START_BROADCAST' && message._offscreenTarget) {
         const result = await startBroadcast(
           message.tabId,
           message.streamId,
@@ -765,11 +809,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         );
         sendResponse(result);
       } 
-      else if (message.type === 'STOP_BROADCAST') {
+      else if (message.type === 'STOP_BROADCAST' && message._offscreenTarget) {
         await stopBroadcastAsync();
         sendResponse({ success: true, status: 'disconnected' });
       }
-      else if (message.type === 'SWITCH_TAB') {
+      else if (message.type === 'SWITCH_TAB' && message._offscreenTarget) {
         const result = await switchTab(
           message.tabId,
           message.streamId,
@@ -822,7 +866,7 @@ async function startBroadcast(tabId, streamId, relayUrl, volume, apiOriginOpt, d
     currentGuestAuth = guestAuthOpt || null;
     if (!currentDeviceToken && !currentGuestAuth) {
       try {
-        const stored = await chrome.storage.local.get(['pairedDevice', 'guestAuth', 'apiOrigin']);
+        const stored = await extensionStorageGet(['pairedDevice', 'guestAuth', 'apiOrigin']);
         currentDeviceToken = stored.pairedDevice?.deviceToken || null;
         currentGuestAuth = stored.guestAuth || null;
         currentApiOrigin = currentApiOrigin || stored.apiOrigin || stored.pairedDevice?.apiOrigin || null;
@@ -837,8 +881,11 @@ async function startBroadcast(tabId, streamId, relayUrl, volume, apiOriginOpt, d
 
     currentTabId = tabId;
     broadcastStatus = 'connecting';
+    currentStreamVolume = volume || 1;
+    contentPolicyMuted = false;
     currentMetadata = null;
     lastSentMetadata = null;
+    lastTabCapabilities = null;
     void startMetadataMonitoring();
 
     // Get the media stream using the stream ID from popup
@@ -887,7 +934,8 @@ async function startBroadcast(tabId, streamId, relayUrl, volume, apiOriginOpt, d
 
     // Volume control
     gainNode = audioCtx.createGain();
-    gainNode.gain.value = volume || 1;
+    currentStreamVolume = volume || 1;
+    gainNode.gain.value = contentPolicyMuted ? 0 : currentStreamVolume;
     currentAudioSource.connect(gainNode);
 
     const destination = audioCtx.createMediaStreamDestination();
@@ -904,11 +952,7 @@ async function startBroadcast(tabId, streamId, relayUrl, volume, apiOriginOpt, d
       let tokenRes;
       if (currentGuestAuth) {
         currentGuestAuth = await syncGuestAuthDisplayName(currentGuestAuth, apiOrigin);
-        try {
-          await chrome.storage.local.set({ guestAuth: currentGuestAuth });
-        } catch {
-          /* ignore */
-        }
+        await extensionStorageSet({ guestAuth: currentGuestAuth });
         tokenRes = await fetch(`${apiOrigin}/api/extension/guest/ws-token`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -921,7 +965,7 @@ async function startBroadcast(tabId, streamId, relayUrl, volume, apiOriginOpt, d
         });
         if (tokenRes.status === 403) {
           try {
-            await chrome.storage.local.remove(['guestAuth']);
+            await extensionStorageRemove(['guestAuth']);
           } catch {}
           throw new Error('Guest broadcaster link expired or invalid. Paste a new link in the extension.');
         }
@@ -932,7 +976,7 @@ async function startBroadcast(tabId, streamId, relayUrl, volume, apiOriginOpt, d
         });
         if (tokenRes.status === 401 || tokenRes.status === 403) {
           try {
-            await chrome.storage.local.remove(['pairedDevice', 'pendingPair']);
+            await extensionStorageRemove(['pairedDevice', 'pendingPair']);
           } catch {}
           throw new Error('Device pairing is no longer valid. Open the extension and pair again.');
         }
@@ -980,6 +1024,8 @@ async function startBroadcast(tabId, streamId, relayUrl, volume, apiOriginOpt, d
         broadcastStatus = 'connected';
         metadataAuthCooldownUntil = 0;
         capabilitiesAuthCooldownUntil = 0;
+        lastTabCapabilities = null;
+        void publishTabCapabilities({ supportsMediaControls: false, site: null });
         extensionLog("offscreen", "Relay connected — broadcasting", {
           api: currentApiOrigin || getApiBaseUrl(),
           relay: currentRelayUrl,
@@ -1222,8 +1268,10 @@ async function switchTab(newTabId, newStreamId, volume = 1) {
 
   isOperating = true;
 
+  const previousTabId = currentTabId;
+
   try {
-    console.log('Switching tab from', currentTabId, 'to', newTabId, 'with streamId:', newStreamId);
+    console.log('Switching tab from', previousTabId, 'to', newTabId, 'with streamId:', newStreamId);
 
     // Get the new media stream using the new stream ID
     let newTabStream;
@@ -1276,7 +1324,10 @@ async function switchTab(newTabId, newStreamId, volume = 1) {
 
       // Update volume if provided
       if (gainNode) {
-        gainNode.gain.value = volume;
+        if (typeof volume === "number") {
+          currentStreamVolume = volume;
+        }
+        gainNode.gain.value = contentPolicyMuted ? 0 : currentStreamVolume;
       }
 
       // Connect new source to the existing processing chain
@@ -1292,22 +1343,26 @@ async function switchTab(newTabId, newStreamId, volume = 1) {
       throw new Error('Audio context is closed or not available');
     }
 
-    // Always update the current tab ID (this is the important part for the switch)
-    currentTabId = newTabId;
+    if (previousTabId != null && previousTabId !== newTabId) {
+      console.log(`Tab switched from ${previousTabId} to ${newTabId}, resetting metadata state`);
 
-    // Reset metadata state when switching tabs to avoid stale data
-    if (lastKnownTabId !== null) {
-      console.log(`Tab switched to ${newTabId}, resetting metadata state for new tab`);
-      
-      // Stop content script monitoring on the old tab
-      stopContentScriptMetadataMonitoring().catch(error => {
-        console.log('Error stopping metadata monitoring on tab switch:', error.message);
-      });
-      
+      stopCapabilityResync();
+      stopMetadataBootstrapPoll();
+      stopMetadataResync();
+
+      await stopContentScriptMetadataMonitoring(previousTabId);
+
       currentMetadata = null;
       lastSentMetadata = null;
-      lastKnownTabId = null; // Force tab change detection in next check
+      lastKnownTabId = null;
+      lastTabCapabilities = null;
+
+      if (broadcastStatus === "connected") {
+        void publishTabCapabilities({ supportsMediaControls: false, site: null });
+      }
     }
+
+    currentTabId = newTabId;
 
     // Notify background/popup of successful tab switch (don't wait for response)
     try {
@@ -1321,9 +1376,7 @@ async function switchTab(newTabId, newStreamId, volume = 1) {
       // Ignore - listener might not exist
     }
 
-    startMetadataMonitoring().catch(error => {
-      console.error('Failed to restart metadata monitoring after tab switch:', error);
-    });
+    await startMetadataMonitoring();
 
     return {
       success: true,

@@ -18,6 +18,7 @@ interface LastFmTrack {
 
 interface LastFmPayload {
   disabled?: boolean;
+  waiting?: boolean;
   recenttracks?: { track?: LastFmTrack | LastFmTrack[] };
   title?: string;
   artist?: string;
@@ -63,7 +64,7 @@ export function parseMetadataResponse(data: unknown): SongMetadata | null {
   if (!data || typeof data !== "object") return null;
 
   const payload = data as LastFmPayload;
-  if (payload.disabled) return null;
+  if (payload.disabled || payload.waiting) return null;
 
   if (payload.title && payload.artist) {
     return {

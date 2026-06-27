@@ -13,11 +13,120 @@ if (window.radioBroadcasterContentScriptLoaded) {
   
   let metadataInterval = null;
   let metadataBootstrapTimers = [];
+  let ncsDomObserver = null;
+  let ncsDomCheckTimer = null;
+  let ncsDomReadyListener = null;
   let lastSentMetadata = null;
   let metadataUnavailableCount = 0;
   let isPageUnloading = false;
   let lastSentCapabilities = null;
   const MAX_UNAVAILABLE_COUNT = 3; // Only clear metadata after 3 consecutive failed checks
+
+  function isNcsSite() {
+    try {
+      const host = window.location.hostname.replace(/^www\./, "");
+      return host === "ncs.io" || host.endsWith(".ncs.io");
+    } catch {
+      return false;
+    }
+  }
+
+  function cleanDomText(el) {
+    return el?.textContent?.replace(/\s+/g, " ").trim() || "";
+  }
+
+  function getNcsCoverArt(root = document) {
+    const img =
+      root.querySelector("div.cover img.x-player-cover") ||
+      root.querySelector("img.x-player-cover");
+    const src = String(img?.getAttribute("src") || img?.src || "").trim();
+    if (!src || src.startsWith("data:")) return null;
+    return src;
+  }
+
+  function getNcsPlayerMeta() {
+    const title = cleanDomText(document.querySelector(".x-player-track"));
+    const artist = cleanDomText(document.querySelector(".x-player-artist"));
+    if (!title || !artist) return null;
+    return { title, artist, albumArt: getNcsCoverArt() };
+  }
+
+  function getNcsPageMeta() {
+    const section = document.querySelector("section.player-nest");
+    if (!section) return null;
+
+    const titleEl = section.querySelector("h2");
+    if (!titleEl) return null;
+
+    const artists = Array.from(titleEl.querySelectorAll("a"))
+      .map(cleanDomText)
+      .filter(Boolean);
+    const artist = artists.join(", ");
+    if (!artist) return null;
+
+    const titleClone = titleEl.cloneNode(true);
+    for (const link of titleClone.querySelectorAll("a")) {
+      link.remove();
+    }
+    const title = cleanDomText(titleClone);
+    if (!title) return null;
+
+    return { title, artist, albumArt: getNcsCoverArt(section) || getNcsCoverArt() };
+  }
+
+  function getNcsDomMetadata() {
+    return getNcsPageMeta() || getNcsPlayerMeta();
+  }
+
+  function stopNcsDomObserver() {
+    if (ncsDomObserver) {
+      ncsDomObserver.disconnect();
+      ncsDomObserver = null;
+    }
+    if (ncsDomReadyListener) {
+      document.removeEventListener("DOMContentLoaded", ncsDomReadyListener);
+      ncsDomReadyListener = null;
+    }
+    if (ncsDomCheckTimer) {
+      clearTimeout(ncsDomCheckTimer);
+      ncsDomCheckTimer = null;
+    }
+  }
+
+  function scheduleNcsDomCheck() {
+    if (ncsDomCheckTimer) clearTimeout(ncsDomCheckTimer);
+    ncsDomCheckTimer = setTimeout(() => {
+      ncsDomCheckTimer = null;
+      void checkMetadata();
+    }, 150);
+  }
+
+  function startNcsDomObserver() {
+    stopNcsDomObserver();
+
+    const attach = () => {
+      if (!document.body) return;
+      ncsDomObserver = new MutationObserver(() => {
+        scheduleNcsDomCheck();
+      });
+      ncsDomObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    };
+
+    if (document.body) {
+      attach();
+      return;
+    }
+
+    ncsDomReadyListener = () => {
+      ncsDomReadyListener = null;
+      attach();
+    };
+    document.addEventListener("DOMContentLoaded", ncsDomReadyListener);
+  }
 
   function clearMetadataBootstrapTimers() {
     for (const timer of metadataBootstrapTimers) {
@@ -91,8 +200,15 @@ if (window.radioBroadcasterContentScriptLoaded) {
     return null;
   }
 
-  // Function to get current MediaSession metadata
+  // Function to get current metadata (site-specific DOM scrapers, then MediaSession)
   async function getCurrentMetadata() {
+    if (isNcsSite()) {
+      const ncsMeta = getNcsDomMetadata();
+      if (ncsMeta?.title && ncsMeta?.artist) {
+        return ncsMeta;
+      }
+    }
+
     try {
       if (!navigator.mediaSession) {
         console.log('[Radio Broadcaster] Navigator.mediaSession not available');
@@ -480,6 +596,7 @@ if (window.radioBroadcasterContentScriptLoaded) {
         metadataInterval = null;
       }
       clearMetadataBootstrapTimers();
+      stopNcsDomObserver();
 
       // Always restart fresh so reconnect picks up MediaSession without a page reload.
       lastSentMetadata = null;
@@ -506,6 +623,9 @@ if (window.radioBroadcasterContentScriptLoaded) {
       console.log('[Radio Broadcaster] Performing initial metadata bootstrap checks');
       bindMediaSessionMetadataEvents();
       scheduleMetadataBootstrapChecks();
+      if (isNcsSite()) {
+        startNcsDomObserver();
+      }
       void checkMetadata();
 
       if (message.forceRestart !== false) {
@@ -534,6 +654,7 @@ if (window.radioBroadcasterContentScriptLoaded) {
         metadataInterval = null;
       }
       clearMetadataBootstrapTimers();
+      stopNcsDomObserver();
 
       lastSentMetadata = null;
 
@@ -556,6 +677,7 @@ if (window.radioBroadcasterContentScriptLoaded) {
       metadataInterval = null;
     }
     clearMetadataBootstrapTimers();
+    stopNcsDomObserver();
   });
   try {
     window.addEventListener('pagehide', () => { isPageUnloading = true; });

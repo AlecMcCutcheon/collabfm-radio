@@ -1,3 +1,9 @@
+import {
+  extensionStorageGet,
+  extensionStorageRemove,
+  extensionStorageSet,
+} from "./extension-storage.js";
+
 const GUEST_ID_KEY = "radioGuestId";
 const LEGACY_GUEST_ID_KEY = "extensionGuestId";
 const GUEST_NICKNAME_KEY = "radioGuestNickname";
@@ -112,16 +118,16 @@ async function migrateLegacyGuestStorage(stored) {
     removals.push(LEGACY_NICKNAME_KEY);
   }
   if (Object.keys(updates).length) {
-    await chrome.storage.local.set(updates);
+    await extensionStorageSet(updates);
   }
   if (removals.length) {
-    await chrome.storage.local.remove(removals);
+    await extensionStorageRemove(removals);
   }
   return { ...stored, ...updates };
 }
 
 export async function getOrCreateGuestId() {
-  let stored = await chrome.storage.local.get([
+  let stored = await extensionStorageGet([
     GUEST_ID_KEY,
     LEGACY_GUEST_ID_KEY,
     GUEST_NICKNAME_KEY,
@@ -130,15 +136,15 @@ export async function getOrCreateGuestId() {
   stored = await migrateLegacyGuestStorage(stored);
   if (stored[GUEST_ID_KEY]) return stored[GUEST_ID_KEY];
   const guestId = randomGuestId();
-  await chrome.storage.local.set({ [GUEST_ID_KEY]: guestId });
+  await extensionStorageSet({ [GUEST_ID_KEY]: guestId });
   return guestId;
 }
 
 export async function linkGuestId(guestIdInput) {
   const id = parseGuestIdInput(guestIdInput);
   if (!id) return null;
-  await chrome.storage.local.set({ [GUEST_ID_KEY]: id });
-  await chrome.storage.local.remove([GUEST_NICKNAME_KEY, LEGACY_NICKNAME_KEY]);
+  await extensionStorageSet({ [GUEST_ID_KEY]: id });
+  await extensionStorageRemove([GUEST_NICKNAME_KEY, LEGACY_NICKNAME_KEY]);
   return id;
 }
 
@@ -149,7 +155,7 @@ export async function resolveGuestIdentity(shareToken, { guestIdDraft } = {}) {
   }
 
   const guestId = linkedId || (await getOrCreateGuestId());
-  const stored = await chrome.storage.local.get([GUEST_NICKNAME_KEY, LEGACY_NICKNAME_KEY]);
+  const stored = await extensionStorageGet([GUEST_NICKNAME_KEY, LEGACY_NICKNAME_KEY]);
   const customNickname = stored[GUEST_NICKNAME_KEY] || stored[LEGACY_NICKNAME_KEY] || "";
   const sanitized = customNickname ? sanitizeGuestNickname(customNickname) : "";
   const proceduralName = proceduralGuestName(shareToken, guestId);
@@ -162,7 +168,7 @@ export async function applyLocalGuestProfile({ guestId, guestName, customNicknam
   const name = sanitizeGuestNickname(guestName);
   if (!id || !name) return;
 
-  const stored = await chrome.storage.local.get(["guestAuth", GUEST_NICKNAME_KEY]);
+  const stored = await extensionStorageGet(["guestAuth", GUEST_NICKNAME_KEY]);
   const updates = {};
   if (stored.guestAuth?.guestId === id) {
     updates.guestAuth = { ...stored.guestAuth, guestName: name };
@@ -173,10 +179,10 @@ export async function applyLocalGuestProfile({ guestId, guestName, customNicknam
   }
 
   if (Object.keys(updates).length) {
-    await chrome.storage.local.set(updates);
+    await extensionStorageSet(updates);
   }
   if (!custom && stored[GUEST_NICKNAME_KEY]) {
-    await chrome.storage.local.remove(GUEST_NICKNAME_KEY);
+    await extensionStorageRemove(GUEST_NICKNAME_KEY);
   }
 }
 
@@ -191,14 +197,13 @@ export async function applyServerGuestDisplayName(guestAuth, serverName, shareTo
   if (!name || !guestAuth || name === guestAuth.guestName) return guestAuth;
 
   const proceduralName = proceduralGuestName(shareToken, guestAuth.guestId);
-  const updates = {
-    guestAuth: { ...guestAuth, guestName: name },
-  };
+  const nextGuestAuth = { ...guestAuth, guestName: name };
+  const updates = { guestAuth: nextGuestAuth };
   if (name !== proceduralName) {
     updates[GUEST_NICKNAME_KEY] = name;
   }
-  await chrome.storage.local.set(updates);
-  return updates.guestAuth;
+  await extensionStorageSet(updates);
+  return nextGuestAuth;
 }
 
 export async function syncGuestAuthDisplayName(guestAuth, apiOrigin) {
@@ -215,7 +220,7 @@ export async function syncGuestAuthDisplayName(guestAuth, apiOrigin) {
     if (!res.ok) return guestAuth;
     const data = await res.json();
     if (data.guestDisplayName) {
-      return applyServerGuestDisplayName(guestAuth, data.guestDisplayName, guestAuth.shareToken);
+      return await applyServerGuestDisplayName(guestAuth, data.guestDisplayName, guestAuth.shareToken);
     }
   } catch {
     /* ignore */

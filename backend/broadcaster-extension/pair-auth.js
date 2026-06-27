@@ -1,3 +1,5 @@
+import { extensionStorageSet } from "./extension-storage.js";
+
 /** On-air label for paired extension auth (profile nickname, not device label). */
 export function pairedAuthDisplayName(paired) {
   const name = paired?.displayName || paired?.username || paired?.label;
@@ -18,7 +20,7 @@ export async function syncPairedDeviceDisplayName(paired, apiOrigin, { requireVa
       next.username !== paired.username ||
       next.label !== paired.label;
     if (changed) {
-      await chrome.storage.local.set({ pairedDevice: next });
+      await extensionStorageSet({ pairedDevice: next });
     }
     return next;
   }

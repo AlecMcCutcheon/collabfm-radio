@@ -26,6 +26,7 @@ Instead of one person running a station, multiple broadcasters can join the **st
 - 🤖 Optional Discord voice bot
 - 👥 Guest listener and broadcaster links
 - 🎵 Browser or Chrome extension broadcasting
+- 🛡️ Configurable content policy for allowed sources and artists
 - ❤️ XP, levels, hearts, and community-focused features
 
 ## Try a live instance
@@ -65,13 +66,21 @@ More detail on each item: [docs/ROADMAP.md](./docs/ROADMAP.md).
 
 ## Legal & responsible use
 
-**Content you broadcast.** You are solely responsible for the audio and other material streamed through your CollabFM instance. Only broadcast content you have the right to share—your own recordings, royalty-free or properly licensed material, or content clearly permitted for redistribution. Do not use CollabFM to redistribute copyrighted music or other protected works without authorization from the rights holder.
+CollabFM provides tools—including an optional **content policy**—to help operators and broadcasters manage what gets streamed. These features support responsible use; they do **not** verify ownership, licensing status, or legal compliance for your instance.
+
+**Your responsibility.** Server administrators and broadcasters are responsible for ensuring they have the appropriate rights, licenses, or permissions for any audio they stream. Default policy settings may reference royalty-free or creator-friendly sources (such as [NoCopyrightSounds](https://ncs.io) or [Pixabay Music](https://pixabay.com/music/)) as **examples and starting points only**. Those defaults do not guarantee that every track from those platforms is cleared for your use case.
+
+**Content you broadcast.** Only stream material you have the right to share—your own recordings, properly licensed works, or content clearly permitted for redistribution. Do not use CollabFM to redistribute copyrighted music or other protected works without authorization from the rights holder.
 
 **Private and invited audiences.** CollabFM is intended as a self-hosted station for private or invited listeners—friends, community servers, homelab users—not as a public commercial broadcast service. You control who can listen through authentication, share links, and how you expose the service on your network.
+
+**Policy enforcement.** When enabled, the content policy can mute disallowed sources and withhold blocked track metadata from the website and Discord until a decision is made. That reduces accidental misuse; it does not replace your legal obligations. CollabFM does not condone intentional misuse or misconfiguration of this policy.
 
 **Software disclaimer.** CollabFM is provided as-is, without warranty. The author is not liable for operator misuse, copyright claims, or other consequences arising from how you deploy or use the software.
 
 **License.** This project is licensed under [Creative Commons Attribution-NonCommercial 4.0 International](LICENSE). You may use and modify it for non-commercial purposes; commercial use is not permitted. If you share the software or derivatives, you must give appropriate credit to Alec McCutcheon and indicate if changes were made.
+
+Configuration details: [Content Policy (wiki)](docs/wiki/Content-Policy.md).
 
 ---
 
@@ -110,7 +119,7 @@ See [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md) for `/join`,
 | **Listeners** | Log in on the main site, or use **share links** for guest access without an account |
 | **Discord** | Voice bot relays audio into voice channels; `/join`, `/station`, `/leave`; per-channel now-playing embed with station picker |
 | **Auth** | Local accounts, optional OIDC (Authentik, etc.), device pairing for the extension |
-| **Admin** | Users, Discord bot, share links, SSO, audio tuning, branding, integrations |
+| **Admin** | Users, Discord bot, share links, SSO, audio tuning, branding, integrations, **content policy** |
 
 ---
 
@@ -193,7 +202,7 @@ environment:
 
 If you **do** customize files in appdata, leave `preserve` and merge upstream changes manually, or back up your edits before using `update` (sync uses `--delete` for app paths not in the exclude list).
 
-Re-download the Chrome extension from **Admin → System** after upgrades if broadcasting behavior changes.
+Re-download and reinstall the **Chrome extension** from **Admin → System** after upgrades when broadcasting or content-policy behavior changes. The extension is bundled in the container image; syncing app code with `COLLABFM_SYNC_MODE=update` updates the ZIP served from Admin, but each broadcaster must install the new build locally.
 
 ---
 
@@ -346,7 +355,7 @@ Details: [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md).
 | **Share links** | Site-wide link list (broadcasters also create links in Broadcaster Studio) |
 | **OIDC** | SSO provider, group → role mapping |
 | **Radio** | Max stage users (default 7, max 10), log retention, PCM/discord buffer tuning |
-| **System** | Guest XP rules, extension auth, Last.fm/Giphy, Turnstile, **branding**, extension download |
+| **System** | Guest XP rules, extension auth, **content policy**, Last.fm/Giphy, Turnstile, **branding**, extension download |
 
 **Share link types:**
 
@@ -364,7 +373,7 @@ Details: [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md).
 - Tags: `latest`, branch name, `v*` tags, commit SHA (see `.github/workflows/publish-ghcr.yml`)
 - **Private packages:** `docker login ghcr.io` in Portainer or on the host
 - After pulling a new image, **recreate** the container. Set `COLLABFM_SYNC_MODE=update` for one start to refresh app files in appdata (see [Upgrading](#upgrading)); your database and `config.json` are preserved
-- Re-download the extension from Admin after upgrades if broadcasting behavior changes
+- **Re-download and reinstall** the browser extension from Admin → System after upgrades—especially when content policy or broadcasting behavior changes
 
 ---
 

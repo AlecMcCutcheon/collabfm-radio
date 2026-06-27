@@ -1,5 +1,5 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
-import { Check } from "lucide-react";
+import { useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { Check, Eye, EyeOff } from "lucide-react";
 
 export const adminControlHeight = "h-10 min-h-10 shrink-0";
 
@@ -89,16 +89,54 @@ export function AdminField({
   children: ReactNode;
 }) {
   return (
-    <label className="block">
+    <div className="block">
       <span className="block text-xs uppercase tracking-wide text-gray-500">{label}</span>
       {hint && <span className="block text-xs text-gray-500 mt-0.5 normal-case tracking-normal">{hint}</span>}
       {children}
-    </label>
+    </div>
   );
 }
 
 export function AdminInput(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${adminInputClass} ${props.className ?? ""}`} />;
+}
+
+export function AdminSecretInput({
+  className = "",
+  revealLabel = "Show value",
+  hideLabel = "Hide value",
+  disabled,
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & {
+  revealLabel?: string;
+  hideLabel?: string;
+}) {
+  const [revealed, setRevealed] = useState(false);
+
+  return (
+    <div className="relative mt-1.5">
+      <input
+        {...props}
+        disabled={disabled}
+        type={revealed ? "text" : "password"}
+        className={`${adminFormControlClass} pr-10 ${className}`}
+      />
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setRevealed((v) => !v)}
+        className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-700/70 hover:text-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-radio-accent/40 disabled:pointer-events-none disabled:opacity-40"
+        aria-label={revealed ? hideLabel : revealLabel}
+        aria-pressed={revealed}
+      >
+        {revealed ? (
+          <EyeOff className="h-4 w-4" strokeWidth={2} aria-hidden />
+        ) : (
+          <Eye className="h-4 w-4" strokeWidth={2} aria-hidden />
+        )}
+      </button>
+    </div>
+  );
 }
 
 export function AdminSelect(props: SelectHTMLAttributes<HTMLSelectElement>) {

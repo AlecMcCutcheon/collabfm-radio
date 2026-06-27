@@ -18,7 +18,7 @@ import {
   updateUser,
   upsertWhitelistEntry,
 } from "../db/index.js";
-import { getVoiceBotConfig, maskSecret, mergeSecretField } from "../settings/runtime.js";
+import { getVoiceBotConfig, mergeSecretField } from "../settings/runtime.js";
 import {
   integrationsAdminPayload,
   saveIntegrationsSettings,
@@ -65,7 +65,8 @@ function voiceBotPayload() {
   return {
     voiceBot: {
       clientId: voiceBot.clientId || "",
-      botToken: maskSecret(voiceBot.botToken),
+      botToken: voiceBot.botToken || "",
+      botTokenConfigured: !!voiceBot.botToken,
       enabled: voiceBot.enabled !== false,
       publicBaseUrl: getSetting("publicBaseUrl", ""),
       verified: voiceBot.verified

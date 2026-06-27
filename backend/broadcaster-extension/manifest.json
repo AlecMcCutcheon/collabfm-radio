@@ -34,7 +34,9 @@
     {
       "matches": [
         "https://music.youtube.com/*",
-        "https://soundcloud.com/*"
+        "https://soundcloud.com/*",
+        "https://ncs.io/*",
+        "https://*.ncs.io/*"
       ],
       "js": ["content.js"],
       "run_at": "document_start"

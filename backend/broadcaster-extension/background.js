@@ -82,8 +82,16 @@ async function ensureTabContentScript(tabId) {
   return ready;
 }
 
+async function forwardToOffscreen(message) {
+  return chrome.runtime.sendMessage({ ...message, _offscreenTarget: true });
+}
+
 // Single message listener to handle all messages
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message._offscreenTarget) {
+    return false;
+  }
+
   const isExtensionSender = sender?.id === chrome.runtime.id;
   const popupOnlyTypes = new Set([
     'START_BROADCAST',
@@ -192,7 +200,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         await ensureTabContentScript(message.tabId);
 
-        const response = await chrome.runtime.sendMessage({
+        const response = await forwardToOffscreen({
           type: 'START_BROADCAST',
           tabId: message.tabId,
           streamId: message.streamId,
@@ -212,7 +220,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       } 
       else if (message.type === 'STOP_BROADCAST') {
         // Forward to offscreen document
-        const response = await chrome.runtime.sendMessage({
+        const response = await forwardToOffscreen({
           type: 'STOP_BROADCAST'
         });
         sendResponse(response || { success: true });
@@ -220,7 +228,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       else if (message.type === 'GET_BROADCAST_STATUS') {
         // Forward to offscreen document
         try {
-          const response = await chrome.runtime.sendMessage({
+          const response = await forwardToOffscreen({
             type: 'GET_BROADCAST_STATUS'
           });
           sendResponse(response);
@@ -233,7 +241,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         await ensureTabContentScript(message.tabId);
 
         try {
-          const response = await chrome.runtime.sendMessage({
+          const response = await forwardToOffscreen({
             type: 'SWITCH_TAB',
             tabId: message.tabId,
             streamId: message.streamId,
