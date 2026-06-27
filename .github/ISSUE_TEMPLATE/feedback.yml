@@ -1,0 +1,38 @@
+name: Feedback
+description: General feedback, praise, or questions that aren't a bug or feature request
+title: "[Feedback]: "
+labels:
+  - feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Kind words, honest feedback, and questions are all welcome. A short note on GitHub means a lot even when you can't donate.
+
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Your feedback
+      placeholder: Tell me what you like, what's confusing, or how you're using CollabFM.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: I mostly use CollabFM as a…
+      options:
+        - Listener
+        - Broadcaster / DJ
+        - Admin / operator
+        - Just exploring / evaluating
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: followup
+    attributes:
+      label: Follow-up
+      options:
+        - label: I'm okay with follow-up questions if more detail would help

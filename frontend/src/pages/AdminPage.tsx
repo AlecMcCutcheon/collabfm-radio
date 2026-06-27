@@ -108,6 +108,7 @@ export function AdminPage() {
     radioDisplayName: "CollabFM Radio",
     visualizerImageUrl: "/profile.webp",
     hasCustomVisualizer: false,
+    hideDeveloperAboutMessage: false,
   });
   const [visualizerPreview, setVisualizerPreview] = useState(() => apiUrl("/profile.webp"));
   const [visualizerDragOver, setVisualizerDragOver] = useState(false);
@@ -236,10 +237,15 @@ export function AdminPage() {
     setBrandingBusy(true);
     setError(null);
     try {
-      const res = await api.saveAdminSettings({ branding: { radioDisplayName: branding.radioDisplayName } });
+      const res = await api.saveAdminSettings({
+        branding: {
+          radioDisplayName: branding.radioDisplayName,
+          hideDeveloperAboutMessage: branding.hideDeveloperAboutMessage === true,
+        },
+      });
       setBranding(res.branding);
       applyStationTitle(res.branding.radioDisplayName, "Admin");
-      flash("Station name saved");
+      flash("Branding settings saved");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {
@@ -1107,10 +1113,24 @@ export function AdminPage() {
                     onChange={(e) => setBranding({ ...branding, radioDisplayName: e.target.value })}
                   />
                   <AdminBtn className="w-full sm:w-auto shrink-0" disabled={brandingBusy} onClick={() => void saveBrandingName()}>
-                    Save station name
+                    Save branding
                   </AdminBtn>
                 </div>
               </AdminField>
+
+              <AdminCheckbox
+                checked={branding.hideDeveloperAboutMessage === true}
+                onChange={(checked) =>
+                  setBranding({ ...branding, hideDeveloperAboutMessage: checked })
+                }
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    <span aria-hidden>😢</span>
+                    Hide developer message & coffee button in About
+                  </span>
+                }
+                hint="Hides the original developer's thank-you note and the Buy me a coffee button in the About dialog. Totally fair if you can't stand looking at it — I get it, and I don't like ads either. That's why this option exists. I'd appreciate something in return even if it's just a kind word on GitHub."
+              />
 
               <AdminField label="Visualizer logo" hint="Drag and drop an image, or click to choose. Resets to the default station logo.">
                 <input

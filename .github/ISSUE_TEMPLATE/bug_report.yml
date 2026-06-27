@@ -1,0 +1,90 @@
+name: Bug report
+description: Something is broken or not working as expected
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. I read issues when I can, but I can't promise a fix timeline.
+
+        Please search [existing issues](https://github.com/AlecMcCutcheon/collabfm-radio/issues) first to avoid duplicates.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: e.g. Now-playing metadata stays stale after switching tabs in the extension.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps help a lot.
+      placeholder: |
+        1. Start broadcasting from …
+        2. …
+        3. See error / wrong behavior
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Web UI / player
+        - Admin panel
+        - Browser extension
+        - Discord voice bot
+        - Content policy
+        - Audio / streaming pipeline
+        - Docker / deployment
+        - Authentication / SSO
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: CollabFM version or image tag
+      description: Commit SHA, GHCR tag, or how you deployed (e.g. `latest`, `v1.2.3`).
+      placeholder: ghcr.io/alecmccutcheon/collabfm-radio:latest
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, browser, reverse proxy, etc.
+      placeholder: |
+        - OS: …
+        - Browser: …
+        - Reverse proxy: nginx / Caddy / none
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Redact tokens and secrets. Paste relevant server logs or link screenshots.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues for duplicates
+          required: true
+        - label: I removed secrets/tokens from anything I pasted above
+          required: true

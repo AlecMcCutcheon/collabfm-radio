@@ -333,6 +333,8 @@ export interface RelayConnection {
 export interface RelayConnectionsResponse {
   activeWsId: string | null;
   connections: RelayConnection[];
+  /** Max stage slots (from admin limits.maxStageUsers). */
+  stageLimit?: number;
 }
 
 export interface HostMember {
@@ -444,6 +446,7 @@ export interface BrandingSettings {
   radioDisplayName: string;
   visualizerImageUrl: string;
   hasCustomVisualizer?: boolean;
+  hideDeveloperAboutMessage?: boolean;
   features?: {
     songSearch: boolean;
     chatGifs: boolean;

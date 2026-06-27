@@ -1,0 +1,32 @@
+name: Documentation
+description: Report unclear, missing, or incorrect docs
+title: "[Docs]: "
+labels:
+  - documentation
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help improve the README, wiki, or in-app copy.
+
+  - type: textarea
+    id: location
+    attributes:
+      label: Where is the doc issue?
+      description: Link or path (e.g. `docs/wiki/Content-Policy.md`, Admin panel hint text).
+      placeholder: https://github.com/AlecMcCutcheon/collabfm-radio/blob/main/docs/wiki/Admin-Panel.md
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: What's wrong or missing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement
+      description: Optional — how you'd phrase it or what to add.

@@ -4789,7 +4789,11 @@ http.createServer(async (req, res) => {
         });
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ activeWsId, connections: list }));
+      res.end(JSON.stringify({
+        activeWsId,
+        connections: list,
+        stageLimit: getLimitsSettings().maxStageUsers,
+      }));
     } catch (e) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Failed to list connections' }));

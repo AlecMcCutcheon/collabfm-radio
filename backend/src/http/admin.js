@@ -569,6 +569,12 @@ export async function handleAdminRoutes(req, res, pathname, method) {
           String(body.branding.radioDisplayName).trim() || "CollabFM Radio",
         );
       }
+      if (body.branding && typeof body.branding.hideDeveloperAboutMessage === "boolean") {
+        setSetting(
+          "branding.hideDeveloperAboutMessage",
+          body.branding.hideDeveloperAboutMessage,
+        );
+      }
       if (body.resetBranding) {
         resetBrandingSettings();
       }

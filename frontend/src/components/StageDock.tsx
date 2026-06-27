@@ -6,6 +6,7 @@ import { usePresenceRoster } from "../hooks/usePresenceRoster";
 import { canInteractWithStage, canPromoteDj, canSendMediaControl, isAdminUser } from "../utils/stagePermissions";
 import {
   buildStageSlots,
+  resolveStageSlotCount,
   type StageHostGroup,
 } from "../utils/stageHosts";
 import { buildDiscordBotCountsByHostUserId } from "../utils/discordBotStage";
@@ -15,7 +16,8 @@ import { StageHostMenu } from "./StageHostMenu";
 import { ProfilePartyReactionMenu } from "./ProfilePartyReactionMenu";
 import { isSelfPartyTarget, partySelfUserId } from "../utils/partySelfUserId";
 
-const DOCK_HEIGHT = 591;
+const DOCK_HEIGHT_BASE = 591;
+const DOCK_HEIGHT_PER_SLOT = DOCK_HEIGHT_BASE / 7;
 /** Fixed rail width: w-12 avatar + horizontal padding (p-3) + label room. */
 const STAGE_DOCK_PANEL_CLASS = "w-[6rem]";
 
@@ -148,7 +150,9 @@ export function StageDock({
   const relayEnabled = !needsAuth;
   const relay = useRelayConnections(relayEnabled, shareToken ?? guest?.shareToken);
   const presence = usePresenceRoster(relayEnabled, shareToken ?? guest?.shareToken);
-  const stageSlots = buildStageSlots(relay.data?.connections ?? [], hosts);
+  const stageSlotCount = resolveStageSlotCount(relay.data?.stageLimit);
+  const dockHeight = Math.round(DOCK_HEIGHT_PER_SLOT * stageSlotCount);
+  const stageSlots = buildStageSlots(relay.data?.connections ?? [], hosts, stageSlotCount);
   const occupiedHosts = stageSlots
     .filter((slot): slot is { type: "occupied"; host: StageHostGroup } => slot.type === "occupied")
     .map((slot) => slot.host);
@@ -219,7 +223,7 @@ export function StageDock({
           className={`bg-gradient-to-b from-gray-800 to-gray-900 border border-gray-700 px-2 flex items-center justify-center shadow-lg ${
             expanded ? "rounded-l-2xl rounded-r-none" : "rounded-2xl"
           }`}
-          style={{ height: DOCK_HEIGHT }}
+          style={{ height: dockHeight }}
         >
           <span className="text-xs tracking-widest text-gray-300 rotate-180 [writing-mode:vertical-rl]">
             STAGE
@@ -229,7 +233,7 @@ export function StageDock({
         {expanded && (
           <div
             className={`ml-2 bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 rounded-r-2xl rounded-l-none p-3 shadow-2xl flex flex-col items-center justify-between shrink-0 overflow-visible ${STAGE_DOCK_PANEL_CLASS}`}
-            style={{ height: DOCK_HEIGHT }}
+            style={{ height: dockHeight }}
           >
             {loading && !hasAnyoneOnStage ? (
               <p className="text-xs text-gray-500 px-2 text-center m-auto">Loading stage…</p>
@@ -321,7 +325,8 @@ export function StageGrid({
   const relayEnabled = !needsAuth;
   const relay = useRelayConnections(relayEnabled, shareToken ?? guest?.shareToken);
   const presence = usePresenceRoster(relayEnabled, shareToken ?? guest?.shareToken);
-  const stageSlots = buildStageSlots(relay.data?.connections ?? [], hosts);
+  const stageSlotCount = resolveStageSlotCount(relay.data?.stageLimit);
+  const stageSlots = buildStageSlots(relay.data?.connections ?? [], hosts, stageSlotCount);
   const occupiedHosts = stageSlots
     .filter((slot): slot is { type: "occupied"; host: StageHostGroup } => slot.type === "occupied")
     .map((slot) => slot.host);

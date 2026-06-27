@@ -136,6 +136,7 @@ See [Content Policy](./Content-Policy.md) for full detail.
 **Branding**
 
 - **Radio display name** — station title in UI and stream metadata.
+- **Hide developer message & coffee button** — removes the original developer’s thank-you note and **Buy me a coffee** link from the About dialog (optional; for operators who prefer a cleaner About screen).
 - **Visualizer logo** — drag/drop or upload; **Reset visualizer to default**.
 
 **Extension download** — ZIP served to broadcasters from this tab’s area (also linked in Go live modal).

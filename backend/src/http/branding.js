@@ -18,6 +18,8 @@ export function getBrandingSettings() {
     radioDisplayName: getSetting("radioDisplayName", DEFAULT_RADIO_DISPLAY_NAME),
     visualizerImageUrl: custom ? CUSTOM_VISUALIZER_PATH : DEFAULT_VISUALIZER_IMAGE,
     hasCustomVisualizer: custom,
+    hideDeveloperAboutMessage:
+      getSetting("branding.hideDeveloperAboutMessage", false) === true,
     features: {
       songSearch: !!integrations.lastfmApiKey,
       chatGifs: !!integrations.giphyApiKey,

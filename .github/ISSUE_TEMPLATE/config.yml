@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: CollabFM README & docs
+    url: https://github.com/AlecMcCutcheon/collabfm-radio#readme
+    about: Setup, upgrading, and wiki guides before opening an issue.
+  - name: Security concerns
+    url: https://github.com/AlecMcCutcheon/collabfm-radio/security/advisories/new
+    about: Report a security vulnerability privately (if enabled on the repo).

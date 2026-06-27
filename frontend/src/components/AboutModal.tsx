@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
-import { ExternalLink, Radio, X } from "lucide-react";
+import { Coffee, ExternalLink, Radio, X } from "lucide-react";
 import { api } from "../api/client";
+
+const DONATION_URL =
+  "https://www.paypal.com/donate/?business=YSFG23ABNS6HY&no_recurring=0&item_name=If+my+projects+help+you%2C+donations+are+appreciated.+Feedback%2C+issues%2C+or+PRs+help+too%21&currency_code=USD";
+const GITHUB_ISSUES_URL = "https://github.com/AlecMcCutcheon/collabfm-radio/issues";
+
+export const DEVELOPER_ABOUT_SECTION_TITLE = "Message from the original developer";
 
 interface AboutModalProps {
   open: boolean;
@@ -51,23 +57,34 @@ function buildSections(): AboutSection[] {
       title: "A note on persistence",
       body: "Chat messages and song requests are kept in memory and may reset when the server restarts or updates.",
     },
+    {
+      title: DEVELOPER_ABOUT_SECTION_TITLE,
+      body: "Thanks for using CollabFM — I hope you enjoy it. Feature requests and bug reports are welcome on GitHub. I read them when I can, but I can't promise when I'll get to them or whether I'll implement a given idea. I'll think every suggestion over. If CollabFM helps you, donations are appreciated.",
+      links: [{ href: GITHUB_ISSUES_URL, label: "Report bugs or request features on GitHub" }],
+    },
   ];
 }
 
 export function AboutModal({ open, onClose }: AboutModalProps) {
   const [stationName, setStationName] = useState("This station");
+  const [hideDeveloperMessage, setHideDeveloperMessage] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     void api
       .branding()
-      .then((b) => setStationName(b.radioDisplayName || "This station"))
+      .then((b) => {
+        setStationName(b.radioDisplayName || "This station");
+        setHideDeveloperMessage(b.hideDeveloperAboutMessage === true);
+      })
       .catch(() => {});
   }, [open]);
 
   if (!open) return null;
 
-  const sections = buildSections();
+  const sections = buildSections().filter(
+    (section) => !hideDeveloperMessage || section.title !== DEVELOPER_ABOUT_SECTION_TITLE,
+  );
 
   return (
     <div
@@ -98,7 +115,9 @@ export function AboutModal({ open, onClose }: AboutModalProps) {
         <div className="grid gap-4 sm:gap-5 sm:grid-cols-2 text-sm text-gray-300 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 pr-1 min-h-0 flex-1">
           {sections.map((section) => {
             const fullWidth =
-              section.title === "Collaborative social radio" || section.title === "Music & copyright";
+              section.title === "Collaborative social radio" ||
+              section.title === "Music & copyright" ||
+              section.title === DEVELOPER_ABOUT_SECTION_TITLE;
             const highlighted = section.title === "Music & copyright";
             return (
             <div
@@ -133,13 +152,37 @@ export function AboutModal({ open, onClose }: AboutModalProps) {
           })}
         </div>
 
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-full mt-5 sm:mt-6 bg-gradient-to-br from-radio-accent to-blue-500 text-white rounded-xl px-4 py-2.5 text-sm font-medium hover:brightness-110 transition-all shrink-0"
+        <div
+          className={
+            hideDeveloperMessage
+              ? "mt-5 sm:mt-6 shrink-0"
+              : "flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 mt-5 sm:mt-6 shrink-0"
+          }
         >
-          Got it!
-        </button>
+          {!hideDeveloperMessage ? (
+            <a
+              href={DONATION_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-gray-600 bg-gray-800/80 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-700/80 transition-colors"
+            >
+              <Coffee className="w-4 h-4 text-amber-300" />
+              Buy me a coffee
+              <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+            </a>
+          ) : null}
+          <button
+            type="button"
+            onClick={onClose}
+            className={
+              hideDeveloperMessage
+                ? "w-full bg-gradient-to-br from-radio-accent to-blue-500 text-white rounded-xl px-4 py-2.5 text-sm font-medium hover:brightness-110 transition-all"
+                : "flex-1 bg-gradient-to-br from-radio-accent to-blue-500 text-white rounded-xl px-4 py-2.5 text-sm font-medium hover:brightness-110 transition-all"
+            }
+          >
+            Got it!
+          </button>
+        </div>
       </div>
     </div>
   );

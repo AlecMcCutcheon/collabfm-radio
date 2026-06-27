@@ -610,7 +610,7 @@ export const api = {
     }>(`${API}/admin/settings`),
 
   saveAdminSettings: (body: {
-    branding?: Pick<BrandingSettings, "radioDisplayName">;
+    branding?: Pick<BrandingSettings, "radioDisplayName" | "hideDeveloperAboutMessage">;
     resetBranding?: boolean;
     integrations?: IntegrationsSettings;
     leveling?: LevelingSettings;

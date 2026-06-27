@@ -8,6 +8,8 @@ Ideas under consideration—not commitments, and not in any fixed order. If some
 
 ~~**Content policy**~~ — **Shipped.** Configurable broadcast allowlists for permitted sources and artists, **enforced by default**. The policy engine is a **filtering tool**, not a copyright detector—it applies rules to metadata reported by the browser extension (site, title, artist), not to raw audio. Includes Admin → System configuration, extension mute and handoff behavior, synchronized metadata on the web UI and Discord, conservative defaults, and the [Content Policy wiki](./wiki/Content-Policy.md).
 
+~~**Dynamic stage UI**~~ — **Shipped.** Stage dock and mobile stage grid show empty slots matching **Admin → Radio → Max stage users** (1–10). The relay API exposes `stageLimit`; the dock height scales with slot count.
+
 ---
 
 ## Hybrid users & account management
@@ -31,12 +33,6 @@ For instances that want to grow beyond hand-picked invites, a **registration gat
    - **Denied** — token is **burned**; no login path remains for that request.
 
 This keeps onboarding controlled without admins manually creating every account, while still avoiding open registration.
-
----
-
-## Dynamic stage layout
-
-**Stage slot count in the UI** should reflect the configured **max stage users** setting. Today, changing the limit in admin does not resize the stage grid/slots in the interface—only the backend cap changes. Aligning the visual stage with the configured capacity is a planned polish item.
 
 ---
 

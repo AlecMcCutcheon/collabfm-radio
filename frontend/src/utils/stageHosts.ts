@@ -1,6 +1,18 @@
 import type { HostMember, RelayConnection, LevelInfo } from "../types/api";
 
-export const STAGE_SLOT_COUNT = 7;
+/** Default when stageLimit is not yet loaded from the server. */
+export const DEFAULT_STAGE_SLOT_COUNT = 7;
+/** Matches backend MAX_STAGE_USERS. */
+export const MAX_STAGE_SLOT_COUNT = 10;
+
+/** @deprecated Use DEFAULT_STAGE_SLOT_COUNT */
+export const STAGE_SLOT_COUNT = DEFAULT_STAGE_SLOT_COUNT;
+
+export function resolveStageSlotCount(limit?: number | null): number {
+  const n = Number(limit);
+  if (!Number.isFinite(n)) return DEFAULT_STAGE_SLOT_COUNT;
+  return Math.min(MAX_STAGE_SLOT_COUNT, Math.max(1, Math.floor(n)));
+}
 
 export interface StageHostGroup {
   userId: string;
@@ -88,7 +100,7 @@ export function groupStageHosts(
 export function buildStageSlots(
   connections: RelayConnection[],
   members: HostMember[],
-  slotCount = STAGE_SLOT_COUNT,
+  slotCount = DEFAULT_STAGE_SLOT_COUNT,
 ): StageSlot[] {
   const occupied = groupStageHosts(connections, members)
     .filter((host) => !host.isGhost)

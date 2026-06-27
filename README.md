@@ -57,9 +57,9 @@ If CollabFM helps you, [donations are appreciated](https://www.paypal.com/donate
 Planned directions and ideas—not a schedule or promise of delivery:
 
 - ~~**Content policy** — configurable source and artist allowlists enforced by default; metadata-based filtering (not audio analysis), admin UI, extension integration, and [wiki guide](./docs/wiki/Content-Policy.md).~~ *(shipped)*
+- ~~**Dynamic stage UI** — stage slots in the GUI match the configured max stage users (Admin → Radio).~~ *(shipped)*
 - **Hybrid users** — optional local password on SSO-linked accounts (and related account management).
 - **Gated registration** — access-request form, admin approve/deny queue, one-time enrollment tokens.
-- **Dynamic stage UI** — stage slots in the GUI match the configured max stage users.
 
 More detail on each item: [docs/ROADMAP.md](./docs/ROADMAP.md).
 
