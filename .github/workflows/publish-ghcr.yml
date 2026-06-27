@@ -40,6 +40,12 @@ jobs:
             type=ref,event=tag
             type=sha,prefix=
             type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=CollabFM
+            org.opencontainers.image.description=Self-hosted collaborative internet radio: multi-DJ stage, live chat, content policy enforced by default, browser extension broadcasting, guest links, and optional Discord voice bot.
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.licenses=CC-BY-NC-4.0
+            org.opencontainers.image.vendor=Alec McCutcheon
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -49,3 +55,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: |
+            org.opencontainers.image.description=Self-hosted collaborative internet radio: multi-DJ stage, live chat, content policy enforced by default, browser extension broadcasting, guest links, and optional Discord voice bot.
