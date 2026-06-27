@@ -66,15 +66,15 @@ More detail on each item: [docs/ROADMAP.md](./docs/ROADMAP.md).
 
 ## Legal & responsible use
 
-CollabFM includes a **content policy enforced by default** to help operators and broadcasters manage what gets streamed. Administrators can adjust allowlists and fallbacks in Admin → System, but the platform is built for responsible streaming out of the box. These controls support responsible use; they do **not** verify ownership, licensing status, or legal compliance for your instance.
+CollabFM provides a **configurable content policy enforced by default** to help operators and broadcasters manage what audio may be broadcast through their station. The policy engine is a **filtering tool**, not a copyright detector—it applies your allowlists and fallbacks to metadata reported by the extension; it does not analyze audio or verify licenses. Administrators can adjust rules in Admin → System.
 
-**Your responsibility.** Server administrators and broadcasters are responsible for ensuring they have the appropriate rights, licenses, or permissions for any audio they stream. Default policy settings may reference royalty-free or creator-friendly sources (such as [NoCopyrightSounds](https://ncs.io) or [Pixabay Music](https://pixabay.com/music/)) as **examples and starting points only**. Those defaults do not guarantee that every track from those platforms is cleared for your use case.
+**Your responsibility.** Server administrators and broadcasters are solely responsible for ensuring they have the necessary rights, licenses, or permissions to stream any audio. Default rules may reference sources such as [NoCopyrightSounds](https://ncs.io) or [Pixabay Music](https://pixabay.com/music/) for convenience only—they do not guarantee that every track from those platforms is licensed for your intended use.
 
 **Content you broadcast.** Only stream material you have the right to share—your own recordings, properly licensed works, or content clearly permitted for redistribution. Do not use CollabFM to redistribute copyrighted music or other protected works without authorization from the rights holder.
 
 **Private and invited audiences.** CollabFM is intended as a self-hosted station for private or invited listeners—friends, community servers, homelab users—not as a public commercial broadcast service. You control who can listen through authentication, share links, and how you expose the service on your network.
 
-**Policy enforcement.** By default, the content policy mutes disallowed sources and withholds blocked track metadata from the website and Discord until a decision is made. That reduces accidental misuse; it does not replace your legal obligations. CollabFM does not condone intentional misuse or misconfiguration of this policy.
+**Policy enforcement.** By default, the content policy mutes disallowed sources and withholds blocked track metadata from the website and Discord until a decision is made. These controls promote responsible use and help reduce accidental policy violations; they are not a substitute for legal compliance. CollabFM does not condone intentional misuse or deliberate circumvention of this policy.
 
 **Software disclaimer.** CollabFM is provided as-is, without warranty. The author is not liable for operator misuse, copyright claims, or other consequences arising from how you deploy or use the software.
 

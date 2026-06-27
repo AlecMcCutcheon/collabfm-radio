@@ -87,8 +87,9 @@ function ContentPolicySafeguardsUnlockModal({
         </div>
 
         <p className="text-sm text-gray-300 leading-relaxed mb-4">
-          CollabFM does not verify licensing or guarantee legal compliance. You are responsible for
-          this instance's configuration and for ensuring broadcasts comply with applicable
+          The content policy is a filtering tool, not a copyright detector. CollabFM does not
+          verify copyright ownership, licensing status, or legal compliance. You are responsible
+          for this instance&apos;s configuration and for ensuring broadcasts comply with applicable
           copyright and licensing requirements.
         </p>
 
@@ -437,32 +438,42 @@ export function ContentPolicyAdminSection({ flash, onError }: ContentPolicyAdmin
   return (
     <AdminSection
       title="Content policy"
-      description="CollabFM provides tools to help server operators and broadcasters manage what audio sources are permitted during live broadcasts. The platform ships with conservative default settings intended to reduce accidental misuse and encourage responsible streaming practices."
+      description="CollabFM provides a configurable content policy to help server operators and broadcasters manage what audio may be broadcast through their station. New installations ship with conservative default rules intended to reduce accidental misuse and encourage responsible streaming practices."
     >
       <p className="text-sm text-gray-400 -mt-2 leading-relaxed">
-        Default configurations may include recommended royalty-free or creator-friendly music
-        sources, such as NCS or similar platforms, as a starting point for safe usage. However,
-        these defaults are only examples and do not guarantee that all content from these sources
-        is free of copyright restrictions or cleared for every use case.
+        Default rules may include recommended royalty-free or creator-friendly sources, such as NCS
+        and Pixabay Music, as a starting point. These defaults are provided for convenience only and
+        do not guarantee that every track, recording, or piece of audio available from those
+        platforms is licensed for your intended use. Licensing terms may vary between creators,
+        releases, and use cases.
       </p>
 
       <p className="text-sm text-gray-400 leading-relaxed">
-        Allowed sources and artist rules are evaluated by a simple policy engine that applies to
-        metadata provided by the browser extension or submitted through the CollabFM API. The first
-        matching rule determines the outcome, with fallback behavior defined for missing or
-        unmatched metadata.
+        The policy engine evaluates metadata provided by the browser extension or submitted through
+        the CollabFM API. Source and artist rules are checked in order, and the first matching rule
+        determines the outcome. Configurable fallback actions apply when metadata is missing or no
+        rule matches.
+      </p>
+
+      <p className="text-sm text-gray-300 leading-relaxed">
+        The policy engine is a <strong className="font-medium text-gray-200">filtering tool</strong>
+        , not a copyright detector. It applies your configured allowlists and fallbacks to reported
+        source and track metadata. It does not analyze audio, verify licenses, or determine whether
+        content is legally cleared to stream.
       </p>
 
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-gray-300 leading-relaxed">
         <p>
+          CollabFM does not verify copyright ownership, licensing status, or legal compliance.
           Server administrators and individual broadcasters are solely responsible for ensuring they
-          have the appropriate rights, licenses, or permissions for any audio they stream.
-          CollabFM does not verify ownership or licensing status of content and cannot guarantee
-          compliance with copyright laws.
+          have the necessary rights, licenses, or permissions to stream any audio through their
+          CollabFM instance.
         </p>
         <p className="mt-2 text-gray-400">
-          These controls are intended to support responsible use, not replace legal obligations.
-          CollabFM does not condone intentional misuse or misconfiguration of this policy.
+          These controls are intended to promote responsible use and help reduce accidental policy
+          violations. They are not a substitute for understanding and complying with applicable
+          copyright, licensing, or other legal requirements. CollabFM does not condone intentional
+          misuse or deliberate circumvention of this policy.
         </p>
       </div>
 

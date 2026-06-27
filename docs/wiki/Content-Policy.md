@@ -1,19 +1,20 @@
-# Content Policy
+# Content policy
 
-CollabFM includes a **content policy enforced by default** to help server operators and broadcasters manage what audio sources are permitted during live broadcasts. The platform ships with conservative default settings intended to reduce accidental misuse and encourage responsible streaming practices.
+CollabFM provides a configurable content policy to help server operators and broadcasters manage what audio may be broadcast through their station. New installations ship with conservative default rules intended to reduce accidental misuse and encourage responsible streaming practices.
 
-CollabFM does **not** verify licensing or guarantee legal compliance. Administrators and broadcasters remain responsible for this instance's configuration and for ensuring broadcasts comply with applicable copyright and licensing requirements.
+Default rules may include recommended royalty-free or creator-friendly sources, such as NCS and Pixabay Music, as a starting point. These defaults are provided for convenience only and do not guarantee that every track, recording, or piece of audio available from those platforms is licensed for your intended use. Licensing terms may vary between creators, releases, and use cases.
+
+The policy engine evaluates metadata provided by the browser extension or submitted through the CollabFM API. Source and artist rules are checked in order, and the first matching rule determines the outcome. Configurable fallback actions apply when metadata is missing or no rule matches.
+
+**The policy engine is a filtering tool, not a copyright detector.** It applies your configured allowlists and fallbacks to reported source and track metadata. It does not analyze audio, verify licenses, or determine whether content is legally cleared to stream.
+
+CollabFM does not verify copyright ownership, licensing status, or legal compliance. Server administrators and individual broadcasters are solely responsible for ensuring they have the necessary rights, licenses, or permissions to stream any audio through their CollabFM instance.
+
+These controls are intended to promote responsible use and help reduce accidental policy violations. They are not a substitute for understanding and complying with applicable copyright, licensing, or other legal requirements. CollabFM does not condone intentional misuse or deliberate circumvention of this policy.
 
 ---
 
-## What the policy does
-
-The policy engine evaluates broadcasts using metadata from the **browser extension** (and related API paths). It checks:
-
-1. **Source** — the website hostname reported by the extension (e.g. `ncs.io`, `pixabay.com`).
-2. **Artist / title** — track metadata when source alone is not enough to decide.
-
-The **first matching rule** wins. Fallback actions apply when metadata is missing or does not match an allowlist.
+## Outcomes
 
 | Outcome | Listener experience |
 |---------|---------------------|
@@ -27,18 +28,12 @@ Decisions are logged on the server for admin review.
 
 ## Default settings (new installs)
 
-Out of the box, CollabFM enables a strict policy with example allowlists—not a licensing guarantee:
-
 | Type | Default examples |
 |------|------------------|
 | **Allowed sources** | `ncs.io`, `pixabay.com` |
 | **Allowed artists** | NoCopyrightSounds (NCS) |
 | **Missing metadata** | Deny |
 | **Unmatched source / artist** | Deny |
-
-Default configurations may reference royalty-free or creator-friendly platforms as **starting points**. Content from those sites is **not** automatically cleared for every use case. You are responsible for securing appropriate rights and licenses.
-
-These controls are intended to **support responsible use**, not replace legal obligations. CollabFM does not condone intentional misuse or misconfiguration of this policy.
 
 ---
 
