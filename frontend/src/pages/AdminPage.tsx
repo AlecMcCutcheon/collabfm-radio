@@ -30,7 +30,7 @@ import { imageFallbackHandler, proceduralStationLogo, resolveBrandingImageUrl } 
 type Tab = "users" | "discord" | "sharing" | "oidc" | "radio" | "system";
 
 const DEFAULT_LIMITS: LimitsSettings = { maxStageUsers: 7, logRetentionCount: 5 };
-const MAX_STAGE_USERS = 10;
+const MAX_STAGE_USERS = 9;
 const DEFAULT_AUDIO: AudioPipelineSettings = {
   discordBufferFrames: 100,
   discordRelayBufferMs: 3000,

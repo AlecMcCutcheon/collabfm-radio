@@ -91,7 +91,7 @@ See [Authentik SSO Setup](./Authentik-SSO-Setup.md) for a step-by-step Authentik
 
 **Stage & logs**
 
-- **Max stage users** (1–10) — simultaneous broadcaster WebSocket connections.
+- **Max stage users** (1–9) — simultaneous broadcaster WebSocket connections.
 - **Debug log retention** — how long debug logs are kept.
 
 **PCM pipeline** — buffer tuning for broadcaster audio (applies live).

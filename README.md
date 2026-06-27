@@ -355,7 +355,7 @@ Details: [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md).
 | **Discord** | Voice bot credentials, runtime status, **server whitelist** |
 | **Share links** | Site-wide link list (broadcasters also create links in Broadcaster Studio) |
 | **OIDC** | SSO provider, group → role mapping |
-| **Radio** | Max stage users (default 7, max 10), log retention, PCM/discord buffer tuning |
+| **Radio** | Max stage users (default 7, max 9), log retention, PCM/discord buffer tuning |
 | **System** | Guest XP rules, extension auth, **content policy**, Last.fm/Giphy, Turnstile, **branding**, extension download |
 
 **Share link types:**

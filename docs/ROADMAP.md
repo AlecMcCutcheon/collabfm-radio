@@ -8,7 +8,7 @@ Ideas under consideration—not commitments, and not in any fixed order. If some
 
 ~~**Content policy**~~ — **Shipped.** Configurable broadcast allowlists for permitted sources and artists, **enforced by default**. The policy engine is a **filtering tool**, not a copyright detector—it applies rules to metadata reported by the browser extension (site, title, artist), not to raw audio. Includes Admin → System configuration, extension mute and handoff behavior, synchronized metadata on the web UI and Discord, conservative defaults, and the [Content Policy wiki](./wiki/Content-Policy.md).
 
-~~**Dynamic stage UI**~~ — **Shipped.** Stage dock and mobile stage grid show empty slots matching **Admin → Radio → Max stage users** (1–10). The relay API exposes `stageLimit`; the dock height scales with slot count.
+~~**Dynamic stage UI**~~ — **Shipped.** Stage dock and mobile stage grid show empty slots matching **Admin → Radio → Max stage users** (1–9). The relay API exposes `stageLimit`; the dock height scales with slot count.
 
 ---
 

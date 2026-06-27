@@ -8,7 +8,7 @@ export const DEFAULT_LIMITS = {
 };
 
 /** Hard ceiling for maxStageUsers (admin can set 1–this value). */
-export const MAX_STAGE_USERS = 10;
+export const MAX_STAGE_USERS = 9;
 
 export const DEFAULT_AUDIO = {
   discordBufferFrames: 100,

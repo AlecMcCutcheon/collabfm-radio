@@ -3,7 +3,7 @@ import type { HostMember, RelayConnection, LevelInfo } from "../types/api";
 /** Default when stageLimit is not yet loaded from the server. */
 export const DEFAULT_STAGE_SLOT_COUNT = 7;
 /** Matches backend MAX_STAGE_USERS. */
-export const MAX_STAGE_SLOT_COUNT = 10;
+export const MAX_STAGE_SLOT_COUNT = 9;
 
 /** @deprecated Use DEFAULT_STAGE_SLOT_COUNT */
 export const STAGE_SLOT_COUNT = DEFAULT_STAGE_SLOT_COUNT;
