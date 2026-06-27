@@ -706,6 +706,24 @@ const broadcastStatus = {
 const wsConnections = new Map();
 let activeWsId = null;
 
+/** Main stream now-playing is owned by the active promoted rail only. */
+function isMainStreamRail(wsId) {
+  return (
+    !!wsId &&
+    !!activeWsId &&
+    wsId === activeWsId &&
+    broadcastStatus.active
+  );
+}
+
+function isStabilizedMetaForActiveRail() {
+  const stable = globalThis.__metaState?.lastStabilized;
+  if (!stable) return false;
+  if (!broadcastStatus.active || !activeWsId) return true;
+  if (!stable.railId) return true;
+  return stable.railId === activeWsId;
+}
+
 function setContentPolicyMutedForUser(userId, muted) {
   const uid = String(userId);
   for (const info of wsConnections.values()) {
@@ -765,6 +783,8 @@ function reapplyContentPolicyAfterCapabilitiesUpdate(authUserId, userWsId) {
     return { muted: false, deferred: false, decision: null, metadata: null };
   }
 
+  const affectsMainStream = isMainStreamRail(userWsId);
+
   const stored = getRelayNativeMetadataForPolicy(authUserId, userWsId);
   const wsInfo = wsConnections.get(userWsId);
   const policyInput = {
@@ -781,12 +801,17 @@ function reapplyContentPolicyAfterCapabilitiesUpdate(authUserId, userWsId) {
   setContentPolicyMutedForUser(authUserId, muted);
   setContentPolicyPendingForUser(authUserId, deferred && !muted);
 
+  if (!affectsMainStream) {
+    return { muted, deferred, decision, metadata: null };
+  }
+
   if (!stored?.title || !stored?.artist) {
     if (muted) {
       forceImmediateNowPlayingMetadata(
         CONTENT_POLICY_MUTED_TITLE,
         CONTENT_POLICY_MUTED_ARTIST,
         null,
+        userWsId,
       );
     } else if (!deferred) {
       clearPolicyMuteFromMetaState();
@@ -816,9 +841,9 @@ function reapplyContentPolicyAfterCapabilitiesUpdate(authUserId, userWsId) {
   storeNativeMetadataByKey(nativeMetadataRailKey(userWsId), metadata);
 
   if (muted) {
-    forceImmediateNowPlayingMetadata(displayTitle, displayArtist, metadata.albumArt);
+    forceImmediateNowPlayingMetadata(displayTitle, displayArtist, metadata.albumArt, userWsId);
   } else if (!deferred) {
-    forceImmediateNowPlayingMetadata(stored.title, stored.artist, stored.albumArt ?? null);
+    forceImmediateNowPlayingMetadata(stored.title, stored.artist, stored.albumArt ?? null, userWsId);
   }
 
   return { muted, deferred, decision, metadata };
@@ -987,8 +1012,13 @@ function shouldHoldNowPlayingForPolicy() {
   return isNowPlayingMetadataStale() || isActiveRelayContentPolicyPending();
 }
 
-function forceImmediateNowPlayingMetadata(title, artist, albumArt = null) {
+function forceImmediateNowPlayingMetadata(title, artist, albumArt = null, railId = null) {
   try {
+    const targetRailId = railId || activeWsId || null;
+    if (broadcastStatus.active && targetRailId && activeWsId && targetRailId !== activeWsId) {
+      return;
+    }
+
     const displayTitle = String(title || "").trim();
     const displayArtist = String(artist || "").trim();
     if (!displayTitle || !displayArtist) return;
@@ -1040,6 +1070,7 @@ function forceImmediateNowPlayingMetadata(title, artist, albumArt = null) {
       artist: displayArtist,
       albumArt: art || null,
       url: null,
+      railId: targetRailId,
     };
 
     updateDiscordBotFromMetadata(displayTitle, displayArtist, false, null);
@@ -2736,17 +2767,12 @@ function getNativeMetadataForActiveRail() {
   };
 
   if (wsId) {
-    const storedByRail = resolveStoredForDisplay(getStoredNativeMetadataForRail(wsId));
+    const storedByRail = resolveStoredForDisplay(
+      getStoredNativeMetadataByKey(nativeMetadataRailKey(wsId)),
+    );
     if (storedByRail && !isPlaceholderPlaybackTitle(storedByRail.title)) {
       return storedByRail;
     }
-  }
-
-  const storedByUser = resolveStoredForDisplay(getStoredNativeMetadataForUser(userId));
-  if (storedByUser && !isPlaceholderPlaybackTitle(storedByUser.title)) {
-    if (broadcastStatus.active) return storedByUser;
-    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-    if (storedByUser.timestamp > fiveMinutesAgo) return storedByUser;
   }
 
   if (wsId) {
@@ -2782,7 +2808,8 @@ function getNativeMetadataForActiveRail() {
   if (
     stable?.title &&
     stable?.artist &&
-    !isPlaceholderPlaybackTitle(stable.title)
+    !isPlaceholderPlaybackTitle(stable.title) &&
+    (!wsId || !stable.railId || stable.railId === wsId)
   ) {
     return {
       title: stable.title,
@@ -3987,16 +4014,11 @@ http.createServer(async (req, res) => {
               }
             }
 
-            const activeInfo = activeWsId ? wsConnections.get(activeWsId) : null;
-            const postsToActiveRail =
-              (activeWsId && touchedRailIds.has(activeWsId)) ||
-              (activeInfo && String(activeInfo.userId) === String(userId)) ||
-              (broadcastStatus.active &&
-                String(broadcastStatus.broadcasterUserId) === String(userId));
+            const postsToMainStream = isMainStreamRail(userWsId);
 
-            if (policyMuted && broadcastStatus.active) {
-              forceImmediateNowPlayingMetadata(displayTitle, displayArtist, metadata.albumArt);
-            } else if (postsToActiveRail && !policyDeferred) {
+            if (policyMuted && postsToMainStream) {
+              forceImmediateNowPlayingMetadata(displayTitle, displayArtist, metadata.albumArt, userWsId);
+            } else if (postsToMainStream && !policyDeferred) {
               if (isUsableAlbumArtUrl(metadata.albumArt)) {
                 albumArtCache.set(`${metadata.title.trim()}|||${metadata.artist.trim()}`, {
                   url: metadata.albumArt,
@@ -4004,7 +4026,7 @@ http.createServer(async (req, res) => {
                 });
               }
               if (priorMuted) {
-                forceImmediateNowPlayingMetadata(metadata.title, metadata.artist, metadata.albumArt);
+                forceImmediateNowPlayingMetadata(metadata.title, metadata.artist, metadata.albumArt, userWsId);
               } else {
                 updateDiscordBotFromMetadata(metadata.title, metadata.artist, false, null);
                 syncInternalSongMirror();
@@ -4099,7 +4121,7 @@ http.createServer(async (req, res) => {
             res.end(JSON.stringify(activeBroadcastWaitingMetadataPayload()));
             return;
           }
-          if (metaState.lastPayload) {
+          if (metaState.lastPayload && isStabilizedMetaForActiveRail()) {
             res.writeHead(200, { "Content-Type": "application/json" });
             res.end(JSON.stringify(metaState.lastPayload));
             return;
@@ -4174,7 +4196,7 @@ http.createServer(async (req, res) => {
 
       if (!data) {
         // Serve last good payload if available; avoid regressing UI
-        if (metaState.lastPayload) {
+        if (metaState.lastPayload && isStabilizedMetaForActiveRail()) {
           console.log('📡 /api/lastfm fallback: returning last stabilized payload (fetch failed)');
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(metaState.lastPayload));
@@ -4204,7 +4226,7 @@ http.createServer(async (req, res) => {
       }
       // If no current track, serve last stabilized payload to avoid clearing UI unnecessarily
       if (!track || track['@attr']?.nowplaying !== 'true') {
-        if (metaState.lastPayload) {
+        if (metaState.lastPayload && isStabilizedMetaForActiveRail()) {
           console.log('📡 /api/lastfm: no nowplaying track; returning last stabilized payload');
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(metaState.lastPayload));
@@ -4285,7 +4307,11 @@ http.createServer(async (req, res) => {
               if (currentStable && 
                   currentStable.title === title && 
                   currentStable.artist === artist) {
-                metaState.lastStabilized = { ...currentStable, albumArt: finalArt };
+                metaState.lastStabilized = {
+                  ...currentStable,
+                  albumArt: finalArt,
+                  railId: currentStable.railId ?? activeWsId ?? null,
+                };
                 // Update the payload as well
                 if (metaState.lastPayload && metaState.lastPayload.recenttracks?.track?.[0]) {
                   const imgArr = [
@@ -4334,7 +4360,13 @@ http.createServer(async (req, res) => {
 
       // Helper to update stabilized immediately
       const commitNow = () => {
-        metaState.lastStabilized = { title, artist, albumArt: immediateArt || null, url: trackUrl || null };
+        metaState.lastStabilized = {
+          title,
+          artist,
+          albumArt: immediateArt || null,
+          url: trackUrl || null,
+          railId: activeWsId || null,
+        };
         metaState.lastPayload = out;
         if (immediateArt) {
           applySessionLogAlbumArt(title, artist, immediateArt);
@@ -4414,7 +4446,13 @@ http.createServer(async (req, res) => {
           metaState.pendingTimer = setTimeout(() => {
             try {
               if (metaState.pending) {
-                metaState.lastStabilized = { title: metaState.pending.title, artist: metaState.pending.artist, albumArt: metaState.pending.albumArt, url: metaState.pending.url };
+                metaState.lastStabilized = {
+                  title: metaState.pending.title,
+                  artist: metaState.pending.artist,
+                  albumArt: metaState.pending.albumArt,
+                  url: metaState.pending.url,
+                  railId: activeWsId || null,
+                };
                 metaState.lastPayload = metaState.pending.out;
                 if (metaState.pending.albumArt) {
                   applySessionLogAlbumArt(
@@ -4442,7 +4480,8 @@ http.createServer(async (req, res) => {
         }
 
         // Serve the last stabilized payload if available; else serve current
-        const payload = metaState.lastPayload || out;
+        const payload =
+          metaState.lastPayload && isStabilizedMetaForActiveRail() ? metaState.lastPayload : out;
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(payload));
         return;
@@ -4454,7 +4493,7 @@ http.createServer(async (req, res) => {
         res.end(JSON.stringify(activeBroadcastWaitingMetadataPayload()));
         return;
       }
-      if (metaState.lastPayload) {
+      if (metaState.lastPayload && isStabilizedMetaForActiveRail()) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(metaState.lastPayload));
         return;
