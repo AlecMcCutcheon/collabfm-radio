@@ -2,9 +2,19 @@ name: Publish container image
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, develop]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      channel:
+        description: "Publish channel (main → latest, develop → dev)"
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - latest
+          - dev
 
 permissions:
   contents: read
@@ -68,7 +78,8 @@ jobs:
             type=ref,event=branch
             type=ref,event=tag
             type=sha,prefix=
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || (github.event_name == 'workflow_dispatch' && github.event.inputs.channel == 'latest') }}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.channel == 'dev') }}
           labels: |
             org.opencontainers.image.title=CollabFM
             org.opencontainers.image.description=${{ steps.image.outputs.description }}
