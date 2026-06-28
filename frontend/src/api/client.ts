@@ -33,6 +33,7 @@ import type {
   BroadcastSettings,
   BuildInfo,
   ContainerUpdateSettings,
+  ContainerUpdateSettingsInput,
   ContainerUpdateStatus,
   BroadcastSessionLog,
   ContentPolicy,
@@ -622,7 +623,7 @@ export const api = {
     integrations?: IntegrationsSettings;
     leveling?: LevelingSettings;
     broadcast?: BroadcastSettings;
-    updates?: ContainerUpdateSettings;
+    updates?: ContainerUpdateSettingsInput;
     limits?: LimitsSettings;
     audio?: AudioPipelineSettings;
   }) =>

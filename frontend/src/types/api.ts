@@ -86,6 +86,12 @@ export interface ContainerUpdateSettings {
   trackTag: "latest" | "develop";
 }
 
+/** Save payload — trackTag is derived server-side from baked build info */
+export type ContainerUpdateSettingsInput = Pick<
+  ContainerUpdateSettings,
+  "notifyOnBuildAvailable"
+>;
+
 export interface BuildInfo {
   imageRepository: string;
   githubRepository: string;
