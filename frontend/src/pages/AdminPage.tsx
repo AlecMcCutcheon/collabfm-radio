@@ -136,7 +136,13 @@ export function AdminPage() {
     containerUpdates?.current.trackTag ??
     (buildInfo?.channel === "develop" ? "develop" : "latest");
 
+  const containerUpdatesDisabled =
+    buildInfo?.revision === "local" ||
+    buildInfo?.channel === "development" ||
+    buildInfo?.runtime !== "docker";
+
   const refreshContainerUpdates = async () => {
+    if (containerUpdatesDisabled) return;
     try {
       const status = await api.adminContainerUpdates();
       setContainerUpdates(status);
@@ -179,7 +185,16 @@ export function AdminPage() {
       setAudio(settings.audio ?? DEFAULT_AUDIO);
       setUpdatesNotify(settings.updates?.notifyOnBuildAvailable === true);
       setBuildInfo(settings.build ?? null);
-      await refreshContainerUpdates();
+      const build = settings.build;
+      const updatesDisabled =
+        build?.revision === "local" ||
+        build?.channel === "development" ||
+        build?.runtime !== "docker";
+      if (updatesDisabled) {
+        setContainerUpdates(null);
+      } else {
+        await refreshContainerUpdates();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load admin data");
     }
@@ -198,14 +213,15 @@ export function AdminPage() {
   }, [tab]);
 
   useEffect(() => {
-    if (!updatesNotify) return;
+    if (!updatesNotify || containerUpdatesDisabled) return;
     const id = window.setInterval(() => {
       void refreshContainerUpdates();
     }, 5 * 60 * 1000);
     return () => window.clearInterval(id);
-  }, [updatesNotify]);
+  }, [updatesNotify, containerUpdatesDisabled]);
 
   const saveUpdates = async () => {
+    if (containerUpdatesDisabled) return;
     setUpdatesBusy(true);
     setError(null);
     try {
@@ -498,7 +514,7 @@ export function AdminPage() {
           </div>
         </div>
 
-        {updatesNotify && containerUpdates?.updateAvailable && (
+        {updatesNotify && !containerUpdatesDisabled && containerUpdates?.updateAvailable && (
           <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-950/50 px-4 py-3 text-sm text-amber-100">
             <p className="font-medium text-amber-50">New container build available</p>
             <p className="mt-1 text-amber-100/90">
@@ -1064,7 +1080,10 @@ export function AdminPage() {
                   <>
                     <div>Build ID: {buildInfo.buildId}</div>
                     <div>Channel: {buildInfo.channel}</div>
-                    <div>Tracking GHCR tag: {resolvedTrackTag} (auto)</div>
+                    <div>
+                      Tracking GHCR tag:{" "}
+                      {containerUpdatesDisabled ? "— (not available in local dev)" : `${resolvedTrackTag} (auto)`}
+                    </div>
                     <div>Revision: {buildInfo.revision.slice(0, 12)}</div>
                     {buildInfo.builtAt ? <div>Built: {new Date(buildInfo.builtAt).toLocaleString()}</div> : null}
                     <div>Runtime: {buildInfo.runtime}</div>
@@ -1076,10 +1095,19 @@ export function AdminPage() {
               <AdminCheckbox
                 checked={updatesNotify}
                 onChange={setUpdatesNotify}
+                disabled={containerUpdatesDisabled}
                 label="Notify when a newer build is available"
-                hint={`Shows a banner when a newer image is published on :${resolvedTrackTag} with a different revision than this instance.`}
+                hint={
+                  containerUpdatesDisabled
+                    ? "Only available when running a published Docker image from GHCR (not npm run dev)."
+                    : `Shows a banner when a newer image is published on :${resolvedTrackTag} with a different revision than this instance.`
+                }
               />
-              {containerUpdates?.error ? (
+              {containerUpdatesDisabled ? (
+                <p className="text-xs text-gray-500 mt-2">
+                  Local development runtime — container update checks are disabled.
+                </p>
+              ) : containerUpdates?.error ? (
                 <p className="text-xs text-amber-300/90 mt-2">Last check: {containerUpdates.error}</p>
               ) : containerUpdates?.note ? (
                 <p className="text-xs text-gray-400 mt-2">{containerUpdates.note}</p>
@@ -1090,10 +1118,17 @@ export function AdminPage() {
                 </p>
               ) : null}
               <div className="flex flex-wrap gap-2 mt-3">
-                <AdminBtn disabled={updatesBusy} onClick={() => void saveUpdates()}>
+                <AdminBtn
+                  disabled={updatesBusy || containerUpdatesDisabled}
+                  onClick={() => void saveUpdates()}
+                >
                   Save update settings
                 </AdminBtn>
-                <AdminBtn variant="secondary" disabled={updatesBusy} onClick={() => void refreshContainerUpdates()}>
+                <AdminBtn
+                  variant="secondary"
+                  disabled={updatesBusy || containerUpdatesDisabled}
+                  onClick={() => void refreshContainerUpdates()}
+                >
                   Check now
                 </AdminBtn>
               </div>
