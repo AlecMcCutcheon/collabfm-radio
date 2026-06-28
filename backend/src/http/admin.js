@@ -64,6 +64,7 @@ import {
   startManagedVoiceBot,
   stopManagedVoiceBot,
 } from "../voice/voiceBotManager.js";
+import { clientErrorMessage } from "../security/clientErrors.js";
 
 function voiceBotPayload() {
   const voiceBot = getVoiceBotConfig();
@@ -548,7 +549,7 @@ export async function handleAdminRoutes(req, res, pathname, method) {
       const base = resolvePublicBaseUrl(req);
       return json(res, 201, { link: enrichShareLink(link, base) });
     } catch (e) {
-      return json(res, 400, { error: e.message || "Invalid request" });
+      return json(res, 400, { error: clientErrorMessage(e) });
     }
   }
 
@@ -568,7 +569,7 @@ export async function handleAdminRoutes(req, res, pathname, method) {
       saveCustomVisualizer(buffer, mimeType);
       return json(res, 200, { ok: true, branding: getBrandingSettings() });
     } catch (e) {
-      return json(res, 400, { error: e.message || "Upload failed" });
+      return json(res, 400, { error: clientErrorMessage(e, "Upload failed") });
     }
   }
 
@@ -631,7 +632,7 @@ export async function handleAdminRoutes(req, res, pathname, method) {
         ...operational,
       });
     } catch (e) {
-      return json(res, 400, { error: e.message || "Invalid request" });
+      return json(res, 400, { error: clientErrorMessage(e) });
     }
   }
 

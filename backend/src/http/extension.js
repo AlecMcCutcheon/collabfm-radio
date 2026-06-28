@@ -18,6 +18,7 @@ import { mintWsRelayToken, mintGuestBroadcastWsToken } from "../radio/wsTokenMin
 import { validateGuestBroadcasterLink } from "../db/shareLinks.js";
 import { getPublishedGuestDisplayName, publishGuestDisplayName } from "./guestBroadcast.js";
 import { isValidGuestId } from "../security/guestSession.js";
+import { applyChromeExtensionCors } from "../security/extensionCors.js";
 import { publicDisplayName } from "../db/userProfile.js";
 import { touchRegisteredUserRequest } from "../db/userActivity.js";
 
@@ -56,12 +57,7 @@ function readBody(req) {
 }
 
 function applyExtensionCors(req, res) {
-  const origin = req.headers.origin;
-  if (origin && origin.startsWith("chrome-extension://")) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  }
+  applyChromeExtensionCors(req, res);
 }
 
 export async function handleExtensionRoutes(req, res, pathname, method) {

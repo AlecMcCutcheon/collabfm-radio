@@ -105,6 +105,7 @@ import {
   recipientKeyForUser,
 } from "./src/chat/chatReadState.js";
 import { isMutationOriginAllowed } from "./src/security/origin.js";
+import { applyChromeExtensionCors } from "./src/security/extensionCors.js";
 import { mirrorInternalSongInfo } from "./src/voice/internalSongMirror.js";
 import { createRailPlaybackResolver } from "./src/voice/railPlaybackResolver.js";
 import {
@@ -653,8 +654,15 @@ let currentLastfmOverride = null; // { user, apiKey, wsId }
 let currentLastfmHash = null;
 function hashLastfmCred(user, apiKey) {
   try {
-    return crypto.createHash('sha1').update(`${user}|${apiKey}`).digest('hex');
-  } catch { return `${user}|${apiKey}`; }
+    return crypto
+      .createHmac("sha256", "collabfm:lastfm-cache-v1")
+      .update(String(user))
+      .update("\0")
+      .update(String(apiKey))
+      .digest("hex");
+  } catch {
+    return `${user}|${apiKey}`;
+  }
 }
     
 
@@ -3486,16 +3494,15 @@ http.createServer(async (req, res) => {
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.setHeader("Access-Control-Allow-Credentials", "true");
-  } else if (origin && origin.startsWith('chrome-extension://') &&
-             (req.url.startsWith('/api/extension') ||
-              req.url === '/api/ws-token' ||
-              req.url === '/api/capabilities' ||
-              req.url === '/api/metadata' ||
-              req.url.startsWith('/api/metadata?'))) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
+  } else if (
+    (req.url.startsWith('/api/extension') ||
+      req.url === '/api/ws-token' ||
+      req.url === '/api/capabilities' ||
+      req.url === '/api/metadata' ||
+      req.url.startsWith('/api/metadata?')) &&
+    applyChromeExtensionCors(req, res)
+  ) {
+    /* extension routes: Authorization header auth only — no Allow-Credentials */
   }
 
   // Handle preflight OPTIONS requests
@@ -4285,9 +4292,8 @@ http.createServer(async (req, res) => {
         return;
       }
 
-      const maskedKey = apiKey && apiKey.length > 8 ? `${apiKey.slice(0,4)}...${apiKey.slice(-4)}` : '****';
       if (!usingNativeMetadata) {
-        console.log(`📡 /api/metadata using user=${user} key=${maskedKey}`);
+        console.log("📡 /api/metadata using user=", user);
       }
 
       // Extract current track
@@ -4680,7 +4686,7 @@ http.createServer(async (req, res) => {
               site: newSite,
               lastUpdated: Date.now(),
             };
-            console.log(`📡 Capabilities updated for wsId ${userWsId}:`, wsInfo.capabilities);
+            console.log("📡 Capabilities updated for wsId", userWsId, wsInfo.capabilities);
           }
 
           const policyResult = reapplyContentPolicyAfterCapabilitiesUpdate(authUserId, userWsId);
@@ -6613,18 +6619,6 @@ http.createServer(async (req, res) => {
     if (serveFile(filePath)) return;
   } else if (req.url === "/join-required" || req.url === "/join-required.html") {
     filePath = path.join(STATIC_DIR, "join-required.html");
-    // Inject username if provided via query param for nicer greeting
-    if (fs.existsSync(filePath)) {
-      const raw = fs.readFileSync(filePath, 'utf8');
-      try {
-        const url = new URL(req.url, `http://${req.headers.host}`);
-        const name = url.searchParams.get('name') || '';
-        const hydrated = raw.replace('</head>', name ? `<script>window.__JOIN_NAME__=${JSON.stringify(name)}</script></head>` : '</head>');
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(hydrated);
-        return;
-      } catch {}
-    }
     if (serveFile(filePath)) return;
   } else if (req.url.startsWith("/assets/")) {
     filePath = safeResolveUnderRoot(STATIC_DIR, req.url);

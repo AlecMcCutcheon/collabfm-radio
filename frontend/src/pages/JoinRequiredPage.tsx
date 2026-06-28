@@ -3,13 +3,16 @@ import { api } from "../api/client";
 
 type JoinState = "checking" | "in-guild" | "not-in-guild" | "error";
 
-declare global {
-  interface Window {
-    __JOIN_NAME__?: string;
+const DISCORD_INVITE = "https://discord.gg/6cWb933Eku";
+
+function greetingNameFromLocation() {
+  try {
+    const name = new URLSearchParams(window.location.search).get("name")?.trim();
+    return name && name.length <= 64 ? name : null;
+  } catch {
+    return null;
   }
 }
-
-const DISCORD_INVITE = "https://discord.gg/6cWb933Eku";
 
 export function JoinRequiredPage() {
   const [state, setState] = useState<JoinState>("checking");
@@ -18,7 +21,7 @@ export function JoinRequiredPage() {
   const [working, setWorking] = useState(false);
 
   const greetingName = useMemo(
-    () => window.__JOIN_NAME__ || auth?.user?.username || "there",
+    () => greetingNameFromLocation() || auth?.user?.username || "there",
     [auth],
   );
 
