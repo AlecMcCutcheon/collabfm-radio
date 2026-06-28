@@ -10,7 +10,7 @@ Ideas under consideration—not commitments, and not in any fixed order. If some
 
 ~~**Dynamic stage UI**~~ — **Shipped.** Stage dock and mobile stage grid show empty slots matching **Admin → Radio → Max stage users** (1–9). The relay API exposes `stageLimit`; the dock height scales with slot count.
 
-~~**Admin container update notifications**~~ — **Shipped (in-app).** Admin → System → Container updates: pick `latest` or `develop`, enable notifications, and see a banner when a newer GHCR build is **published and pullable**. The check reads the revision on the tracked GHCR tag (not git branch HEAD alone). Each image bakes in its own build ID (`channel:revision`) — no manual version manifest to maintain. See [README — Container update notifications](../README.md#container-update-notifications) and [Admin Panel — Container updates](./wiki/Admin-Panel.md#tab-system).
+~~**Admin container update notifications**~~ — **Shipped (in-app).** Admin → System → Container updates: enable notifications; GHCR tag (`latest` or `develop`) is auto-selected from the running image's baked channel. Banner when a newer build is **published and pullable** on that tag.
 
 ---
 
