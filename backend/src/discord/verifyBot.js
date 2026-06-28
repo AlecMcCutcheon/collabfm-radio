@@ -23,8 +23,12 @@ export async function verifyVoiceBotCredentials({ clientId, botToken }) {
       return { ok: false, error: "Invalid bot token — Discord rejected authentication" };
     }
     if (!userRes.ok) {
-      const text = await userRes.text();
-      return { ok: false, error: `Discord API error (${userRes.status}): ${text.slice(0, 200)}` };
+      console.error(
+        "[VoiceBot] Discord users/@me failed:",
+        userRes.status,
+        (await userRes.text()).slice(0, 200),
+      );
+      return { ok: false, error: "Discord API error" };
     }
 
     const botUser = await userRes.json();
@@ -36,6 +40,7 @@ export async function verifyVoiceBotCredentials({ clientId, botToken }) {
       headers: { Authorization: `Bot ${token}` },
     });
     if (!appRes.ok) {
+      console.error("[VoiceBot] Discord applications/@me failed:", appRes.status);
       return {
         ok: false,
         error: "Bot token works but could not read application info — check token scopes",
@@ -47,7 +52,7 @@ export async function verifyVoiceBotCredentials({ clientId, botToken }) {
     if (applicationId !== appId) {
       return {
         ok: false,
-        error: `Application ID mismatch — token belongs to application ${applicationId}, not ${appId}`,
+        error: "Application ID does not match the bot token's application",
         botUsername: botUser.username,
         botId: botUser.id,
         applicationId,
@@ -63,7 +68,8 @@ export async function verifyVoiceBotCredentials({ clientId, botToken }) {
       applicationName: application.name || null,
     };
   } catch (err) {
-    return { ok: false, error: err.message || "Could not reach Discord" };
+    console.error("[VoiceBot] verify credentials failed:", err);
+    return { ok: false, error: "Could not reach Discord" };
   }
 }
 

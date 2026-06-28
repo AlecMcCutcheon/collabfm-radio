@@ -64,7 +64,11 @@ import {
   startManagedVoiceBot,
   stopManagedVoiceBot,
 } from "../voice/voiceBotManager.js";
-import { clientErrorMessage } from "../security/clientErrors.js";
+import {
+  writeAdminJsonError,
+  writeAdminJsonFailure,
+  voiceBotClientError,
+} from "../security/clientErrors.js";
 
 function voiceBotPayload() {
   const voiceBot = getVoiceBotConfig();
@@ -125,7 +129,7 @@ function readBody(req) {
 }
 
 function forbidden(res) {
-  return json(res, 403, { error: "Admin required" });
+  return writeAdminJsonError(res, 403, "Admin required");
 }
 
 export async function handleAdminRoutes(req, res, pathname, method) {
@@ -160,9 +164,9 @@ export async function handleAdminRoutes(req, res, pathname, method) {
       const username = String(body.username || "").trim();
       const password = String(body.password || "");
       const role = body.role || "listener";
-      if (!username || !password) return json(res, 400, { error: "Username and password required" });
+      if (!username || !password) return writeAdminJsonError(res, 400, "Username and password required");
       if (!["admin", "broadcaster", "listener"].includes(role)) {
-        return json(res, 400, { error: "Invalid role" });
+        return writeAdminJsonError(res, 400, "Invalid role");
       }
       const passwordHash = await hashPassword(password);
       const { createLocalUser } = await import("../db/index.js");
@@ -176,9 +180,11 @@ export async function handleAdminRoutes(req, res, pathname, method) {
         },
       });
     } catch (e) {
-      const msg = clientErrorMessage(e, "Invalid request");
-      if (msg === "Username taken") return json(res, 409, { error: msg });
-      return json(res, 400, { error: msg });
+      console.error("[admin] create user failed:", e);
+      if (String(e?.message || "").includes("UNIQUE")) {
+        return writeAdminJsonError(res, 409, "Username taken");
+      }
+      return writeAdminJsonError(res, 400, "Invalid request");
     }
   }
 
@@ -190,7 +196,7 @@ export async function handleAdminRoutes(req, res, pathname, method) {
         const body = await readBody(req);
         const session = getAppSession(req);
         const existing = getUserById(id);
-        if (!existing) return json(res, 404, { error: "Not found" });
+        if (!existing) return writeAdminJsonError(res, 404, "Not found");
 
         if (
           session &&
@@ -199,7 +205,7 @@ export async function handleAdminRoutes(req, res, pathname, method) {
           body.role &&
           body.role !== "admin"
         ) {
-          return json(res, 400, { error: "You cannot remove your own admin role" });
+          return writeAdminJsonError(res, 400, "You cannot remove your own admin role");
         }
 
         const fields = {};
@@ -210,11 +216,11 @@ export async function handleAdminRoutes(req, res, pathname, method) {
         if (body.username) fields.username = String(body.username).trim();
         if (body.password) {
           if (existing.auth_source !== "local") {
-            return json(res, 400, { error: "Cannot set password for OIDC users" });
+            return writeAdminJsonError(res, 400, "Cannot set password for OIDC users");
           }
           const password = String(body.password);
           if (password.length < 8) {
-            return json(res, 400, { error: "Password must be at least 8 characters" });
+            return writeAdminJsonError(res, 400, "Password must be at least 8 characters");
           }
           fields.password_hash = await hashPassword(password);
         }
@@ -222,7 +228,7 @@ export async function handleAdminRoutes(req, res, pathname, method) {
           fields.block_guest_action_xp = body.blockGuestActionXp ? 1 : 0;
         }
         const user = updateUser(id, fields);
-        if (!user) return json(res, 404, { error: "Not found" });
+        if (!user) return writeAdminJsonError(res, 404, "Not found");
         const { publicLevelInfo } = await import("../db/userLevel.js");
         const presentation = publicUserPresentation(user);
         const roleInfo = roleInfoForUser(user);
@@ -267,21 +273,22 @@ export async function handleAdminRoutes(req, res, pathname, method) {
             level: publicLevelInfo(user),
           },
         });
-      } catch {
-        return json(res, 400, { error: "Invalid request" });
+      } catch (e) {
+        console.error("[admin] update user failed:", e);
+        return writeAdminJsonError(res, 400, "Invalid request");
       }
     }
     if (method === "DELETE") {
       const session = getAppSession(req);
       if (String(id) === session?.user?.id) {
-        return json(res, 400, { error: "Cannot delete yourself" });
+        return writeAdminJsonError(res, 400, "Cannot delete yourself");
       }
       const existing = getUserById(id);
-      if (!existing) return json(res, 404, { error: "Not found" });
+      if (!existing) return writeAdminJsonError(res, 404, "Not found");
       if (existing.role === "admin") {
         const adminCount = listUsers().filter((u) => u.role === "admin").length;
         if (adminCount <= 1) {
-          return json(res, 400, { error: "Cannot delete the last admin account" });
+          return writeAdminJsonError(res, 400, "Cannot delete the last admin account");
         }
       }
       deleteUser(id);
@@ -294,7 +301,7 @@ export async function handleAdminRoutes(req, res, pathname, method) {
     const id = Number(resetXpMatch[1]);
     const { resetUserXp, publicLevelInfo } = await import("../db/userLevel.js");
     const existing = getUserById(id);
-    if (!existing) return json(res, 404, { error: "Not found" });
+    if (!existing) return writeAdminJsonError(res, 404, "Not found");
     resetUserXp(id);
     const user = getUserById(id);
     return json(res, 200, {
@@ -329,14 +336,15 @@ export async function handleAdminRoutes(req, res, pathname, method) {
         replaceOidcGroupMappings(body.mappings);
       }
       return json(res, 200, { ok: true });
-    } catch {
-      return json(res, 400, { error: "Invalid request" });
+    } catch (e) {
+      console.error("[admin] save OIDC failed:", e);
+      return writeAdminJsonError(res, 400, "Invalid request");
     }
   }
 
   if (pathname === "/api/admin/oidc/mappings" && method === "POST") {
     const body = await readBody(req);
-    if (!body.oidc_group || !body.role) return json(res, 400, { error: "Missing fields" });
+    if (!body.oidc_group || !body.role) return writeAdminJsonError(res, 400, "Missing fields");
     setOidcGroupMapping(body.oidc_group, body.role);
     return json(res, 200, { ok: true });
   }
@@ -353,7 +361,7 @@ export async function handleAdminRoutes(req, res, pathname, method) {
 
   if (pathname === "/api/admin/discord/whitelist" && method === "POST") {
     const body = await readBody(req);
-    if (!body.guild_id) return json(res, 400, { error: "guild_id required" });
+    if (!body.guild_id) return writeAdminJsonError(res, 400, "guild_id required");
     upsertWhitelistEntry(String(body.guild_id), body.label, body.enabled !== false);
     return json(res, 200, { ok: true });
   }
@@ -408,7 +416,11 @@ export async function handleAdminRoutes(req, res, pathname, method) {
       const { clientId, botToken } = resolveVoiceBotCredentials(body);
       const result = await verifyVoiceBotCredentials({ clientId, botToken });
       if (!result.ok) {
-        return json(res, 400, { ok: false, ...result });
+        return writeAdminJsonFailure(
+          res,
+          400,
+          voiceBotClientError(result, "Could not verify Discord credentials"),
+        );
       }
 
       const current = getSetting("voiceBot", {});
@@ -438,31 +450,40 @@ export async function handleAdminRoutes(req, res, pathname, method) {
         autoStart,
         runtime: getVoiceBotRuntimeStatus(),
       });
-    } catch {
-      return json(res, 400, { ok: false, error: "Invalid request" });
+    } catch (e) {
+      console.error("[admin] verify voice bot failed:", e);
+      return writeAdminJsonFailure(res, 400, "Invalid request");
     }
   }
 
   if (pathname === "/api/admin/voice-bot/start" && method === "POST") {
     const voiceBot = getVoiceBotConfig();
     if (!voiceBot.clientId || !voiceBot.botToken) {
-      return json(res, 400, { ok: false, error: "Configure Application ID and bot token first" });
+      return writeAdminJsonFailure(res, 400, "Configure Application ID and bot token first");
     }
     if (!voiceBot.verified?.at) {
-      return json(res, 400, { ok: false, error: "Verify credentials before starting the voice bot" });
+      return writeAdminJsonFailure(res, 400, "Verify credentials before starting the voice bot");
     }
     const fp = credentialsFingerprint(voiceBot.clientId, voiceBot.botToken);
     if (voiceBot.verified.fingerprint && voiceBot.verified.fingerprint !== fp) {
-      return json(res, 400, { ok: false, error: "Credentials changed since last verification — verify again" });
+      return writeAdminJsonFailure(
+        res,
+        400,
+        "Credentials changed since last verification — verify again",
+      );
     }
     const result = startManagedVoiceBot();
-    if (!result.ok) return json(res, 400, result);
+    if (!result.ok) {
+      return writeAdminJsonFailure(res, 400, voiceBotClientError(result));
+    }
     return json(res, 200, { ...result, runtime: getVoiceBotRuntimeStatus() });
   }
 
   if (pathname === "/api/admin/voice-bot/stop" && method === "POST") {
     const result = stopManagedVoiceBot();
-    if (!result.ok) return json(res, 400, result);
+    if (!result.ok) {
+      return writeAdminJsonFailure(res, 400, voiceBotClientError(result));
+    }
     return json(res, 200, { ...result, runtime: getVoiceBotRuntimeStatus() });
   }
 
@@ -489,8 +510,9 @@ export async function handleAdminRoutes(req, res, pathname, method) {
       setSetting("voiceBot", next);
       const autoStart = maybeAutoStartManagedVoiceBot({ reason: "save" });
       return json(res, 200, { ok: true, voiceBot: voiceBotPayload(), autoStart });
-    } catch {
-      return json(res, 400, { error: "Invalid request" });
+    } catch (e) {
+      console.error("[admin] save voice bot failed:", e);
+      return writeAdminJsonError(res, 400, "Invalid request");
     }
   }
 
@@ -550,7 +572,8 @@ export async function handleAdminRoutes(req, res, pathname, method) {
       const base = resolvePublicBaseUrl(req);
       return json(res, 201, { link: enrichShareLink(link, base) });
     } catch (e) {
-      return json(res, 400, { error: clientErrorMessage(e) });
+      console.error("[admin] create share link failed:", e);
+      return writeAdminJsonError(res, 400, "Invalid request");
     }
   }
 
@@ -565,12 +588,13 @@ export async function handleAdminRoutes(req, res, pathname, method) {
       const body = await readBrandingBody(req);
       const data = String(body.data || "");
       const mimeType = String(body.mimeType || "image/png");
-      if (!data) return json(res, 400, { error: "Image data required" });
+      if (!data) return writeAdminJsonError(res, 400, "Image data required");
       const buffer = Buffer.from(data, "base64");
       saveCustomVisualizer(buffer, mimeType);
       return json(res, 200, { ok: true, branding: getBrandingSettings() });
     } catch (e) {
-      return json(res, 400, { error: clientErrorMessage(e, "Upload failed") });
+      console.error("[admin] visualizer upload failed:", e);
+      return writeAdminJsonError(res, 400, "Upload failed");
     }
   }
 
@@ -633,18 +657,19 @@ export async function handleAdminRoutes(req, res, pathname, method) {
         ...operational,
       });
     } catch (e) {
-      return json(res, 400, { error: clientErrorMessage(e) });
+      console.error("[admin] save settings failed:", e);
+      return writeAdminJsonError(res, 400, "Invalid request");
     }
   }
 
-  return json(res, 404, { error: "Not found" });
+  return writeAdminJsonError(res, 404, "Not found");
 }
 
 export async function handlePublicDiscordRoutes(req, res, pathname, method) {
   const wlMatch = pathname.match(/^\/api\/discord\/whitelist\/(.+)$/);
   if (wlMatch && method === "GET") {
     if (!getAppSession(req)) {
-      return json(res, 401, { error: "Unauthorized" });
+      return writeAdminJsonError(res, 401, "Unauthorized");
     }
     const { isGuildWhitelisted } = await import("../db/index.js");
     const guildId = decodeURIComponent(wlMatch[1]);

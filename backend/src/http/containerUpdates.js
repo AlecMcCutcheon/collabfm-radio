@@ -202,12 +202,13 @@ export async function checkForContainerUpdate(trackTagInput = null) {
       checkedAt,
     };
   } catch (error) {
+    console.error("[ContainerUpdates] check failed:", error);
     return {
       updateAvailable: false,
       current,
       remote: null,
       checkedAt,
-      error: error?.message || String(error),
+      error: "Update check failed",
     };
   }
 }
