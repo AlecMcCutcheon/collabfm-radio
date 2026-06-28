@@ -9,13 +9,16 @@ Detailed guides beyond the [main README](https://github.com/AlecMcCutcheon/colla
 | [Navigating the UI](./Navigating-the-UI.md) | Chat, admin entry, mobile vs desktop, main radio screen |
 | [Broadcasting & Stage](./Broadcasting-and-Stage.md) | Go live, extension pairing, promote a DJ, media controls |
 | [Chat & Party Effects](./Chat-and-Party-Effects.md) | Live chat, GIFs, synced party effects, hearts, hotkeys |
-| [Admin Panel](./Admin-Panel.md) | All admin tabs and what each setting does |
+| [Admin Panel](./Admin-Panel.md) | All admin tabs and what each setting does (including **container update notifications**) |
 | [Content Policy](./Content-Policy.md) | Broadcast allowlists, enforcement, and responsible use |
 | [API Access & Security](./API-Access-and-Security.md) | Which endpoints are public vs login/share-token |
 | [Discord Voice Bot Setup](./Discord-Voice-Bot-Setup.md) | Discord Developer Portal → CollabFM Admin |
 | [Authentik SSO Setup](./Authentik-SSO-Setup.md) | OpenID Connect app for CollabFM login |
 
 ## Quick paths
+
+**Check for container updates (admin)**  
+**Admin settings** → **System** tab → **Container updates** → enable notifications and pick `latest` or `develop`
 
 **Admin settings (desktop)**  
 Bottom-right **message icon** (Open chat) → **Live Chat** header → **gear icon** → **Admin settings**

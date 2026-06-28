@@ -54,6 +54,10 @@ function buildSections(): AboutSection[] {
       body: "Broadcasters can share time-limited listen links for the web player or a direct stream URL (OBS, VLC, etc.) without a full account.",
     },
     {
+      title: "Upgrades & new builds",
+      body: "Station operators on Docker can enable container update notifications in Admin → System → Container updates. Choose whether to track stable (latest) or preview (develop) builds on GHCR; when a newer published image is available, a banner appears at the top of Admin settings with pull and upgrade steps.",
+    },
+    {
       title: "A note on persistence",
       body: "Chat messages and song requests are kept in memory and may reset when the server restarts or updates.",
     },

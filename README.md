@@ -58,6 +58,7 @@ Planned directions and ideas—not a schedule or promise of delivery:
 
 - ~~**Content policy** — configurable source and artist allowlists enforced by default; metadata-based filtering (not audio analysis), admin UI, extension integration, and [wiki guide](./docs/wiki/Content-Policy.md).~~ *(shipped)*
 - ~~**Dynamic stage UI** — stage slots in the GUI match the configured max stage users (Admin → Radio).~~ *(shipped)*
+- ~~**Container update notifications** — Admin → System → Container updates: track `latest` or `develop` on GHCR, get a banner when a newer **published** image is pullable; each image bakes in its own build ID. See [Upgrading](#container-update-notifications) and [Admin Panel](./docs/wiki/Admin-Panel.md#tab-system).~~ *(shipped)*
 - **Hybrid users** — optional local password on SSO-linked accounts (and related account management).
 - **Gated registration** — access-request form, admin approve/deny queue, one-time enrollment tokens.
 
@@ -120,7 +121,7 @@ See [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md) for `/join`,
 | **Listeners** | Log in on the main site, or use **share links** for guest access without an account |
 | **Discord** | Voice bot relays audio into voice channels; `/join`, `/station`, `/leave`; per-channel now-playing embed with station picker |
 | **Auth** | Local accounts, optional OIDC (Authentik, etc.), device pairing for the extension |
-| **Admin** | Users, Discord bot, share links, SSO, audio tuning, branding, integrations, **content policy** |
+| **Admin** | Users, Discord bot, share links, SSO, audio tuning, branding, integrations, **content policy**, **container update notifications** |
 
 ---
 
@@ -225,6 +226,20 @@ environment:
 If you **do** customize files in appdata, leave `preserve` and merge upstream changes manually, or back up your edits before using `update` (sync uses `--delete` for app paths not in the exclude list).
 
 Re-download and reinstall the **Chrome extension** from **Admin → System** after upgrades when broadcasting or content-policy behavior changes. The extension is bundled in the container image; syncing app code with `COLLABFM_SYNC_MODE=update` updates the ZIP served from Admin, but each broadcaster must install the new build locally.
+
+### Container update notifications
+
+Self-hosted operators can opt in to **in-app build alerts** instead of watching GitHub or GHCR manually.
+
+1. Open **Admin → System → Container updates**.
+2. Choose **Track update channel** — `latest` (stable) or `develop` (preview).
+3. Enable **Notify when a newer build is available** and **Save**.
+
+When enabled, Admin compares your running instance’s baked-in **build ID** (git revision from the image) to the revision on the tracked **GHCR tag**. A banner appears at the top of Admin only after CI has **published** a pullable image—not when git alone has moved ahead. Use **Check now** to refresh.
+
+Each GHCR image embeds its own build metadata at publish time, so the instance identifies its build without a separate version manifest.
+
+Details: [Admin Panel — Container updates](./docs/wiki/Admin-Panel.md#tab-system).
 
 ---
 
