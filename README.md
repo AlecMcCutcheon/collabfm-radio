@@ -194,6 +194,27 @@ CollabFM keeps **runtime data** on your appdata volume: `config.json`, `storage/
 3. Recreate the container once.
 4. Optional: set `COLLABFM_SYNC_MODE` back to `preserve` if you customize app files under appdata.
 
+### Preview / dev channel (homelab)
+
+Stable releases publish to **`latest`** from the `main` branch. Day-to-day development publishes to **`develop`** (and alias **`dev`**) without moving `latest`, so listeners on stable images are not pulled into every work-in-progress build.
+
+```bash
+# Stable (production / most users)
+docker pull ghcr.io/alecmccutcheon/collabfm-radio:latest
+
+# Preview (operator testing — tracks develop branch)
+docker pull ghcr.io/alecmccutcheon/collabfm-radio:develop
+```
+
+In compose, set `IMAGE=ghcr.io/alecmccutcheon/collabfm-radio:develop` in `docker/.env`, then recreate.
+
+Helper scripts (repo root):
+
+- `./scripts/push-dev.sh "message"` — commit (optional) and push to `develop` → builds `:develop` / `:dev`
+- `./scripts/promote-dev-to-main.sh` — merge `develop` into `main` → builds `:latest`
+
+**Note for early adopters:** If you pulled `:latest` frequently during initial releases, you may have hit rough edges while metadata, multi-connection DJ, and Chrome extension behavior were still settling. The project now uses a **dev channel** for operator testing and **`latest`** for stable drops — you can stay on `:latest` and upgrade when Admin reports a new build (see [GHCR](#ghcr) and Admin → System → Container updates).
+
 Compose example:
 
 ```yaml
@@ -371,11 +392,12 @@ Details: [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md).
 ## GHCR
 
 - Package: `ghcr.io/alecmccutcheon/collabfm-radio`
-- Tags: `latest`, branch name, semver `v*` tags (e.g. `v1.2.3`), commit SHA (see `.github/workflows/publish-ghcr.yml`)
-- Each published image includes a short **package description** on GHCR noting what that build contains (commit message or release tag)
+- Tags: `latest` (stable / `main`), `develop` and `dev` (preview / `develop` branch), branch name, semver `v*` tags (e.g. `v1.2.3`), commit SHA (see `.github/workflows/publish-ghcr.yml`)
+- Each published image includes a short **package description** on GHCR noting what that build contains (commit message or release tag), plus a baked-in **build ID** (`channel:revision`) read by Admin → System
 - **Private packages:** `docker login ghcr.io` in Portainer or on the host
 - After pulling a new image, **recreate** the container. Set `COLLABFM_SYNC_MODE=update` for one start to refresh app files in appdata (see [Upgrading](#upgrading)); your database and `config.json` are preserved
 - **Re-download and reinstall** the browser extension from Admin → System after upgrades—especially when content policy or broadcasting behavior changes
+- **Admin → System → Container updates:** choose `latest` or `develop`, enable notifications, and get a banner when a newer GHCR build is available for your tracked channel
 
 ---
 

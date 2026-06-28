@@ -1,0 +1,8 @@
+{
+  "imageRepository": "ghcr.io/alecmccutcheon/collabfm-radio",
+  "githubRepository": "AlecMcCutcheon/collabfm-radio",
+  "channel": "development",
+  "revision": "local",
+  "version": "local-dev",
+  "builtAt": null
+}

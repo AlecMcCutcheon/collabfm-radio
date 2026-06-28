@@ -80,6 +80,37 @@ export interface BroadcastSettings {
   extensionRequirePairing: boolean;
 }
 
+export interface ContainerUpdateSettings {
+  notifyOnBuildAvailable: boolean;
+  trackTag: "latest" | "develop" | "dev";
+}
+
+export interface BuildInfo {
+  imageRepository: string;
+  githubRepository: string;
+  channel: string;
+  revision: string;
+  version: string;
+  builtAt: string | null;
+  buildId: string;
+  runtime: string;
+}
+
+export interface ContainerUpdateStatus {
+  updateAvailable: boolean;
+  current: BuildInfo & { trackTag?: string };
+  remote: {
+    revision: string;
+    version: string;
+    tag: string;
+    branch: string;
+    image: string;
+  } | null;
+  checkedAt: string;
+  note?: string;
+  error?: string;
+}
+
 export interface LimitsSettings {
   maxStageUsers: number;
   logRetentionCount: number;

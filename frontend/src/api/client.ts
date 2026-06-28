@@ -31,6 +31,9 @@ import type {
   PresenceRoster,
   LevelingSettings,
   BroadcastSettings,
+  BuildInfo,
+  ContainerUpdateSettings,
+  ContainerUpdateStatus,
   BroadcastSessionLog,
   ContentPolicy,
 } from "../types/api";
@@ -605,9 +608,16 @@ export const api = {
       integrations: IntegrationsSettings;
       leveling?: LevelingSettings;
       broadcast?: BroadcastSettings;
+      updates?: ContainerUpdateSettings;
+      build?: BuildInfo;
       limits?: LimitsSettings;
       audio?: AudioPipelineSettings;
     }>(`${API}/admin/settings`),
+
+  adminContainerUpdates: (trackTag?: string) => {
+    const qs = trackTag ? `?trackTag=${encodeURIComponent(trackTag)}` : "";
+    return json<ContainerUpdateStatus>(`${API}/admin/container-updates${qs}`);
+  },
 
   saveAdminSettings: (body: {
     branding?: Pick<BrandingSettings, "radioDisplayName" | "hideDeveloperAboutMessage">;
@@ -615,6 +625,7 @@ export const api = {
     integrations?: IntegrationsSettings;
     leveling?: LevelingSettings;
     broadcast?: BroadcastSettings;
+    updates?: ContainerUpdateSettings;
     limits?: LimitsSettings;
     audio?: AudioPipelineSettings;
   }) =>
@@ -624,6 +635,8 @@ export const api = {
       integrations: IntegrationsSettings;
       leveling?: LevelingSettings;
       broadcast?: BroadcastSettings;
+      updates?: ContainerUpdateSettings;
+      build?: BuildInfo;
       limits?: LimitsSettings;
       audio?: AudioPipelineSettings;
     }>(

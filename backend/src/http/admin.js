@@ -28,6 +28,12 @@ import {
   saveOperationalSettings,
 } from "../settings/operational.js";
 import {
+  checkForContainerUpdate,
+  getContainerUpdateSettings,
+  saveContainerUpdateSettings,
+} from "./containerUpdates.js";
+import { getBuildInfo } from "../radio/buildInfo.js";
+import {
   createShareLink,
   enrichShareLink,
   listShareLinks,
@@ -373,8 +379,17 @@ export async function handleAdminRoutes(req, res, pathname, method) {
         extensionRequirePairing:
           getSetting("broadcast.extensionRequirePairing", true) !== false,
       },
+      updates: getContainerUpdateSettings(),
+      build: getBuildInfo(),
       ...operationalSettingsAdminPayload(),
     });
+  }
+
+  if (pathname === "/api/admin/container-updates" && method === "GET") {
+    const reqUrl = new URL(req.url, `http://${req.headers.host}`);
+    const trackTag = reqUrl.searchParams.get("trackTag");
+    const status = await checkForContainerUpdate(trackTag || null);
+    return json(res, 200, status);
   }
 
   if (pathname === "/api/admin/voice-bot" && method === "GET") {
@@ -590,6 +605,10 @@ export async function handleAdminRoutes(req, res, pathname, method) {
       if (body.broadcast && typeof body.broadcast.extensionRequirePairing === "boolean") {
         setSetting("broadcast.extensionRequirePairing", body.broadcast.extensionRequirePairing);
       }
+      let updates = getContainerUpdateSettings();
+      if (body.updates) {
+        updates = saveContainerUpdateSettings(body.updates);
+      }
       let operational = operationalSettingsAdminPayload();
       if (body.limits || body.audio) {
         operational = saveOperationalSettings({ limits: body.limits, audio: body.audio });
@@ -607,6 +626,8 @@ export async function handleAdminRoutes(req, res, pathname, method) {
           extensionRequirePairing:
             getSetting("broadcast.extensionRequirePairing", true) !== false,
         },
+        updates,
+        build: getBuildInfo(),
         ...operational,
       });
     } catch (e) {

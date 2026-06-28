@@ -89,6 +89,21 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.image.outputs.version }}
 
+      - name: Write build metadata file
+        run: |
+          REPO_LC=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          CHANNEL="latest"
+          if [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then CHANNEL="develop"; fi
+          jq -n \
+            --arg repo "${{ env.REGISTRY }}/${REPO_LC}" \
+            --arg ghrepo "${{ github.repository }}" \
+            --arg channel "$CHANNEL" \
+            --arg revision "${{ github.sha }}" \
+            --arg version "${{ steps.image.outputs.version }}" \
+            --arg builtAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{imageRepository:$repo,githubRepository:$ghrepo,channel:$channel,revision:$revision,version:$version,builtAt:$builtAt}' \
+            > docker/build-info.json
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:

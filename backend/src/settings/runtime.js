@@ -16,6 +16,12 @@ export function ensureDefaultSettings(configFile = {}) {
   if (getSetting("broadcast.extensionRequirePairing") === null) {
     setSetting("broadcast.extensionRequirePairing", true);
   }
+  if (getSetting("updates.notifyOnBuildAvailable") === null) {
+    setSetting("updates.notifyOnBuildAvailable", false);
+  }
+  if (getSetting("updates.trackTag") === null) {
+    setSetting("updates.trackTag", "latest");
+  }
   if (!getSetting("voiceBot")) {
     const legacy = configFile.relayBot || configFile.discord || {};
     setSetting("voiceBot", {

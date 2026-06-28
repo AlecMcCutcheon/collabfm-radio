@@ -10,6 +10,21 @@ Ideas under consideration—not commitments, and not in any fixed order. If some
 
 ~~**Dynamic stage UI**~~ — **Shipped.** Stage dock and mobile stage grid show empty slots matching **Admin → Radio → Max stage users** (1–9). The relay API exposes `stageLimit`; the dock height scales with slot count.
 
+~~**Admin container update notifications**~~ — **Shipped (in-app).** Admin → System → Container updates: pick `latest` or `develop`, enable notifications, and see a banner when a newer GHCR build is available. Each image bakes in its own build ID (git revision + channel) — no manual version manifest to maintain.
+
+---
+
+## Container & release workflow
+
+| Channel | GHCR tag | Git branch | Audience |
+|---------|----------|------------|----------|
+| Stable | `latest` | `main` | Everyone |
+| Preview | `develop` / `dev` | `develop` | Operator homelab testing |
+
+Scripts: `./scripts/push-dev.sh`, `./scripts/promote-dev-to-main.sh` (see README [Upgrading](./README.md#preview--dev-channel-homelab)).
+
+**Future:** email or Discord DM when subscribed users/admins want off-site update alerts (beyond the Admin banner).
+
 ---
 
 ## Hybrid users & account management

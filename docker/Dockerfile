@@ -39,6 +39,7 @@ ENV WEB_PORT=4002 \
     NODE_ENV=production
 
 COPY --from=backend-build /build/backend /usr/share/collabfm
+COPY docker/build-info.json /usr/share/collabfm/build-info.json
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

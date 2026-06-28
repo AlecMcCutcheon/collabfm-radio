@@ -22,7 +22,7 @@ import {
   RoleBadge,
   OIDC_FIELDS,
 } from "../components/admin/adminUi";
-import type { AdminUser, AudioPipelineSettings, BrandingSettings, IntegrationsSettings, LimitsSettings, OidcConfig, ShareLink, StreamInfo, VoiceBotConfig, VoiceBotRuntime, WhitelistEntry } from "../types/api";
+import type { AdminUser, AudioPipelineSettings, BrandingSettings, BuildInfo, ContainerUpdateSettings, ContainerUpdateStatus, IntegrationsSettings, LimitsSettings, OidcConfig, ShareLink, StreamInfo, VoiceBotConfig, VoiceBotRuntime, WhitelistEntry } from "../types/api";
 import { applyStationTitle } from "../utils/stationTitle";
 import { absolutePublicUrl } from "../utils/publicUrl";
 import { imageFallbackHandler, proceduralStationLogo, resolveBrandingImageUrl } from "../utils/brandingImage";
@@ -126,7 +126,21 @@ export function AdminPage() {
   const [audio, setAudio] = useState<AudioPipelineSettings>(DEFAULT_AUDIO);
   const [radioBusy, setRadioBusy] = useState(false);
   const [levelingBusy, setLevelingBusy] = useState(false);
+  const [updatesNotify, setUpdatesNotify] = useState(false);
+  const [updatesTrackTag, setUpdatesTrackTag] = useState<ContainerUpdateSettings["trackTag"]>("latest");
+  const [buildInfo, setBuildInfo] = useState<BuildInfo | null>(null);
+  const [containerUpdates, setContainerUpdates] = useState<ContainerUpdateStatus | null>(null);
+  const [updatesBusy, setUpdatesBusy] = useState(false);
   const visualizerInputRef = useRef<HTMLInputElement>(null);
+
+  const refreshContainerUpdates = async (trackTag = updatesTrackTag) => {
+    try {
+      const status = await api.adminContainerUpdates(trackTag);
+      setContainerUpdates(status);
+    } catch {
+      setContainerUpdates(null);
+    }
+  };
 
   const reload = async () => {
     setError(null);
@@ -160,6 +174,10 @@ export function AdminPage() {
       setExtensionRequirePairing(settings.broadcast?.extensionRequirePairing !== false);
       setLimits(settings.limits ?? DEFAULT_LIMITS);
       setAudio(settings.audio ?? DEFAULT_AUDIO);
+      setUpdatesNotify(settings.updates?.notifyOnBuildAvailable === true);
+      setUpdatesTrackTag(settings.updates?.trackTag ?? "latest");
+      setBuildInfo(settings.build ?? null);
+      await refreshContainerUpdates(settings.updates?.trackTag ?? "latest");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load admin data");
     }
@@ -176,6 +194,36 @@ export function AdminPage() {
     }, 5000);
     return () => window.clearInterval(id);
   }, [tab]);
+
+  useEffect(() => {
+    if (!updatesNotify) return;
+    const id = window.setInterval(() => {
+      void refreshContainerUpdates();
+    }, 5 * 60 * 1000);
+    return () => window.clearInterval(id);
+  }, [updatesNotify, updatesTrackTag]);
+
+  const saveUpdates = async () => {
+    setUpdatesBusy(true);
+    setError(null);
+    try {
+      const res = await api.saveAdminSettings({
+        updates: {
+          notifyOnBuildAvailable: updatesNotify,
+          trackTag: updatesTrackTag,
+        },
+      });
+      setUpdatesNotify(res.updates?.notifyOnBuildAvailable === true);
+      setUpdatesTrackTag(res.updates?.trackTag ?? "latest");
+      setBuildInfo(res.build ?? buildInfo);
+      await refreshContainerUpdates(res.updates?.trackTag ?? updatesTrackTag);
+      flash("Container update settings saved");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setUpdatesBusy(false);
+    }
+  };
 
   const flash = (msg: string) => {
     setSaved(msg);
@@ -449,6 +497,22 @@ export function AdminPage() {
             <p className="text-sm text-gray-400">Manage users, streaming, Discord, and sign-in settings.</p>
           </div>
         </div>
+
+        {updatesNotify && containerUpdates?.updateAvailable && (
+          <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-950/50 px-4 py-3 text-sm text-amber-100">
+            <p className="font-medium text-amber-50">New container build available</p>
+            <p className="mt-1 text-amber-100/90">
+              Running <span className="font-mono">{containerUpdates.current.buildId}</span>
+              {" · "}
+              remote <span className="font-mono">{containerUpdates.remote?.revision.slice(0, 7)}</span>
+              {" on "}
+              <span className="font-mono">{containerUpdates.remote?.image}</span>
+            </p>
+            <p className="mt-2 text-xs text-amber-200/80">
+              Pull the image, set <span className="font-mono">COLLABFM_SYNC_MODE=update</span>, recreate once, then reinstall the extension if needed.
+            </p>
+          </div>
+        )}
 
         <AdminTabBar tabs={tabs} active={tab} onChange={(id) => setTab(id as Tab)} />
 
@@ -990,6 +1054,62 @@ export function AdminPage() {
 
         {tab === "system" && (
           <>
+            <AdminSection
+              title="Container updates"
+              description="Track GHCR builds for this instance. The build ID is baked into each image at publish time — no manual version list to maintain."
+            >
+              <div className="rounded-lg border border-gray-700/80 bg-gray-900/40 px-3 py-2 text-xs text-gray-300 font-mono mb-3">
+                {buildInfo ? (
+                  <>
+                    <div>Build ID: {buildInfo.buildId}</div>
+                    <div>Channel: {buildInfo.channel}</div>
+                    <div>Revision: {buildInfo.revision.slice(0, 12)}</div>
+                    {buildInfo.builtAt ? <div>Built: {new Date(buildInfo.builtAt).toLocaleString()}</div> : null}
+                    <div>Runtime: {buildInfo.runtime}</div>
+                  </>
+                ) : (
+                  <div>Build info unavailable</div>
+                )}
+              </div>
+              <AdminField
+                label="Track update channel"
+                hint="Which GHCR tag to compare against GitHub. Use develop for preview builds; latest for stable releases."
+              >
+                <AdminSelect
+                  value={updatesTrackTag}
+                  onChange={(e) => setUpdatesTrackTag(e.target.value as ContainerUpdateSettings["trackTag"])}
+                >
+                  <option value="latest">latest (main / stable)</option>
+                  <option value="develop">develop (preview)</option>
+                  <option value="dev">dev (alias of develop)</option>
+                </AdminSelect>
+              </AdminField>
+              <AdminCheckbox
+                checked={updatesNotify}
+                onChange={setUpdatesNotify}
+                label="Notify when a newer build is available"
+                hint="Shows a banner at the top of Admin when the tracked channel has moved ahead of this instance's baked-in revision."
+              />
+              {containerUpdates?.error ? (
+                <p className="text-xs text-amber-300/90 mt-2">Last check: {containerUpdates.error}</p>
+              ) : containerUpdates?.note ? (
+                <p className="text-xs text-gray-400 mt-2">{containerUpdates.note}</p>
+              ) : containerUpdates && !containerUpdates.updateAvailable ? (
+                <p className="text-xs text-green-400/90 mt-2">
+                  Up to date for {containerUpdates.current.trackTag || updatesTrackTag} (checked{" "}
+                  {new Date(containerUpdates.checkedAt).toLocaleTimeString()}).
+                </p>
+              ) : null}
+              <div className="flex flex-wrap gap-2 mt-3">
+                <AdminBtn disabled={updatesBusy} onClick={() => void saveUpdates()}>
+                  Save update settings
+                </AdminBtn>
+                <AdminBtn variant="secondary" disabled={updatesBusy} onClick={() => void refreshContainerUpdates()}>
+                  Check now
+                </AdminBtn>
+              </div>
+            </AdminSection>
+
             <AdminSection
               title="DJ leveling"
               description="XP is verified on the server. Use these controls if guests are farming hearts or approvals for a registered account."
