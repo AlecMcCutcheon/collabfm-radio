@@ -116,11 +116,11 @@ function readBody(req) {
       try {
         const raw = Buffer.concat(chunks).toString("utf8");
         resolve(raw ? JSON.parse(raw) : {});
-      } catch (e) {
-        reject(e);
+      } catch {
+        reject(new Error("Invalid request"));
       }
     });
-    req.on("error", reject);
+    req.on("error", () => reject(new Error("Invalid request")));
   });
 }
 
@@ -176,8 +176,9 @@ export async function handleAdminRoutes(req, res, pathname, method) {
         },
       });
     } catch (e) {
-      if (String(e.message).includes("UNIQUE")) return json(res, 409, { error: "Username taken" });
-      return json(res, 400, { error: "Invalid request" });
+      const msg = clientErrorMessage(e, "Invalid request");
+      if (msg === "Username taken") return json(res, 409, { error: msg });
+      return json(res, 400, { error: msg });
     }
   }
 
