@@ -504,7 +504,8 @@ export function AdminPage() {
             <p className="mt-1 text-amber-100/90">
               Running <span className="font-mono">{containerUpdates.current.buildId}</span>
               {" · "}
-              remote <span className="font-mono">{containerUpdates.remote?.revision.slice(0, 7)}</span>
+              published{" "}
+              <span className="font-mono">{containerUpdates.remote?.revision.slice(0, 7)}</span>
               {" on "}
               <span className="font-mono">{containerUpdates.remote?.image}</span>
             </p>
@@ -1056,7 +1057,7 @@ export function AdminPage() {
           <>
             <AdminSection
               title="Container updates"
-              description="Track GHCR builds for this instance. The build ID is baked into each image at publish time — no manual version list to maintain."
+              description="Track GHCR builds for this instance. Checks the published image tag on GHCR (not git alone), so notifications appear only after CI has pushed a pullable build."
             >
               <div className="rounded-lg border border-gray-700/80 bg-gray-900/40 px-3 py-2 text-xs text-gray-300 font-mono mb-3">
                 {buildInfo ? (
@@ -1087,7 +1088,7 @@ export function AdminPage() {
                 checked={updatesNotify}
                 onChange={setUpdatesNotify}
                 label="Notify when a newer build is available"
-                hint="Shows a banner at the top of Admin when the tracked channel has moved ahead of this instance's baked-in revision."
+                hint="Shows a banner at the top of Admin when the tracked GHCR tag points to a newer published build than this instance."
               />
               {containerUpdates?.error ? (
                 <p className="text-xs text-amber-300/90 mt-2">Last check: {containerUpdates.error}</p>

@@ -145,7 +145,7 @@ See [Content Policy](./Content-Policy.md) for full detail.
 
 - **Build ID** — read-only; baked into each GHCR image at publish time (`channel:revision`), so the instance knows its own build without a manual version manifest.
 - **Track update channel** — `latest` (stable / `main`) or `develop` (preview).
-- **Notify when a newer build is available** — compares your baked-in git revision to the head of the tracked branch on GitHub; when enabled and an update exists, a **banner** appears at the top of Admin settings.
+- **Notify when a newer build is available** — reads the revision baked into the tracked GHCR tag and compares it to this instance; the banner appears only after CI has published a pullable image (not when git alone has moved ahead).
 - **Check now** / **Save** — refresh the comparison or persist notification preferences.
 
 After upgrading: pull the new image, set `COLLABFM_SYNC_MODE=update` for one recreate, then reinstall the extension if needed.
