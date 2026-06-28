@@ -13,11 +13,6 @@ const MANIFEST_ACCEPT =
 /** @type {{ key: string, result: object, expiresAt: number } | null} */
 let publishedRevisionCache = null;
 
-const TAG_TO_BRANCH = {
-  latest: "main",
-  develop: "develop",
-};
-
 /**
  * GHCR tag to compare against, derived from this image's baked channel (best effort for pinned tags).
  */
