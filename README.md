@@ -232,10 +232,9 @@ Re-download and reinstall the **Chrome extension** from **Admin → System** aft
 Self-hosted operators can opt in to **in-app build alerts** instead of watching GitHub or GHCR manually.
 
 1. Open **Admin → System → Container updates**.
-2. Choose **Track update channel** — `latest` (stable) or `develop` (preview).
-3. Enable **Notify when a newer build is available** and **Save**.
+2. Enable **Notify when a newer build is available** and **Save**.
 
-When enabled, Admin compares your running instance’s baked-in **build ID** (git revision from the image) to the revision on the tracked **GHCR tag**. A banner appears at the top of Admin only after CI has **published** a pullable image—not when git alone has moved ahead. Use **Check now** to refresh.
+The tracked GHCR tag (`latest` or `develop`) is chosen automatically from this image's baked-in channel. A banner appears at the top of Admin only after CI has **published** a pullable image with a newer revision on that same tag.
 
 Each GHCR image embeds its own build metadata at publish time, so the instance identifies its build without a separate version manifest.
 
@@ -412,7 +411,7 @@ Details: [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md).
 - **Private packages:** `docker login ghcr.io` in Portainer or on the host
 - After pulling a new image, **recreate** the container. Set `COLLABFM_SYNC_MODE=update` for one start to refresh app files in appdata (see [Upgrading](#upgrading)); your database and `config.json` are preserved
 - **Re-download and reinstall** the browser extension from Admin → System after upgrades—especially when content policy or broadcasting behavior changes
-- **Admin → System → Container updates:** choose `latest` or `develop`, enable notifications, and get a banner when a newer GHCR build is available for your tracked channel
+- **Admin → System → Container updates:** enable notifications; GHCR tag (`latest` or `develop`) is auto-selected from the running image's channel
 
 ---
 

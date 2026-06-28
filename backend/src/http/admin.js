@@ -396,9 +396,7 @@ export async function handleAdminRoutes(req, res, pathname, method) {
   }
 
   if (pathname === "/api/admin/container-updates" && method === "GET") {
-    const reqUrl = new URL(req.url, `http://${req.headers.host}`);
-    const trackTag = reqUrl.searchParams.get("trackTag");
-    const status = await checkForContainerUpdate(trackTag || null);
+    const status = await checkForContainerUpdate();
     return json(res, 200, status);
   }
 

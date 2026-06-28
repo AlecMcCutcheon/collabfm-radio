@@ -127,15 +127,18 @@ export function AdminPage() {
   const [radioBusy, setRadioBusy] = useState(false);
   const [levelingBusy, setLevelingBusy] = useState(false);
   const [updatesNotify, setUpdatesNotify] = useState(false);
-  const [updatesTrackTag, setUpdatesTrackTag] = useState<ContainerUpdateSettings["trackTag"]>("latest");
   const [buildInfo, setBuildInfo] = useState<BuildInfo | null>(null);
   const [containerUpdates, setContainerUpdates] = useState<ContainerUpdateStatus | null>(null);
   const [updatesBusy, setUpdatesBusy] = useState(false);
   const visualizerInputRef = useRef<HTMLInputElement>(null);
 
-  const refreshContainerUpdates = async (trackTag = updatesTrackTag) => {
+  const resolvedTrackTag =
+    containerUpdates?.current.trackTag ??
+    (buildInfo?.channel === "develop" ? "develop" : "latest");
+
+  const refreshContainerUpdates = async () => {
     try {
-      const status = await api.adminContainerUpdates(trackTag);
+      const status = await api.adminContainerUpdates();
       setContainerUpdates(status);
     } catch {
       setContainerUpdates(null);
@@ -175,9 +178,8 @@ export function AdminPage() {
       setLimits(settings.limits ?? DEFAULT_LIMITS);
       setAudio(settings.audio ?? DEFAULT_AUDIO);
       setUpdatesNotify(settings.updates?.notifyOnBuildAvailable === true);
-      setUpdatesTrackTag(settings.updates?.trackTag ?? "latest");
       setBuildInfo(settings.build ?? null);
-      await refreshContainerUpdates(settings.updates?.trackTag ?? "latest");
+      await refreshContainerUpdates();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load admin data");
     }
@@ -201,7 +203,7 @@ export function AdminPage() {
       void refreshContainerUpdates();
     }, 5 * 60 * 1000);
     return () => window.clearInterval(id);
-  }, [updatesNotify, updatesTrackTag]);
+  }, [updatesNotify]);
 
   const saveUpdates = async () => {
     setUpdatesBusy(true);
@@ -210,13 +212,11 @@ export function AdminPage() {
       const res = await api.saveAdminSettings({
         updates: {
           notifyOnBuildAvailable: updatesNotify,
-          trackTag: updatesTrackTag,
         },
       });
       setUpdatesNotify(res.updates?.notifyOnBuildAvailable === true);
-      setUpdatesTrackTag(res.updates?.trackTag ?? "latest");
       setBuildInfo(res.build ?? buildInfo);
-      await refreshContainerUpdates(res.updates?.trackTag ?? updatesTrackTag);
+      await refreshContainerUpdates();
       flash("Container update settings saved");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -1057,13 +1057,14 @@ export function AdminPage() {
           <>
             <AdminSection
               title="Container updates"
-              description="Track GHCR builds for this instance. Checks the published image tag on GHCR (not git alone), so notifications appear only after CI has pushed a pullable build."
+              description="Compares this instance to the matching GHCR tag (latest or develop) from the baked-in image channel — not a manual picker, so preview and stable never cross-alert."
             >
               <div className="rounded-lg border border-gray-700/80 bg-gray-900/40 px-3 py-2 text-xs text-gray-300 font-mono mb-3">
                 {buildInfo ? (
                   <>
                     <div>Build ID: {buildInfo.buildId}</div>
                     <div>Channel: {buildInfo.channel}</div>
+                    <div>Tracking GHCR tag: {resolvedTrackTag} (auto)</div>
                     <div>Revision: {buildInfo.revision.slice(0, 12)}</div>
                     {buildInfo.builtAt ? <div>Built: {new Date(buildInfo.builtAt).toLocaleString()}</div> : null}
                     <div>Runtime: {buildInfo.runtime}</div>
@@ -1072,23 +1073,11 @@ export function AdminPage() {
                   <div>Build info unavailable</div>
                 )}
               </div>
-              <AdminField
-                label="Track update channel"
-                hint="Which GHCR tag to compare against GitHub. Use develop for preview builds; latest for stable releases."
-              >
-                <AdminSelect
-                  value={updatesTrackTag}
-                  onChange={(e) => setUpdatesTrackTag(e.target.value as ContainerUpdateSettings["trackTag"])}
-                >
-                  <option value="latest">latest (main / stable)</option>
-                  <option value="develop">develop (preview)</option>
-                </AdminSelect>
-              </AdminField>
               <AdminCheckbox
                 checked={updatesNotify}
                 onChange={setUpdatesNotify}
                 label="Notify when a newer build is available"
-                hint="Shows a banner at the top of Admin when the tracked GHCR tag points to a newer published build than this instance."
+                hint={`Shows a banner when a newer image is published on :${resolvedTrackTag} with a different revision than this instance.`}
               />
               {containerUpdates?.error ? (
                 <p className="text-xs text-amber-300/90 mt-2">Last check: {containerUpdates.error}</p>
@@ -1096,7 +1085,7 @@ export function AdminPage() {
                 <p className="text-xs text-gray-400 mt-2">{containerUpdates.note}</p>
               ) : containerUpdates && !containerUpdates.updateAvailable ? (
                 <p className="text-xs text-green-400/90 mt-2">
-                  Up to date for {containerUpdates.current.trackTag || updatesTrackTag} (checked{" "}
+                  Up to date for :{containerUpdates.current.trackTag || resolvedTrackTag} (checked{" "}
                   {new Date(containerUpdates.checkedAt).toLocaleTimeString()}).
                 </p>
               ) : null}

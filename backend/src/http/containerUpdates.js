@@ -1,7 +1,6 @@
 import { getSetting, setSetting } from "../db/index.js";
 import { getBuildInfo } from "../radio/buildInfo.js";
 
-const TRACK_TAGS = new Set(["latest", "develop"]);
 const TAG_TO_BRANCH = {
   latest: "main",
   develop: "develop",
@@ -14,10 +13,19 @@ const MANIFEST_ACCEPT =
 /** @type {{ key: string, result: object, expiresAt: number } | null} */
 let publishedRevisionCache = null;
 
-function normalizeTrackTag(value) {
-  const tag = String(value || "latest").trim().toLowerCase();
-  if (tag === "dev") return "develop";
-  return TRACK_TAGS.has(tag) ? tag : "latest";
+const TAG_TO_BRANCH = {
+  latest: "main",
+  develop: "develop",
+};
+
+/**
+ * GHCR tag to compare against, derived from this image's baked channel (best effort for pinned tags).
+ */
+export function resolveTrackTagFromBuild(build) {
+  const channel = String(build?.channel || "").trim().toLowerCase();
+  if (channel === "develop") return "develop";
+  if (channel === "latest") return "latest";
+  return "latest";
 }
 
 function parseImageRepository(imageRepository) {
@@ -134,31 +142,26 @@ async function fetchPublishedImageRevision(imageRepository, tag) {
 }
 
 export function getContainerUpdateSettings() {
+  const build = getBuildInfo();
   return {
     notifyOnBuildAvailable: getSetting("updates.notifyOnBuildAvailable", false) === true,
-    trackTag: normalizeTrackTag(getSetting("updates.trackTag", "latest")),
+    trackTag: resolveTrackTagFromBuild(build),
   };
 }
 
 export function saveContainerUpdateSettings(body = {}) {
   const current = getContainerUpdateSettings();
-  const next = {
-    notifyOnBuildAvailable:
-      typeof body.notifyOnBuildAvailable === "boolean"
-        ? body.notifyOnBuildAvailable
-        : current.notifyOnBuildAvailable,
-    trackTag:
-      body.trackTag != null ? normalizeTrackTag(body.trackTag) : current.trackTag,
-  };
-  setSetting("updates.notifyOnBuildAvailable", next.notifyOnBuildAvailable);
-  setSetting("updates.trackTag", next.trackTag);
-  return next;
+  const notifyOnBuildAvailable =
+    typeof body.notifyOnBuildAvailable === "boolean"
+      ? body.notifyOnBuildAvailable
+      : current.notifyOnBuildAvailable;
+  setSetting("updates.notifyOnBuildAvailable", notifyOnBuildAvailable);
+  return getContainerUpdateSettings();
 }
 
-export async function checkForContainerUpdate(trackTagInput = null) {
-  const settings = getContainerUpdateSettings();
-  const trackTag = normalizeTrackTag(trackTagInput || settings.trackTag);
+export async function checkForContainerUpdate() {
   const build = getBuildInfo();
+  const trackTag = resolveTrackTagFromBuild(build);
   const branch = TAG_TO_BRANCH[trackTag] || "main";
   const checkedAt = new Date().toISOString();
 

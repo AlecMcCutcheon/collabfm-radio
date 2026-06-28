@@ -55,7 +55,7 @@ function buildSections(): AboutSection[] {
     },
     {
       title: "Upgrades & new builds",
-      body: "Station operators on Docker can enable container update notifications in Admin → System → Container updates. Choose whether to track stable (latest) or preview (develop) builds on GHCR; when a newer published image is available, a banner appears at the top of Admin settings with pull and upgrade steps.",
+      body: "Station operators on Docker can enable container update notifications in Admin → System → Container updates. The GHCR tag to watch (latest or develop) follows the channel baked into your running image; when a newer build is published on that tag, a banner appears at the top of Admin settings with pull and upgrade steps.",
     },
     {
       title: "A note on persistence",

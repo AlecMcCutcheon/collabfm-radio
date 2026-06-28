@@ -82,6 +82,7 @@ export interface BroadcastSettings {
 
 export interface ContainerUpdateSettings {
   notifyOnBuildAvailable: boolean;
+  /** Resolved from baked image channel — not user-configurable */
   trackTag: "latest" | "develop";
 }
 

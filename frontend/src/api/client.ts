@@ -614,10 +614,7 @@ export const api = {
       audio?: AudioPipelineSettings;
     }>(`${API}/admin/settings`),
 
-  adminContainerUpdates: (trackTag?: string) => {
-    const qs = trackTag ? `?trackTag=${encodeURIComponent(trackTag)}` : "";
-    return json<ContainerUpdateStatus>(`${API}/admin/container-updates${qs}`);
-  },
+  adminContainerUpdates: () => json<ContainerUpdateStatus>(`${API}/admin/container-updates`),
 
   saveAdminSettings: (body: {
     branding?: Pick<BrandingSettings, "radioDisplayName" | "hideDeveloperAboutMessage">;
