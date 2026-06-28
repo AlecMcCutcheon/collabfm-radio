@@ -82,7 +82,7 @@ export interface BroadcastSettings {
 
 export interface ContainerUpdateSettings {
   notifyOnBuildAvailable: boolean;
-  trackTag: "latest" | "develop" | "dev";
+  trackTag: "latest" | "develop";
 }
 
 export interface BuildInfo {

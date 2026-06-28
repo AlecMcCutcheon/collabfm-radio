@@ -1081,7 +1081,6 @@ export function AdminPage() {
                 >
                   <option value="latest">latest (main / stable)</option>
                   <option value="develop">develop (preview)</option>
-                  <option value="dev">dev (alias of develop)</option>
                 </AdminSelect>
               </AdminField>
               <AdminCheckbox

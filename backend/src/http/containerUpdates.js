@@ -1,15 +1,15 @@
 import { getSetting, setSetting } from "../db/index.js";
 import { getBuildInfo } from "../radio/buildInfo.js";
 
-const TRACK_TAGS = new Set(["latest", "develop", "dev"]);
+const TRACK_TAGS = new Set(["latest", "develop"]);
 const TAG_TO_BRANCH = {
   latest: "main",
   develop: "develop",
-  dev: "develop",
 };
 
 function normalizeTrackTag(value) {
   const tag = String(value || "latest").trim().toLowerCase();
+  if (tag === "dev") return "develop";
   return TRACK_TAGS.has(tag) ? tag : "latest";
 }
 
