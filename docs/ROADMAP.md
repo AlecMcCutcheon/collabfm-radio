@@ -6,7 +6,9 @@ Ideas under consideration—not commitments, and not in any fixed order. If some
 
 ## Completed
 
-~~**Content policy**~~ — **Shipped.** Configurable broadcast allowlists for permitted sources and artists, **enforced by default**. The policy engine is a **filtering tool**, not a copyright detector—it applies rules to metadata reported by the browser extension (site, title, artist), not to raw audio. Includes Admin → System configuration, extension mute and handoff behavior, synchronized metadata on the web UI and Discord, conservative defaults, and the [Content Policy wiki](./wiki/Content-Policy.md).
+~~**Content policy (baseline)**~~ — **Shipped.** Configurable broadcast allowlists for permitted sources and artists, **enforced by default**. The policy engine is a **filtering tool**, not a copyright detector—it applies rules to metadata reported by the browser extension (site, title, artist), not to raw audio. Includes Admin → System configuration, extension mute and handoff behavior, synchronized metadata on the web UI and Discord, and the [Content Policy wiki](./wiki/Content-Policy.md).
+
+~~**Content policy — licensing & stricter defaults**~~ — **Shipped.** **Free Music Archive** as the default allowed source; standard **Creative Commons** license allowlist (CC BY, CC BY-SA, CC BY-NC, CC BY-NC-SA, CC BY-ND, CC BY-NC-ND, CC0) with flexible per-kind matching; license safety rails (deny missing/unmatched license by default); FMA track URL and license scraping in the extension; source and license links on now-playing and the live session log; **deny-by-default** fallbacks for missing or unmatched metadata, source, artist, and license; content policy **re-evaluated on DJ switch** so blocked tracks do not flash real metadata.
 
 ~~**Dynamic stage UI**~~ — **Shipped.** Stage dock and mobile stage grid show empty slots matching **Admin → Radio → Max stage users** (1–9). The relay API exposes `stageLimit`; the dock height scales with slot count.
 

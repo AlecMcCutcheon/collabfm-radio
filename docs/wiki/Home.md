@@ -50,5 +50,5 @@ Right-click their **avatar** on **Stage** or in **Chat**
 **Open live chat (desktop)**  
 Bottom-right **message icon**
 
-**Media controls (YouTube Music, SoundCloud, etc.)**  
+**Media controls (supported tabs)**  
 Open **Stage** → click host **avatar** → green **music note** icon → Play / Pause / Previous / Next

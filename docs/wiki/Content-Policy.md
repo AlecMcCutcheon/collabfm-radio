@@ -10,6 +10,8 @@ CollabFM does not verify copyright ownership, licensing status, or legal complia
 
 These controls are intended to promote responsible use and help reduce accidental policy violations. They are not a substitute for understanding and complying with applicable copyright, licensing, or other legal requirements. CollabFM does not condone intentional misuse or deliberate circumvention of this policy.
 
+For the reasoning behind conservative defaults—not just “don’t pirate,” but why the project ships locked down and what that does and does not try to solve—see [Why the defaults are strict](https://github.com/AlecMcCutcheon/collabfm-radio#why-the-defaults-are-strict) in the main README.
+
 ---
 
 ## Outcomes
@@ -40,7 +42,7 @@ Upgraded instances keep their saved policy until an admin resets defaults. Legac
 
 **Why only Free Music Archive by default?** CollabFM can scrape Creative Commons license metadata from FMA track pages and link listeners to the specific song URL. Browse [Free Music Archive (CC search)](https://freemusicarchive.org/search?adv=1&music-filter-CC-attribution-only=true&music-filter-CC-attribution-sharealike=1&music-filter-CC-attribution-noderivatives=1&music-filter-CC-attribution-noncommercial=1&music-filter-CC-attribution-noncommercial-sharealike=true&music-filter-CC-attribution-noncommercial-noderivatives=true) for tracks that match the default license allowlist. Default allowed licenses are the standard CC suite appropriate for non-commercial community radio—matching CollabFM’s own [CC BY-NC 4.0](https://github.com/AlecMcCutcheon/collabfm-radio/blob/main/LICENSE) software license. **CC BY** and **CC BY-SA** allow commercial and non-commercial use with attribution. **CC BY-NC** and **CC BY-NC-SA** restrict commercial use, which fits a hobby/homelab station. **CC BY-ND** and **CC BY-NC-ND** allow streaming unmodified recordings (no remixing). **CC0** dedicates works to the public domain. You only need one line per license kind in the allowlist; the matcher normalizes spacing, dashes, and `creativecommons.org` URLs (e.g. `CC BY SA`, `CC-BY-SA`, and `creativecommons.org/licenses/by-sa/` all match **CC BY-SA**). Each kind is still matched precisely—CC BY does not match CC BY-NC.
 
-Other extension-supported sites (YouTube Music, SoundCloud, NoCopyrightSounds) do not report license metadata in a verifiable way—the extension can still broadcast from them, but admins must add those sources to the allowlist manually if they choose to permit them.
+Other tab sources do not report license metadata in a verifiable way—the extension can still capture audio from many sites, but admins must add those hostnames to the allowlist manually if they choose to permit them.
 
 ---
 
