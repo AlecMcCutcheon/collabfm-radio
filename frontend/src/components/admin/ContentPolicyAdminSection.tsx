@@ -464,7 +464,7 @@ export function ContentPolicyAdminSection({ flash, onError }: ContentPolicyAdmin
 
       <p className="text-sm text-gray-300 leading-relaxed">
         The policy engine is a <strong className="font-medium text-gray-200">filtering tool</strong>
-        , not a copyright detector. It attempts best-effort filtering using your configured
+        , not a copyright detector. It implements best-effort filtering based on metadata using your configured
         allowlists and fallbacks on reported source, track, and license metadata. It does not analyze
         audio, fingerprint tracks, verify licenses, or determine whether content is legally cleared
         to stream. Default policy targets Free Music Archive (
@@ -485,7 +485,7 @@ export function ContentPolicyAdminSection({ flash, onError }: ContentPolicyAdmin
         >
           Jamendo (explore)
         </a>
-        — default sources where the extension reports machine-readable license metadata per track. Inclusion does not mean those catalogs are guaranteed legally safe to broadcast; admins must verify compliance (attribution, share-alike, platform terms, and metadata accuracy).
+        — default sources that provide machine-readable license metadata per track that can assist with compliance checks. Inclusion does not guarantee legal compliance in all contexts; admins must verify compliance (attribution, share-alike, platform terms, and metadata accuracy).
       </p>
 
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-gray-300 leading-relaxed">

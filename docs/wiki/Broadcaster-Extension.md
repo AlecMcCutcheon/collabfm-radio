@@ -47,7 +47,7 @@ Each site file registers on `window.__collabfmSiteRegistry`. `sites/registry.js`
 
 On any other tab, the extension can still **capture audio** if the broadcaster selects that tab. Title and artist may come from **`navigator.mediaSession`** when the page exposes it. **License metadata** is enriched where an adapter implements `enrichMetadata` (Free Music Archive and Jamendo). **Media controls** on Stage appear only when the active tab matches an adapter with `mediaControls.supports`.
 
-See [Content Policy](./Content-Policy.md) for why FMA and Jamendo are default allowed sources (machine-readable license metadata—not a guarantee of legal clearance) and why other hostnames require manual admin allowlisting.
+See [Content Policy](./Content-Policy.md) for why FMA and Jamendo are default allowed sources (machine-readable license metadata to assist compliance checks—not a guarantee of legal clearance) and why other sources require admin configuration at the operator’s discretion and responsibility.
 
 ---
 
