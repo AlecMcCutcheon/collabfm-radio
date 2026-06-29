@@ -32,7 +32,7 @@ When you start a broadcast, the extension captures audio from your selected brow
 
 ## Track metadata
 
-The extension may read now-playing metadata (track title, artist) from supported music sources (YouTube Music, SoundCloud, NCS.io) and send that metadata to your configured CollabFM server to display to listeners. This data is not collected or stored by the extension developer.
+The extension may read now-playing metadata (track title, artist) from supported music sources and send that metadata to your configured CollabFM server to display to listeners. This data is not collected or stored by the extension developer.
 
 ## Third parties
 
