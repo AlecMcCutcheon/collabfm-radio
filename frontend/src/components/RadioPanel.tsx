@@ -9,6 +9,7 @@ import { usePartyEffectActions } from "../context/PartyEffectsContext";
 import type { useRadioPlayer } from "../hooks/useRadioPlayer";
 import type { GuestContext, NowPlayingSocial } from "../types/api";
 import { proceduralAlbumArt } from "../utils/proceduralArt";
+import { friendlySourceLabel } from "../utils/sourceLabel";
 import {
   proceduralStationLogo,
   resolveBrandingImageUrl,
@@ -357,6 +358,30 @@ export function RadioPanel({
               <p className="text-sm sm:text-xl font-semibold text-radio-green opacity-80 truncate">
                 {player.metadata.artist}
               </p>
+              {player.metadata.url || player.metadata.licenseUrl ? (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5 min-w-0">
+                  {player.metadata.url ? (
+                    <a
+                      href={player.metadata.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-gray-400 hover:text-gray-300 inline-block truncate max-w-full"
+                    >
+                      {friendlySourceLabel(player.metadata.sourceSite, player.metadata.url)}
+                    </a>
+                  ) : null}
+                  {player.metadata.licenseUrl ? (
+                    <a
+                      href={player.metadata.licenseUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-gray-400 hover:text-gray-300 inline-block truncate max-w-full"
+                    >
+                      {player.metadata.licenseType || "License"}
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
             {nowPlayingSocial?.canHeart && (
               <button

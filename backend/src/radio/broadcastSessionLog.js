@@ -25,6 +25,10 @@ export function appendSessionTrack({
   title,
   artist,
   albumArt = null,
+  url = null,
+  sourceSite = null,
+  licenseType = null,
+  licenseUrl = null,
   broadcasterUserId,
   broadcasterDisplayName,
   startedAt = Date.now(),
@@ -47,6 +51,10 @@ export function appendSessionTrack({
     title: trackTitle,
     artist: trackArtist,
     albumArt: albumArt ? String(albumArt) : null,
+    url: url ? String(url) : null,
+    sourceSite: sourceSite ? String(sourceSite) : null,
+    licenseType: licenseType ? String(licenseType) : null,
+    licenseUrl: licenseUrl ? String(licenseUrl) : null,
     fromRequest: false,
     requestSongKey: null,
     broadcasterUserId: broadcasterUserId ? String(broadcasterUserId) : null,
@@ -76,6 +84,50 @@ export function updateSessionTrackAlbumArtByTitleArtist(title, artist, albumArt)
       return song.trackSessionId;
     }
   }
+  return null;
+}
+
+export function updateSessionTrackSourceLicenseByTitleArtist(
+  title,
+  artist,
+  { url = null, sourceSite = null, licenseType = null, licenseUrl = null } = {},
+) {
+  const trackTitle = String(title || "").trim();
+  const trackArtist = String(artist || "").trim();
+  if (!sessionKey || !trackTitle || !trackArtist) return null;
+  if (isContentPolicyMutedMetadata(trackTitle, trackArtist)) return null;
+
+  const nextUrl = url ? String(url).trim() : "";
+  const nextSourceSite = sourceSite ? String(sourceSite).trim() : "";
+  const nextLicenseType = licenseType ? String(licenseType).trim() : "";
+  const nextLicenseUrl = licenseUrl ? String(licenseUrl).trim() : "";
+  if (!nextUrl && !nextSourceSite && !nextLicenseType && !nextLicenseUrl) return null;
+
+  for (let i = sessionSongs.length - 1; i >= 0; i--) {
+    const song = sessionSongs[i];
+    if (song.title !== trackTitle || song.artist !== trackArtist) continue;
+
+    let changed = false;
+    if (nextUrl && song.url !== nextUrl) {
+      song.url = nextUrl;
+      changed = true;
+    }
+    if (nextSourceSite && song.sourceSite !== nextSourceSite) {
+      song.sourceSite = nextSourceSite;
+      changed = true;
+    }
+    if (nextLicenseType && song.licenseType !== nextLicenseType) {
+      song.licenseType = nextLicenseType;
+      changed = true;
+    }
+    if (nextLicenseUrl && song.licenseUrl !== nextLicenseUrl) {
+      song.licenseUrl = nextLicenseUrl;
+      changed = true;
+    }
+
+    return changed ? song.trackSessionId : null;
+  }
+
   return null;
 }
 

@@ -46,11 +46,11 @@ Share links: admin-created tokens with TTL and revoke.
 
 ## Content policy
 
-Configurable broadcast policy for the browser extension and metadata API paths. **Enforced by default** on new installs. The engine is a **filtering tool**—it applies source and artist allowlists to reported metadata; it is not a copyright detector and does not verify licensing.
+Configurable broadcast policy for the browser extension and metadata API paths. **Enforced by default** on new installs. The engine is a **filtering tool**—it applies source, artist, and license allowlists to reported metadata; it is not a copyright detector and does not verify licensing.
 
-Admins configure rules in **Admin → System → Content policy** (strict defaults: `ncs.io`, `pixabay.com`, NCS artist allowlist, **deny** on missing metadata and unmatched source/artist).
+Admins configure rules in **Admin → System → Content policy** (strict defaults: `freemusicarchive.org` only; CC BY, CC BY-SA, CC BY-NC, CC BY-NC-SA, CC BY-ND, CC BY-NC-ND, CC0 license patterns with flexible matching; **deny** on missing metadata, missing license, and unmatched source/artist/license). Extension support for YouTube Music, SoundCloud, and NCS remains available; those sources are excluded from defaults because license metadata is not scrapeable.
 
-Evaluation order: known **source** is checked first when reported by the extension; otherwise the engine may defer until source or artist metadata is available. Allowed sources can permit a broadcast without artist allowlist matching. Denied broadcasts mute relay audio and show a policy notice on now-playing. Real track metadata is withheld from the website and Discord while a decision is pending.
+Evaluation order: known **source** is checked first when reported by the extension; otherwise the engine may defer until source or artist metadata is available. When a source or artist rule allows a track, **license metadata** is checked against the allowed-license patterns. Denied broadcasts mute relay audio and show a policy notice on now-playing. Real track metadata is withheld from the website, Discord, and the session log while a decision is pending or when policy denies the track. **DJ switches** on stage re-run policy for the promoted broadcaster immediately.
 
 CollabFM does not verify licensing. Defaults are conservative examples—not a guarantee that content is cleared for every use case. See [docs/wiki/Content-Policy.md](./docs/wiki/Content-Policy.md).
 

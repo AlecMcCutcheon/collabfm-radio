@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CollabFM Broadcaster",
-  "version": "2.0.8",
+  "version": "2.0.11",
   "description": "Broadcast your tab audio to CollabFM with a modern UI.",
   "permissions": [
     "storage",
@@ -36,9 +36,11 @@
         "https://music.youtube.com/*",
         "https://soundcloud.com/*",
         "https://ncs.io/*",
-        "https://*.ncs.io/*"
+        "https://*.ncs.io/*",
+        "https://freemusicarchive.org/*",
+        "https://*.freemusicarchive.org/*"
       ],
-      "js": ["content.js"],
+      "js": ["fmaMetadata.js", "content.js"],
       "run_at": "document_start"
     }
   ],

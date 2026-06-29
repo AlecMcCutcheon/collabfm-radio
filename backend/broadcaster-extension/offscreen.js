@@ -615,23 +615,33 @@ async function stopContentScriptMetadataMonitoring(tabId = currentTabId) {
 }
 
 // Function to send metadata update to popup for display
+function mergeTrackMetadata(incoming, previous) {
+  if (!incoming?.title || !incoming?.artist) return incoming;
+  if (!previous?.title || !previous?.artist) return incoming;
+  if (incoming.title !== previous.title || incoming.artist !== previous.artist) {
+    return incoming;
+  }
+  const merged = { ...incoming };
+  if (previous.albumArt && !merged.albumArt) merged.albumArt = previous.albumArt;
+  if (previous.licenseType && !merged.licenseType) merged.licenseType = previous.licenseType;
+  if (previous.licenseUrl && !merged.licenseUrl) merged.licenseUrl = previous.licenseUrl;
+  if (previous.url && !merged.url) merged.url = previous.url;
+  return merged;
+}
+
 function sendMetadataUpdateToPopup(metadata, status = null, { allowClear = false } = {}) {
   try {
     const isLive = broadcastStatus === "connected" || broadcastStatus === "connecting";
 
-    if (allowClear) {
-      currentMetadata = null;
-    } else if (metadata?.title && metadata?.artist) {
-      currentMetadata = metadata;
-    }
-
     let displayMetadata = metadata;
     if (allowClear) {
+      currentMetadata = null;
       displayMetadata = null;
-    } else if (!(displayMetadata?.title && displayMetadata?.artist) && isLive) {
-      if (currentMetadata?.title && currentMetadata?.artist) {
-        displayMetadata = currentMetadata;
-      }
+    } else if (metadata?.title && metadata?.artist) {
+      currentMetadata = mergeTrackMetadata(metadata, currentMetadata);
+      displayMetadata = currentMetadata;
+    } else if (isLive && currentMetadata?.title && currentMetadata?.artist) {
+      displayMetadata = currentMetadata;
     }
 
     const message = {

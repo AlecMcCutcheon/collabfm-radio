@@ -64,7 +64,7 @@ async function ensureTabContentScript(tabId) {
     try {
       await chrome.scripting.executeScript({
         target: { tabId },
-        files: ["content.js"],
+        files: ["fmaMetadata.js", "content.js"],
       });
     } catch (error) {
       extensionLog("background", "Content script inject failed", {
@@ -308,7 +308,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           } catch {
             // Not present, inject
             try {
-              await chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] });
+              await chrome.scripting.executeScript({ target: { tabId }, files: ['fmaMetadata.js', 'content.js'] });
               sendResponse({ success: true, injected: true });
             } catch (injectError) {
               sendResponse({ success: false, error: injectError.message || 'Inject failed' });

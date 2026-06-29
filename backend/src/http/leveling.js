@@ -24,12 +24,17 @@ export function setLevelingContext(ctx = {}) {
   broadcastCtx = { ...broadcastCtx, ...ctx };
 }
 
-export function bumpTrackSession(title, artist, albumArt = null) {
+export function bumpTrackSession(title, artist, albumArt = null, trackExtras = null) {
   const trackTitle = String(title || "").trim();
   const trackArtist = String(artist || "").trim();
   if (isContentPolicyMutedMetadata(trackTitle, trackArtist)) {
     return trackSessionId;
   }
+
+  const resolvedExtras =
+    trackExtras && typeof trackExtras === "object"
+      ? trackExtras
+      : broadcastCtx.getTrackExtrasForSession?.(trackTitle, trackArtist) ?? {};
 
   trackSessionId = `${trackTitle}|||${trackArtist}:${Date.now()}`;
   const status = broadcastCtx.getBroadcastStatus?.() ?? {};
@@ -42,6 +47,10 @@ export function bumpTrackSession(title, artist, albumArt = null) {
     title: trackTitle,
     artist: trackArtist,
     albumArt: resolvedArt,
+    url: resolvedExtras.url ?? null,
+    sourceSite: resolvedExtras.sourceSite ?? null,
+    licenseType: resolvedExtras.licenseType ?? null,
+    licenseUrl: resolvedExtras.licenseUrl ?? null,
     broadcasterUserId: status.broadcasterUserId ? String(status.broadcasterUserId) : null,
     broadcasterDisplayName: status.broadcasterDisplayName ? String(status.broadcasterDisplayName) : null,
     startedAt: Date.now(),

@@ -24,6 +24,9 @@ interface LastFmPayload {
   artist?: string;
   albumArt?: string;
   url?: string;
+  sourceSite?: string;
+  licenseType?: string;
+  licenseUrl?: string;
 }
 
 function tracksFromPayload(data: LastFmPayload): LastFmTrack[] {
@@ -72,6 +75,9 @@ export function parseMetadataResponse(data: unknown): SongMetadata | null {
       artist: payload.artist,
       albumArt: resolveAlbumArtUrl(payload.albumArt),
       url: payload.url,
+      ...(payload.sourceSite ? { sourceSite: payload.sourceSite } : {}),
+      ...(payload.licenseUrl ? { licenseUrl: payload.licenseUrl } : {}),
+      ...(payload.licenseType ? { licenseType: payload.licenseType } : {}),
     };
   }
 

@@ -1066,6 +1066,45 @@ function updateStatus(_text, type = "info") {
 
 let lastDisplayedMetadata = null;
 
+function mergeDisplayedMetadata(incoming, previous) {
+  if (!incoming?.title || !incoming?.artist) return incoming;
+  if (!previous?.title || !previous?.artist) return incoming;
+  if (incoming.title !== previous.title || incoming.artist !== previous.artist) {
+    return incoming;
+  }
+  const merged = { ...incoming };
+  if (previous.albumArt && !merged.albumArt) merged.albumArt = previous.albumArt;
+  return merged;
+}
+
+function setMetadataArtwork(artworkImgEl, artworkPhEl, artUrl) {
+  if (!artworkImgEl) return;
+  const url = String(artUrl || "").trim();
+  if (!url) {
+    artworkImgEl.style.display = "none";
+    if (artworkPhEl) artworkPhEl.style.display = "inline";
+    delete artworkImgEl.dataset.artUrl;
+    return;
+  }
+
+  if (artworkImgEl.dataset.artUrl === url && artworkImgEl.style.display !== "none") {
+    if (artworkPhEl) artworkPhEl.style.display = "none";
+    return;
+  }
+
+  artworkImgEl.dataset.artUrl = url;
+  artworkImgEl.style.display = "block";
+  if (artworkPhEl) artworkPhEl.style.display = "none";
+  artworkImgEl.onerror = () => {
+    artworkImgEl.style.display = "none";
+    if (artworkPhEl) artworkPhEl.style.display = "inline";
+    delete artworkImgEl.dataset.artUrl;
+  };
+  if (artworkImgEl.src !== url) {
+    artworkImgEl.src = url;
+  }
+}
+
 function updateMetadataDisplay(metadata) {
   const metadataDisplay = document.getElementById("metadataDisplay");
   const titleEl = document.getElementById("metadataTitle");
@@ -1086,24 +1125,15 @@ function updateMetadataDisplay(metadata) {
     }
     titleEl.textContent = "Waiting for track info…";
     artistEl.textContent = "—";
-    if (artworkImgEl) artworkImgEl.style.display = "none";
-    if (artworkPhEl) artworkPhEl.style.display = "inline";
+    setMetadataArtwork(artworkImgEl, artworkPhEl, null);
     return;
   }
 
-  lastDisplayedMetadata = metadata;
-  titleEl.textContent = metadata.title;
-  artistEl.textContent = metadata.artist;
-  if (metadata.albumArt && artworkImgEl) {
-    artworkImgEl.src = metadata.albumArt;
-    artworkImgEl.onload = () => {
-      artworkImgEl.style.display = "block";
-      if (artworkPhEl) artworkPhEl.style.display = "none";
-    };
-  } else if (artworkImgEl) {
-    artworkImgEl.style.display = "none";
-    if (artworkPhEl) artworkPhEl.style.display = "inline";
-  }
+  const merged = mergeDisplayedMetadata(metadata, lastDisplayedMetadata);
+  lastDisplayedMetadata = merged;
+  titleEl.textContent = merged.title;
+  artistEl.textContent = merged.artist;
+  setMetadataArtwork(artworkImgEl, artworkPhEl, merged.albumArt);
 }
 
 function hideMetadataDisplay() {

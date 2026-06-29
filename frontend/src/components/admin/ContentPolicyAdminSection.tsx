@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Lock, X } from "lucide-react";
 import { api } from "../../api/client";
+import { FMA_CC_SEARCH_URL } from "../../constants/fma";
 import type {
   ContentPolicy,
   ContentPolicyAction,
@@ -166,6 +167,9 @@ function parseParentheticalArtistName(value: string): { name: string; altNames: 
 function withoutLegacyRules(policy: ContentPolicy): ContentPolicy {
   return {
     ...policy,
+    licenseMissing: policy.licenseMissing ?? "allow",
+    licenseNoMatch: policy.licenseNoMatch ?? "allow",
+    allowedLicenses: policy.allowedLicenses ?? [],
     rules: policy.rules
       .filter((rule) => rule.match !== "metadata_missing")
       .map((rule) => {
@@ -186,6 +190,14 @@ function parseAltNamesText(text: string): string[] {
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function licensesToText(licenses?: string[]): string {
+  return (licenses ?? []).join("\n");
+}
+
+function parseLicensesText(text: string): string[] {
+  return parseAltNamesText(text);
 }
 
 function RuleList({
@@ -270,7 +282,7 @@ function RuleList({
                   </span>
                   <textarea
                     className={`${adminTextareaClass} min-h-[72px]`}
-                    placeholder={"NCS\nNo Copyright Sounds"}
+                    placeholder={"Alternate name\nAnother alias"}
                     value={draft.altNamesText}
                     onChange={(e) => setDraft({ ...draft, altNamesText: e.target.value })}
                   />
@@ -440,26 +452,28 @@ export function ContentPolicyAdminSection({ flash, onError }: ContentPolicyAdmin
       title="Content policy"
       description="CollabFM provides a configurable content policy to help server operators and broadcasters manage what audio may be broadcast through their station. New installations ship with conservative default rules intended to reduce accidental misuse and encourage responsible streaming practices."
     >
-      <p className="text-sm text-gray-400 -mt-2 leading-relaxed">
-        Default rules may include recommended royalty-free or creator-friendly sources, such as NCS
-        and Pixabay Music, as a starting point. These defaults are provided for convenience only and
-        do not guarantee that every track, recording, or piece of audio available from those
-        platforms is licensed for your intended use. Licensing terms may vary between creators,
-        releases, and use cases.
-      </p>
-
       <p className="text-sm text-gray-400 leading-relaxed">
         The policy engine evaluates metadata provided by the browser extension or submitted through
         the CollabFM API. Source and artist rules are checked in order, and the first matching rule
         determines the outcome. Configurable fallback actions apply when metadata is missing or no
-        rule matches.
+        rule matches. When a source or artist rule allows a track, license metadata may be required
+        depending on your safety rail settings.
       </p>
 
       <p className="text-sm text-gray-300 leading-relaxed">
         The policy engine is a <strong className="font-medium text-gray-200">filtering tool</strong>
         , not a copyright detector. It applies your configured allowlists and fallbacks to reported
-        source and track metadata. It does not analyze audio, verify licenses, or determine whether
-        content is legally cleared to stream.
+        source, track, and license metadata. It does not analyze audio, verify licenses, or determine whether
+        content is legally cleared to stream. Default policy targets Free Music Archive (
+        <a
+          href={FMA_CC_SEARCH_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-radio-accent hover:underline"
+        >
+          CC search
+        </a>
+        ) — the only source where the extension reports scrapeable license metadata by default.
       </p>
 
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-gray-300 leading-relaxed">
@@ -586,7 +600,59 @@ export function ContentPolicyAdminSection({ flash, onError }: ContentPolicyAdmin
                 ))}
               </AdminSelect>
             </AdminField>
+            <AdminField
+              label="When license is missing"
+              hint="No license type or URL reported for an otherwise allowed track."
+            >
+              <AdminSelect
+                disabled={!safeguardsUnlocked}
+                value={policy.licenseMissing}
+                onChange={(e) =>
+                  setPolicy({ ...policy, licenseMissing: e.target.value as ContentPolicyAction })
+                }
+              >
+                {ACTION_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </AdminSelect>
+            </AdminField>
+            <AdminField
+              label="When license is not allowed"
+              hint="License metadata present but not matching the allowlist below."
+            >
+              <AdminSelect
+                disabled={!safeguardsUnlocked}
+                value={policy.licenseNoMatch}
+                onChange={(e) =>
+                  setPolicy({ ...policy, licenseNoMatch: e.target.value as ContentPolicyAction })
+                }
+              >
+                {ACTION_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </AdminSelect>
+            </AdminField>
           </div>
+
+          <AdminField
+            label="Allowed licenses"
+            hint="One license per line. Creative Commons names accept flexible spelling (CC BY SA, CC-BY-SA, and creativecommons.org license URLs all match the same kind). Custom text uses substring matching."
+          >
+            <textarea
+              className={`${adminTextareaClass} min-h-[96px] font-mono text-sm`}
+              disabled={!safeguardsUnlocked}
+              value={licensesToText(policy.allowedLicenses)}
+              onChange={(e) =>
+                setPolicy({ ...policy, allowedLicenses: parseLicensesText(e.target.value) })
+              }
+              placeholder={"CC BY\nCC BY-SA\nCC BY-NC\nCC BY-NC-SA\nCC BY-ND\nCC BY-NC-ND\nCC0"}
+              spellCheck={false}
+            />
+          </AdminField>
         </div>
 
         {!safeguardsUnlocked ? (
@@ -606,13 +672,13 @@ export function ContentPolicyAdminSection({ flash, onError }: ContentPolicyAdmin
           onRemove={removeRule}
           onUpdate={updateRule}
           emptyMessage="No source rules yet."
-          valuePlaceholder="ncs.io"
+          valuePlaceholder="freemusicarchive.org"
         />
         <div className={`${adminInlineRowClass} mt-1.5 sm:items-end`}>
           <input
             type="text"
             className={`${adminFormControlClass} w-full sm:flex-1 sm:min-w-0`}
-            placeholder="ncs.io"
+            placeholder="freemusicarchive.org"
             value={newSource.value}
             onChange={(e) => setNewSource({ ...newSource, value: e.target.value })}
           />

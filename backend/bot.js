@@ -45,6 +45,7 @@ import {
   endBroadcastSession,
   markSessionTrackFromRequest,
   updateSessionTrackAlbumArtByTitleArtist,
+  updateSessionTrackSourceLicenseByTitleArtist,
 } from "./src/radio/broadcastSessionLog.js";
 import { publicUserPresentation } from "./src/db/userProfile.js";
 import {
@@ -774,6 +775,9 @@ function unwrapPolicyMutedNativeMetadata(metadata) {
     title: rawTitle,
     artist: rawArtist,
     albumArt: metadata.rawAlbumArt ?? metadata.albumArt ?? null,
+    licenseType: metadata.rawLicenseType ?? metadata.licenseType ?? null,
+    licenseUrl: metadata.rawLicenseUrl ?? metadata.licenseUrl ?? null,
+    url: metadata.rawUrl ?? metadata.url ?? null,
     timestamp: metadata.timestamp,
   };
 }
@@ -803,6 +807,8 @@ function reapplyContentPolicyAfterCapabilitiesUpdate(authUserId, userWsId) {
     source: wsInfo?.capabilities?.site || null,
     title: stored?.title ?? null,
     artist: stored?.artist ?? null,
+    licenseType: stored?.licenseType ?? null,
+    licenseUrl: stored?.licenseUrl ?? null,
   };
 
   const { decision, deferred, muted } = resolveContentPolicyForBroadcast(policyInput, {
@@ -841,11 +847,17 @@ function reapplyContentPolicyAfterCapabilitiesUpdate(authUserId, userWsId) {
     timestamp: Date.now(),
     sourceSite: wsInfo?.capabilities?.site ?? null,
     policyPending: deferred && !muted,
+    ...(stored.licenseType ? { licenseType: stored.licenseType } : {}),
+    ...(stored.licenseUrl ? { licenseUrl: stored.licenseUrl } : {}),
+    ...(stored.url ? { url: stored.url } : {}),
     ...(muted
       ? {
           rawTitle: stored.title,
           rawArtist: stored.artist,
           rawAlbumArt: stored.albumArt ?? null,
+          ...(stored.licenseType ? { rawLicenseType: stored.licenseType } : {}),
+          ...(stored.licenseUrl ? { rawLicenseUrl: stored.licenseUrl } : {}),
+          ...(stored.url ? { rawUrl: stored.url } : {}),
         }
       : {}),
   };
@@ -853,9 +865,19 @@ function reapplyContentPolicyAfterCapabilitiesUpdate(authUserId, userWsId) {
   storeNativeMetadataByKey(nativeMetadataRailKey(userWsId), metadata);
 
   if (muted) {
-    forceImmediateNowPlayingMetadata(displayTitle, displayArtist, metadata.albumArt, userWsId);
+    forceImmediateNowPlayingMetadata(displayTitle, displayArtist, metadata.albumArt, userWsId, {
+      licenseType: metadata.licenseType,
+      licenseUrl: metadata.licenseUrl,
+      url: stored.url,
+      sourceSite: metadata.sourceSite,
+    });
   } else if (!deferred) {
-    forceImmediateNowPlayingMetadata(stored.title, stored.artist, stored.albumArt ?? null, userWsId);
+    forceImmediateNowPlayingMetadata(stored.title, stored.artist, stored.albumArt ?? null, userWsId, {
+      licenseType: stored.licenseType,
+      licenseUrl: stored.licenseUrl,
+      url: stored.url,
+      sourceSite: metadata.sourceSite,
+    });
   }
 
   return { muted, deferred, decision, metadata };
@@ -981,52 +1003,27 @@ function beginFreshBroadcastSession(wsId, userId) {
   }
 }
 
-function hydrateNowPlayingFromRail(wsId) {
-  if (!wsId) return false;
-
-  let native = getStoredNativeMetadataByKey(nativeMetadataRailKey(wsId));
-  if (!native?.title || !native?.artist) {
-    native = getStoredNativeMetadataForRail(wsId);
-  }
-  if (!native?.title || !native?.artist) {
-    const snapshot = getRailPlaybackSnapshot(wsId);
-    if (snapshot?.title && snapshot?.artist) {
-      native = {
-        title: snapshot.title,
-        artist: snapshot.artist,
-        albumArt: snapshot.albumArt ?? null,
-      };
-    }
-  }
-  const wsInfo = wsConnections.get(wsId);
-  if ((!native?.title || !native?.artist) && wsInfo?.trackTitle && wsInfo?.trackArtist) {
-    native = {
-      title: wsInfo.trackTitle,
-      artist: wsInfo.trackArtist,
-      albumArt: wsInfo.trackAlbumArt ?? null,
-    };
-  }
-  if (!native?.title || !native?.artist) return false;
-
-  forceImmediateNowPlayingMetadata(native.title, native.artist, native.albumArt, wsId);
-  syncInternalSongMirror();
-  return true;
-}
-
-/** Switch active rail without wiping per-connection metadata (Chrome ↔ Thorium, etc.). */
 function beginSwitchedBroadcastSession(targetWsId) {
   const targetInfo = wsConnections.get(targetWsId);
+  const now = Date.now();
   if (targetInfo) {
     delete targetInfo.metadataInvalidatedAt;
-    targetInfo.contentPolicyMuted = false;
-    targetInfo.contentPolicyPending = false;
+    targetInfo.broadcastSessionStartedAt = now;
   }
+
   clearNowPlayingMetaState();
   streamMetadataDisabled = false;
-  if (!hydrateNowPlayingFromRail(targetWsId)) {
-    currentSong = "N/A";
-    currentArtist = "N/A";
+  currentSong = "N/A";
+  currentArtist = "N/A";
+
+  const authUserId = targetInfo?.userId;
+  if (!authUserId) {
+    syncInternalSongMirror();
+    return;
   }
+
+  reapplyContentPolicyAfterCapabilitiesUpdate(authUserId, targetWsId);
+  syncInternalSongMirror();
 }
 
 function invalidateMetadataForSiteChange(userWsId, authUserId = null) {
@@ -1080,7 +1077,13 @@ function shouldHoldNowPlayingForPolicy() {
   return isNowPlayingMetadataStale() || isActiveRelayContentPolicyPending();
 }
 
-function forceImmediateNowPlayingMetadata(title, artist, albumArt = null, railId = null) {
+function forceImmediateNowPlayingMetadata(
+  title,
+  artist,
+  albumArt = null,
+  railId = null,
+  licenseFields = null,
+) {
   try {
     const targetRailId = railId || activeWsId || null;
     if (broadcastStatus.active && targetRailId && activeWsId && targetRailId !== activeWsId) {
@@ -1132,13 +1135,23 @@ function forceImmediateNowPlayingMetadata(title, artist, albumArt = null, railId
           },
         ],
       },
+      title: displayTitle,
+      artist: displayArtist,
+      ...(art ? { albumArt: art } : {}),
+      ...(licenseFields?.url ? { url: licenseFields.url } : {}),
+      ...(licenseFields?.sourceSite ? { sourceSite: licenseFields.sourceSite } : {}),
+      ...(licenseFields?.licenseType ? { licenseType: licenseFields.licenseType } : {}),
+      ...(licenseFields?.licenseUrl ? { licenseUrl: licenseFields.licenseUrl } : {}),
     };
     metaState.lastStabilized = {
       title: displayTitle,
       artist: displayArtist,
       albumArt: art || null,
-      url: null,
+      url: licenseFields?.url || null,
+      sourceSite: licenseFields?.sourceSite || null,
       railId: targetRailId,
+      ...(licenseFields?.licenseType ? { licenseType: licenseFields.licenseType } : {}),
+      ...(licenseFields?.licenseUrl ? { licenseUrl: licenseFields.licenseUrl } : {}),
     };
 
     updateDiscordBotFromMetadata(displayTitle, displayArtist, false, null);
@@ -1671,12 +1684,25 @@ async function updateDiscordBotFromMetadata(title, artist, isDisabled = false, b
       currentSong = displayTitle;
       currentArtist = displayArtist;
       streamMetadataDisabled = isDisabled;
-      if (!isDisabled && displayTitle && displayArtist) {
+      const policyMutedRelay = isActiveRelayContentPolicyMuted();
+      if (
+        !isDisabled &&
+        displayTitle &&
+        displayArtist &&
+        !isContentPolicyMutedMetadata(displayTitle, displayArtist) &&
+        !policyMutedRelay
+      ) {
         bumpTrackSession(displayTitle, displayArtist);
       }
       // Voice bot (relay-bot.js) reads metadata via internalSongMirror + /internal/song-info
       syncInternalSongMirror();
-      if (!isDisabled && displayTitle && displayArtist) {
+      if (
+        !isDisabled &&
+        displayTitle &&
+        displayArtist &&
+        !isContentPolicyMutedMetadata(displayTitle, displayArtist) &&
+        !policyMutedRelay
+      ) {
         try { debugLog('song_change', { title: displayTitle, artist: displayArtist }); } catch {}
         tryMatchAnyRequestToNowPlaying(displayTitle, displayArtist, { source: "metadata" });
       }
@@ -2436,6 +2462,16 @@ function applySessionLogAlbumArt(title, artist, albumArt) {
   }
 }
 
+function applySessionLogSourceLicense(title, artist, extras = {}) {
+  const trackTitle = String(title || "").trim();
+  const trackArtist = String(artist || "").trim();
+  if (!trackTitle || !trackArtist) return;
+  const trackSessionId = updateSessionTrackSourceLicenseByTitleArtist(trackTitle, trackArtist, extras);
+  if (trackSessionId) {
+    publishBroadcastSessionLogChanged({ trackSessionId, reason: "links" });
+  }
+}
+
 function chatPingPayload(message) {
   if (!message) return null;
   const base = {
@@ -2553,7 +2589,7 @@ const lastLoggedStationMetadataSig = new Map();
 
 function nativeMetadataContentSig(meta) {
   if (!meta) return "";
-  return `${String(meta.title || "").trim()}\0${String(meta.artist || "").trim()}\0${meta.albumArt || ""}`;
+  return `${String(meta.title || "").trim()}\0${String(meta.artist || "").trim()}\0${meta.albumArt || ""}\0${meta.licenseType || ""}\0${meta.licenseUrl || ""}\0${meta.url || ""}`;
 }
 
 function nativeMetadataUnchanged(existing, next) {
@@ -3906,7 +3942,12 @@ http.createServer(async (req, res) => {
               });
             }
 
-            const { title, artist, albumArt, broadcasterName } = postData;
+            const { title, artist, albumArt, broadcasterName, licenseType, licenseUrl, url } = postData;
+            const normalizedLicenseType =
+              typeof licenseType === "string" ? licenseType.trim() : "";
+            const normalizedLicenseUrl =
+              typeof licenseUrl === "string" ? licenseUrl.trim() : "";
+            const normalizedTrackUrl = typeof url === "string" ? url.trim() : "";
 
             // Validate required fields
             if (!title || !artist || typeof title !== 'string' || typeof artist !== 'string') {
@@ -3932,6 +3973,8 @@ http.createServer(async (req, res) => {
               source: policySource,
               artist: artist.trim(),
               title: title.trim(),
+              licenseType: normalizedLicenseType || null,
+              licenseUrl: normalizedLicenseUrl || null,
             };
             const {
               decision: policyDecision,
@@ -3999,11 +4042,17 @@ http.createServer(async (req, res) => {
               timestamp: Date.now(),
               sourceSite: policySource || null,
               policyPending: policyDeferred && !policyMuted,
+              ...(normalizedLicenseType ? { licenseType: normalizedLicenseType } : {}),
+              ...(normalizedLicenseUrl ? { licenseUrl: normalizedLicenseUrl } : {}),
+              ...(normalizedTrackUrl ? { url: normalizedTrackUrl } : {}),
               ...(policyMuted
                 ? {
                     rawTitle: title.trim(),
                     rawArtist: artist.trim(),
                     rawAlbumArt: albumArt ?? null,
+                    ...(normalizedLicenseType ? { rawLicenseType: normalizedLicenseType } : {}),
+                    ...(normalizedLicenseUrl ? { rawLicenseUrl: normalizedLicenseUrl } : {}),
+                    ...(normalizedTrackUrl ? { rawUrl: normalizedTrackUrl } : {}),
                   }
                 : {}),
             };
@@ -4046,6 +4095,14 @@ http.createServer(async (req, res) => {
               );
               if (metadata.albumArt && !policyDeferred) {
                 applySessionLogAlbumArt(metadata.title, metadata.artist, metadata.albumArt);
+              }
+              if (!policyDeferred) {
+                applySessionLogSourceLicense(metadata.title, metadata.artist, {
+                  url: metadata.url,
+                  sourceSite: metadata.sourceSite,
+                  licenseType: metadata.licenseType,
+                  licenseUrl: metadata.licenseUrl,
+                });
               }
             } else if (policyMuted) {
               logMetadataPostOutcome(
@@ -4102,7 +4159,18 @@ http.createServer(async (req, res) => {
             }
 
             if (policyMuted && postsToMainStream) {
-              forceImmediateNowPlayingMetadata(displayTitle, displayArtist, metadata.albumArt, userWsId);
+              forceImmediateNowPlayingMetadata(
+                displayTitle,
+                displayArtist,
+                metadata.albumArt,
+                userWsId,
+                {
+                  licenseType: metadata.licenseType,
+                  licenseUrl: metadata.licenseUrl,
+                  url: metadata.url,
+                  sourceSite: metadata.sourceSite,
+                },
+              );
             } else if (postsToMainStream && !policyDeferred) {
               if (isUsableAlbumArtUrl(metadata.albumArt)) {
                 albumArtCache.set(`${metadata.title.trim()}|||${metadata.artist.trim()}`, {
@@ -4111,7 +4179,18 @@ http.createServer(async (req, res) => {
                 });
               }
               if (priorMuted) {
-                forceImmediateNowPlayingMetadata(metadata.title, metadata.artist, metadata.albumArt, userWsId);
+                forceImmediateNowPlayingMetadata(
+                  metadata.title,
+                  metadata.artist,
+                  metadata.albumArt,
+                  userWsId,
+                  {
+                    licenseType: metadata.licenseType,
+                    licenseUrl: metadata.licenseUrl,
+                    url: metadata.url,
+                    sourceSite: metadata.sourceSite,
+                  },
+                );
               } else {
                 updateDiscordBotFromMetadata(metadata.title, metadata.artist, false, null);
                 syncInternalSongMirror();
@@ -4367,6 +4446,18 @@ http.createServer(async (req, res) => {
         if (out.recenttracks?.track?.[0]) out.recenttracks.track[0].image = imgArr;
       }
 
+      const trackLicenseType = usingNativeMetadata ? nativeMetadata?.licenseType || null : null;
+      const trackLicenseUrl = usingNativeMetadata ? nativeMetadata?.licenseUrl || null : null;
+      const nativeTrackUrl = usingNativeMetadata ? nativeMetadata?.url || null : null;
+      const nativeSourceSite = usingNativeMetadata ? nativeMetadata?.sourceSite || null : null;
+      out.title = title;
+      out.artist = artist;
+      if (immediateArt) out.albumArt = immediateArt;
+      if (nativeTrackUrl || trackUrl) out.url = nativeTrackUrl || trackUrl;
+      if (nativeSourceSite) out.sourceSite = nativeSourceSite;
+      if (trackLicenseType) out.licenseType = trackLicenseType;
+      if (trackLicenseUrl) out.licenseUrl = trackLicenseUrl;
+
       // Start background album art resolution (non-blocking)
       // This will improve the album art later if needed, but won't delay the response
       if (title && artist && title !== 'Unknown Title' && artist !== 'Unknown Artist') {
@@ -4426,11 +4517,23 @@ http.createServer(async (req, res) => {
 
       // Stabilization logic: delay ANY change (title, artist, or albumArt) by STABILIZE_MS
       const current = metaState.lastStabilized; // may be null
-      const newMeta = { title, artist, albumArt: immediateArt || null, url: trackUrl || null };
+      const newMeta = {
+        title,
+        artist,
+        albumArt: immediateArt || null,
+        url: nativeTrackUrl || trackUrl || null,
+        sourceSite: nativeSourceSite,
+        licenseType: trackLicenseType,
+        licenseUrl: trackLicenseUrl,
+      };
       const anyChanged = !!(current && (
         current.title !== newMeta.title ||
         current.artist !== newMeta.artist ||
-        String(current.albumArt || '') !== String(newMeta.albumArt || '')
+        String(current.albumArt || '') !== String(newMeta.albumArt || '') ||
+        String(current.licenseType || '') !== String(newMeta.licenseType || '') ||
+        String(current.licenseUrl || '') !== String(newMeta.licenseUrl || '') ||
+        String(current.url || '') !== String(newMeta.url || '') ||
+        String(current.sourceSite || '') !== String(newMeta.sourceSite || '')
       ));
       const nativeArtUpgrade = !!(
         current &&
@@ -4448,13 +4551,22 @@ http.createServer(async (req, res) => {
           title,
           artist,
           albumArt: immediateArt || null,
-          url: trackUrl || null,
+          url: nativeTrackUrl || trackUrl || null,
+          sourceSite: nativeSourceSite,
           railId: activeWsId || null,
+          ...(trackLicenseType ? { licenseType: trackLicenseType } : {}),
+          ...(trackLicenseUrl ? { licenseUrl: trackLicenseUrl } : {}),
         };
         metaState.lastPayload = out;
         if (immediateArt) {
           applySessionLogAlbumArt(title, artist, immediateArt);
         }
+        applySessionLogSourceLicense(title, artist, {
+          url: nativeTrackUrl || trackUrl || null,
+          sourceSite: nativeSourceSite,
+          licenseType: trackLicenseType,
+          licenseUrl: trackLicenseUrl,
+        });
         // Clear any pending Discord bot timer since we're updating immediately
         if (metaState.discordBotTimer) {
           try { clearTimeout(metaState.discordBotTimer); } catch {}
@@ -4474,6 +4586,27 @@ http.createServer(async (req, res) => {
       }
 
       if (nativeArtUpgrade) {
+        commitNow();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(out));
+        return;
+      }
+
+      const nativeLicenseUpgrade = !!(
+        current &&
+        usingNativeMetadata &&
+        (nativeMetadata?.licenseUrl ||
+          nativeMetadata?.licenseType ||
+          nativeMetadata?.url) &&
+        current.title === newMeta.title &&
+        current.artist === newMeta.artist &&
+        (String(current.licenseType || "") !== String(newMeta.licenseType || "") ||
+          String(current.licenseUrl || "") !== String(newMeta.licenseUrl || "") ||
+          String(current.url || "") !== String(newMeta.url || "") ||
+          String(current.sourceSite || "") !== String(newMeta.sourceSite || ""))
+      );
+
+      if (nativeLicenseUpgrade) {
         commitNow();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(out));
@@ -4505,7 +4638,11 @@ http.createServer(async (req, res) => {
         const samePending = !!(metaState.pending &&
           metaState.pending.title === newMeta.title &&
           metaState.pending.artist === newMeta.artist &&
-          String(metaState.pending.albumArt || '') === String(newMeta.albumArt || ''));
+          String(metaState.pending.albumArt || '') === String(newMeta.albumArt || '') &&
+          String(metaState.pending.licenseType || '') === String(newMeta.licenseType || '') &&
+          String(metaState.pending.licenseUrl || '') === String(newMeta.licenseUrl || '') &&
+          String(metaState.pending.url || '') === String(newMeta.url || '') &&
+          String(metaState.pending.sourceSite || '') === String(newMeta.sourceSite || ''));
 
         if (!samePending) {
           metaState.pending = { ...newMeta, out };
@@ -4535,7 +4672,14 @@ http.createServer(async (req, res) => {
                   artist: metaState.pending.artist,
                   albumArt: metaState.pending.albumArt,
                   url: metaState.pending.url,
+                  sourceSite: metaState.pending.sourceSite,
                   railId: activeWsId || null,
+                  ...(metaState.pending.licenseType
+                    ? { licenseType: metaState.pending.licenseType }
+                    : {}),
+                  ...(metaState.pending.licenseUrl
+                    ? { licenseUrl: metaState.pending.licenseUrl }
+                    : {}),
                 };
                 metaState.lastPayload = metaState.pending.out;
                 if (metaState.pending.albumArt) {
@@ -4545,6 +4689,12 @@ http.createServer(async (req, res) => {
                     metaState.pending.albumArt,
                   );
                 }
+                applySessionLogSourceLicense(metaState.pending.title, metaState.pending.artist, {
+                  url: metaState.pending.url,
+                  sourceSite: metaState.pending.sourceSite,
+                  licenseType: metaState.pending.licenseType,
+                  licenseUrl: metaState.pending.licenseUrl,
+                });
                 // Clear Discord bot timer when endpoint stabilizes
                 if (metaState.discordBotTimer) {
                   try { clearTimeout(metaState.discordBotTimer); } catch {}
@@ -6790,6 +6940,21 @@ setLevelingContext({
       return stable.albumArt;
     }
     return null;
+  },
+  getTrackExtrasForSession: (title, artist) => {
+    const trackTitle = String(title || "").trim();
+    const trackArtist = String(artist || "").trim();
+    if (!trackTitle || !trackArtist) return {};
+    const stable = globalThis.__metaState?.lastStabilized;
+    if (!stable || stable.title !== trackTitle || stable.artist !== trackArtist) {
+      return {};
+    }
+    return {
+      url: stable.url ?? null,
+      sourceSite: stable.sourceSite ?? null,
+      licenseType: stable.licenseType ?? null,
+      licenseUrl: stable.licenseUrl ?? null,
+    };
   },
 });
 

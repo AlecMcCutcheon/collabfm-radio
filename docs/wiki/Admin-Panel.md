@@ -106,12 +106,12 @@ See [Authentik SSO Setup](./Authentik-SSO-Setup.md) for a step-by-step Authentik
 
 **Content policy** *(enforced by default)*
 
-CollabFM provides a configurable content policy to help operators manage what audio may be broadcast. The policy engine is a **filtering tool**, not a copyright detector—it applies allowlists to reported metadata and does not verify copyright or licensing. New installs ship with conservative default rules (e.g. NCS, Pixabay Music) for convenience only, not as a licensing guarantee.
+CollabFM provides a configurable content policy to help operators manage what audio may be broadcast. The policy engine is a **filtering tool**, not a copyright detector—it applies source, artist, and license allowlists to reported metadata. New installs default to **[Free Music Archive](https://freemusicarchive.org/search?adv=1&music-filter-CC-attribution-only=true&music-filter-CC-attribution-sharealike=1&music-filter-CC-attribution-noderivatives=1&music-filter-CC-attribution-noncommercial=1&music-filter-CC-attribution-noncommercial-sharealike=true&music-filter-CC-attribution-noncommercial-noderivatives=true) (CC search)** only, with standard **Creative Commons** license patterns (CC BY, CC BY-SA, CC BY-NC, CC BY-NC-SA, CC BY-ND, CC BY-NC-ND, CC0), because that is where the extension can scrape license metadata. YouTube Music, SoundCloud, and NoCopyrightSounds remain supported in the extension but are not in the default allowlist.
 
 - **Enable content policy enforcement** — on by default; turning off allows all broadcasts
 - **Safety rails** — global fallbacks locked until an admin confirms responsibility
-- **Fallback actions** — missing metadata, unmatched artist, unmatched source
-- **Source and artist allowlists**
+- **Fallback actions** — missing metadata, unmatched artist, unmatched source, missing/unmatched license
+- **Source, artist, and license allowlists**
 
 See [Content Policy](./Content-Policy.md) for full detail.
 

@@ -139,6 +139,17 @@ If there is no music note icon, that connection is not on a supported site or do
 
 ---
 
+## Metadata sources (extension)
+
+The Chrome extension reports track metadata from several sites. **Media controls** (above) are only available on YouTube Music and SoundCloud. **Metadata and license scraping** also work on:
+
+- **Free Music Archive** ([CC search](https://freemusicarchive.org/search?adv=1&music-filter-CC-attribution-only=true&music-filter-CC-attribution-sharealike=1&music-filter-CC-attribution-noderivatives=1&music-filter-CC-attribution-noncommercial=1&music-filter-CC-attribution-noncommercial-sharealike=true&music-filter-CC-attribution-noncommercial-noderivatives=true)) — title, artist, cover art, track page URL, and Creative Commons license link when present
+- **NoCopyrightSounds** (`ncs.io`) — title, artist, cover art (no license metadata)
+
+When track and license metadata are available, listeners see source and license links under now-playing on the web UI and in the live session log. FMA is the only source in the default content policy because license metadata can be reported automatically; default allowed licenses cover standard Creative Commons terms (CC BY, CC BY-SA, CC BY-NC, CC BY-NC-SA, CC BY-ND, CC BY-NC-ND, CC0) suited to non-commercial community radio.
+
+---
+
 ## Share links (listeners vs broadcasters)
 
 **Broadcaster Studio → Share links**
