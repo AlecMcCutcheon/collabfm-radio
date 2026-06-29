@@ -36,6 +36,7 @@ Want to play with a running CollabFM before self-hosting? Join the [Discord serv
 - **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) (includes [API access tiers](./docs/ARCHITECTURE.md#api-access) and [broadcaster extension layout](./docs/wiki/Broadcaster-Extension.md))
 - **Audio pipeline:** [docs/audio-pipeline.md](./docs/audio-pipeline.md)
 - **Roadmap:** [docs/ROADMAP.md](./docs/ROADMAP.md)
+- **Default policy rationale:** [docs/WHY.md](./docs/WHY.md)
 - **Guides (UI & integrations):** [docs/wiki/Home.md](./docs/wiki/Home.md)
 
 ---
@@ -71,33 +72,23 @@ More detail on each item: [docs/ROADMAP.md](./docs/ROADMAP.md).
 
 ## Legal & responsible use
 
-CollabFM provides a **configurable content policy enforced by default** to help operators and broadcasters manage what audio may be broadcast through their station. The policy engine is a **filtering tool**, not a copyright detector—it applies your allowlists and fallbacks to metadata reported by the extension; it does not analyze audio or verify licenses. Administrators can adjust rules in Admin → System.
+CollabFM **does not host, store, or provide any audio content.** It is relay and coordination software: broadcasters supply audio from their own browser tabs or other sources, and your instance forwards that stream to listeners you authorize.
 
-**Your responsibility.** Server administrators and broadcasters are solely responsible for ensuring they have the necessary rights, licenses, or permissions to stream any audio. New installs default to [Free Music Archive (CC search)](https://freemusicarchive.org/search?adv=1&music-filter-CC-attribution-only=true&music-filter-CC-attribution-sharealike=1&music-filter-CC-attribution-noderivatives=1&music-filter-CC-attribution-noncommercial=1&music-filter-CC-attribution-noncommercial-sharealike=true&music-filter-CC-attribution-noncommercial-noderivatives=true) and [Jamendo (explore)](https://www.jamendo.com/explore) with standard Creative Commons license patterns (CC BY, CC BY-SA, CC BY-NC, CC BY-NC-SA, CC BY-ND, CC BY-NC-ND, CC0)—sources where the extension reports license metadata and track URLs (Jamendo per track when you play; FMA via CC-filtered browse). CollabFM is itself [CC BY-NC 4.0](LICENSE); default policy favors the same non-commercial CC family. The broadcaster extension can capture audio from many tab sources, but only sources on your allowlist are permitted by default policy—FMA and Jamendo are included out of the box because license terms can be reported automatically there. Admins may add other hostnames manually if they accept that responsibility.
+CollabFM provides a **configurable content policy** that **attempts best-effort filtering by default** to help operators and broadcasters manage what audio may be relayed through their station. The policy engine is a **filtering tool**, not a copyright detector—it applies your allowlists and fallbacks to metadata reported by the extension; it does not analyze audio, fingerprint tracks, or verify licenses. Administrators can adjust rules in Admin → System.
+
+**Your responsibility.** Server administrators and broadcasters are solely responsible for ensuring they have the necessary rights, licenses, or permissions to stream any audio. New installs default to [Free Music Archive (CC search)](https://freemusicarchive.org/search?adv=1&music-filter-CC-attribution-only=true&music-filter-CC-attribution-sharealike=1&music-filter-CC-attribution-noderivatives=1&music-filter-CC-attribution-noncommercial=1&music-filter-CC-attribution-noncommercial-sharealike=true&music-filter-CC-attribution-noncommercial-noderivatives=true) and [Jamendo (explore)](https://www.jamendo.com/explore) with standard Creative Commons license patterns (CC BY, CC BY-SA, CC BY-NC, CC BY-NC-SA, CC BY-ND, CC BY-NC-ND, CC0). Those sources are included because the extension can read **machine-readable license metadata** and track URLs—not because they are guaranteed legally safe in every context. CC content may still require attribution, share-alike compliance, or other obligations; metadata can be mis-tagged. CollabFM is itself [CC BY-NC 4.0](LICENSE); default policy favors the same non-commercial CC family. The broadcaster extension can capture audio from many tab sources, but only sources on your allowlist are permitted by default policy. Admins must verify compliance and may add other hostnames manually if they accept that responsibility.
 
 **Content you broadcast.** Only stream material you have the right to share—your own recordings, properly licensed works, or content clearly permitted for redistribution. Do not use CollabFM to redistribute copyrighted music or other protected works without authorization from the rights holder.
 
 **Private and invited audiences.** CollabFM is intended as a self-hosted station for private or invited listeners—friends, community servers, homelab users—not as a public commercial broadcast service. You control who can listen through authentication, share links, and how you expose the service on your network.
 
-**Policy enforcement.** By default, the content policy mutes disallowed sources and withholds blocked track metadata from the website and Discord until a decision is made. Promoting or switching the live DJ on stage re-evaluates policy immediately so blocked tracks should not flash real metadata on now-playing or in the session log. These controls promote responsible use and help reduce accidental policy violations; they are not a substitute for legal compliance. CollabFM does not condone intentional misuse or deliberate circumvention of this policy.
+**Policy filtering.** By default, the content policy attempts to mute disallowed sources and withhold blocked track metadata from the website and Discord while a decision is pending. Promoting or switching the live DJ on stage triggers a policy re-check that is intended to **mitigate accidental display** of blocked track metadata on now-playing and in the session log. These controls promote responsible use and help reduce accidental policy violations; they are **not a guarantee** that disallowed content was prevented, and they are not a substitute for legal compliance. CollabFM does not condone intentional misuse or deliberate circumvention of this policy.
 
 **Software disclaimer.** CollabFM is provided as-is, without warranty. The author is not liable for operator misuse, copyright claims, or other consequences arising from how you deploy or use the software.
 
 **License.** This project is licensed under [Creative Commons Attribution-NonCommercial 4.0 International](LICENSE). You may use and modify it for non-commercial purposes; commercial use is not permitted. If you share the software or derivatives, you must give appropriate credit to Alec McCutcheon and indicate if changes were made.
 
-Configuration details: [Content Policy (wiki)](docs/wiki/Content-Policy.md).
-
-### Why the defaults are strict
-
-A fair question: if CollabFM already says “don’t stream what you don’t have rights to,” why lock things down by default? Why not leave it wide open and trust people?
-
-Honestly, **a warning alone isn’t enough.** If you publish software that makes it easy to broadcast audio to a room full of friends, you take on some responsibility to reduce predictable misuse—not because CollabFM can solve copyright for everyone, but because doing nothing beyond a disclaimer would be careless. That doesn’t mean pretending we can detect licenses in the audio itself. Fingerprinting, legal verification, and “real” copyright enforcement are out of scope for a self-hosted project like this, and they always will be.
-
-What *is* in scope is **metadata-based filtering**: reported source, track info, and—where the extension can read it—license data. That’s imperfect, but it’s a practical guardrail. It catches a lot of accidental “I didn’t think about it” cases, slows down casual misuse, and gives admins a knob without claiming to be a lawyer in a box.
-
-The defaults also reflect what I want the project to *feel* like. CollabFM is for friends sharing a station, not for handing someone a pipe and saying “go stream whatever from wherever.” I don’t want to point you at a catalog, let you go live in two clicks, and set you up for a copyright strike you didn’t see coming. That isn’t the spirit of this project. I’d rather you start from a conservative baseline—Creative Commons–friendly sources, clear license links, policy notices when something isn’t allowed—and **opt in** to broader rules once you understand what you’re taking on.
-
-If the defaults feel tight for your instance, you can change them. That’s intentional. The goal isn’t to punish curious admins; it’s to give everyone the best chance of using CollabFM responsibly and actually enjoying it.
+Configuration details: [Content Policy (wiki)](docs/wiki/Content-Policy.md). Design rationale for conservative defaults: [docs/WHY.md](./docs/WHY.md).
 
 ---
 

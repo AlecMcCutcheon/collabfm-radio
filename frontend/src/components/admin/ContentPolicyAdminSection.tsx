@@ -451,21 +451,23 @@ export function ContentPolicyAdminSection({ flash, onError }: ContentPolicyAdmin
   return (
     <AdminSection
       title="Content policy"
-      description="CollabFM provides a configurable content policy to help server operators and broadcasters manage what audio may be broadcast through their station. New installations ship with conservative default rules intended to reduce accidental misuse and encourage responsible streaming practices."
+      description="CollabFM does not host or provide audio content—it relays broadcaster-supplied streams. CollabFM provides a configurable content policy to help server operators and broadcasters manage what audio may be relayed through their station. New installations ship with conservative default rules intended to mitigate accidental misuse and encourage responsible streaming practices."
     >
       <p className="text-sm text-gray-400 leading-relaxed">
         The policy engine evaluates metadata provided by the browser extension or submitted through
         the CollabFM API. Source and artist rules are checked in order, and the first matching rule
         determines the outcome. Configurable fallback actions apply when metadata is missing or no
         rule matches. When a source or artist rule allows a track, license metadata may be required
-        depending on your safety rail settings.
+        depending on your safety rail settings. Filtering is best-effort—it does not analyze or
+        fingerprint audio.
       </p>
 
       <p className="text-sm text-gray-300 leading-relaxed">
         The policy engine is a <strong className="font-medium text-gray-200">filtering tool</strong>
-        , not a copyright detector. It applies your configured allowlists and fallbacks to reported
-        source, track, and license metadata. It does not analyze audio, verify licenses, or determine whether
-        content is legally cleared to stream.         Default policy targets Free Music Archive (
+        , not a copyright detector. It attempts best-effort filtering using your configured
+        allowlists and fallbacks on reported source, track, and license metadata. It does not analyze
+        audio, fingerprint tracks, verify licenses, or determine whether content is legally cleared
+        to stream. Default policy targets Free Music Archive (
         <a
           href={FMA_CC_SEARCH_URL}
           target="_blank"
@@ -483,12 +485,15 @@ export function ContentPolicyAdminSection({ flash, onError }: ContentPolicyAdmin
         >
           Jamendo (explore)
         </a>
-        — default sources where the extension reports scrapeable license metadata per track.
+        — default sources where the extension reports machine-readable license metadata per track. Inclusion does not mean those catalogs are guaranteed legally safe to broadcast; admins must verify compliance (attribution, share-alike, platform terms, and metadata accuracy).
       </p>
 
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-gray-300 leading-relaxed">
         <p>
-          CollabFM does not verify copyright ownership, licensing status, or legal compliance.
+          CollabFM does not host, store, or provide any audio content. It does not verify copyright
+          ownership, licensing status, or legal compliance.
+        </p>
+        <p className="mt-2">
           Server administrators and individual broadcasters are solely responsible for ensuring they
           have the necessary rights, licenses, or permissions to stream any audio through their
           CollabFM instance.
