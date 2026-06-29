@@ -7,36 +7,13 @@
       : host === "media.ibroadcast.com" || host.endsWith(".media.ibroadcast.com");
   }
 
-  function ibuiReady() {
-    return typeof window.ibui !== "undefined";
-  }
-
   function simulateMediaKey(action) {
-    if (!ibuiReady()) {
-      console.log("[Radio Broadcaster] iBroadcast ibui API not available");
-      return false;
-    }
-
     try {
-      switch (action) {
-        case "playPause":
-          window.ibui.togglePlay();
-          return true;
-        case "play":
-        case "pause":
-          window.ibui.togglePlay();
-          return true;
-        case "next":
-          window.ibui.next();
-          return true;
-        case "previous":
-          window.ibui.previous();
-          return true;
-        default:
-          return false;
-      }
+      if (!chrome.runtime?.id) return false;
+      chrome.runtime.sendMessage({ type: "EXECUTE_IBROADCAST_CONTROL", action });
+      return true;
     } catch (error) {
-      console.log("[Radio Broadcaster] iBroadcast media control failed:", error.message);
+      console.log("[Radio Broadcaster] iBroadcast control relay failed:", error.message);
       return false;
     }
   }

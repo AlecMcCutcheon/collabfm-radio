@@ -52,6 +52,64 @@ async function waitForContentScript(tabId, { maxAttempts = 24, delayMs = 150 } =
   return false;
 }
 
+function isIbroadcastHostname(hostname) {
+  const host = String(hostname || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^www\./, "");
+  return host === "media.ibroadcast.com" || host.endsWith(".media.ibroadcast.com");
+}
+
+/** iBroadcast exposes window.ibui in the page main world — content scripts cannot see it. */
+async function executeIbroadcastControl(tabId, action) {
+  const results = await chrome.scripting.executeScript({
+    target: { tabId },
+    world: "MAIN",
+    func: (mediaAction) => {
+      if (typeof window.ibui === "undefined") return false;
+      try {
+        switch (mediaAction) {
+          case "playPause":
+          case "play":
+          case "pause":
+            window.ibui.togglePlay();
+            return true;
+          case "next":
+            window.ibui.next();
+            return true;
+          case "previous":
+            window.ibui.previous();
+            return true;
+          default:
+            return false;
+        }
+      } catch {
+        return false;
+      }
+    },
+    args: [action],
+  });
+  return results?.[0]?.result === true;
+}
+
+async function tabHostname(tabId) {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    return new URL(tab.url || "").hostname;
+  } catch {
+    return "";
+  }
+}
+
+async function forwardMediaControlToTab(tabId, action) {
+  const hostname = await tabHostname(tabId);
+  if (isIbroadcastHostname(hostname)) {
+    return executeIbroadcastControl(tabId, action);
+  }
+  await chrome.tabs.sendMessage(tabId, { type: "MEDIA_CONTROL", action });
+  return true;
+}
+
 async function ensureTabContentScript(tabId) {
   if (typeof tabId !== "number") return false;
 
@@ -174,18 +232,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // Handle media control commands from server (forwarded via offscreen)
-  if (message.type === 'MEDIA_CONTROL_FROM_SERVER') {
+  if (message.type === "MEDIA_CONTROL_FROM_SERVER") {
     const { action, tabId } = message;
-    // Forward media control command to the specified tab's content script
-    try {
-      chrome.tabs.sendMessage(tabId, {
-        type: 'MEDIA_CONTROL',
-        action: action
-      });
-    } catch (error) {
-      console.log('Background: Could not forward media control to content script:', error);
+    void forwardMediaControlToTab(tabId, action).catch((error) => {
+      console.log("Background: Could not forward media control:", error);
+    });
+    return;
+  }
+
+  if (message.type === "EXECUTE_IBROADCAST_CONTROL") {
+    const tabId = sender.tab?.id;
+    if (!tabId) {
+      sendResponse({ success: false });
+      return false;
     }
-    return; // Don't return true - no async response needed
+    void executeIbroadcastControl(tabId, message.action)
+      .then((success) => sendResponse({ success: !!success }))
+      .catch(() => sendResponse({ success: false }));
+    return true;
   }
 
   // Handle messages from popup that need forwarding
