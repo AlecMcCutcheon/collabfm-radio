@@ -1,6 +1,11 @@
-// Free Music Archive metadata + license resolver for CollabFM content script.
+// Free Music Archive — metadata, cover art, track URL, and license scraping.
 (function () {
+  const { hostMatchesSuffix } = window.__collabfmDomUtils || {};
+  const { createDomObserver } = window.__collabfmDomObserver || {};
+
   const FMA_FETCH_HEADERS = { "User-Agent": "CollabFM-FMA-Metadata" };
+
+  let domObserverHandle = null;
 
   function safeJson(s) {
     try {
@@ -34,13 +39,10 @@
     }
   }
 
-  function isFmaSite() {
-    try {
-      const host = window.location.hostname.replace(/^www\./, "");
-      return host === "freemusicarchive.org" || host.endsWith(".freemusicarchive.org");
-    } catch {
-      return false;
-    }
+  function matches(host) {
+    return hostMatchesSuffix
+      ? hostMatchesSuffix(host, "freemusicarchive.org")
+      : host === "freemusicarchive.org" || host.endsWith(".freemusicarchive.org");
   }
 
   function getFmaPlayer() {
@@ -177,7 +179,7 @@
     return `${String(title || "").trim()}\0${String(artist || "").trim()}`;
   }
 
-  function getFmaPlayerMetadata() {
+  function getPlayerMetadata() {
     const player = getFmaPlayer();
     if (!player) return null;
     return { title: player.title, artist: player.artist };
@@ -221,7 +223,7 @@
     return enriched;
   }
 
-  async function resolveFmaMetadataTracked(baseMeta) {
+  async function enrichMetadata(baseMeta) {
     const generation = ++fmaResolveGeneration;
     if (fmaResolveAbort) {
       try {
@@ -241,7 +243,7 @@
     }
   }
 
-  function clearFmaResolveState() {
+  function clearState() {
     fmaResolveGeneration++;
     if (fmaResolveAbort) {
       try {
@@ -250,12 +252,40 @@
       fmaResolveAbort = null;
     }
     fmaResolveCache.clear();
+    domObserverHandle?.stop();
+    domObserverHandle = null;
+  }
+
+  function startDomObserver(onCheck) {
+    if (!createDomObserver) return;
+    domObserverHandle?.stop();
+    domObserverHandle = createDomObserver(onCheck);
+    domObserverHandle.start();
+  }
+
+  function stopDomObserver() {
+    domObserverHandle?.stop();
+    domObserverHandle = null;
   }
 
   window.__collabfmFma = {
-    isFmaSite,
-    getFmaPlayerMetadata,
-    resolveFmaMetadataTracked,
-    clearFmaResolveState,
+    isFmaSite: () => matches(window.location.hostname),
+    getFmaPlayerMetadata: getPlayerMetadata,
+    resolveFmaMetadataTracked: enrichMetadata,
+    clearFmaResolveState: clearState,
   };
+
+  window.__collabfmSiteRegistry = window.__collabfmSiteRegistry || [];
+  window.__collabfmSiteRegistry.push({
+    id: "fma",
+    label: "Free Music Archive",
+    matches,
+    metadata: {
+      getPlayerMetadata,
+      enrichMetadata,
+      startDomObserver,
+      stopDomObserver,
+      clearState,
+    },
+  });
 })();

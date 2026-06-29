@@ -1,6 +1,7 @@
 // Background service worker - manages offscreen document for broadcasting
 import { extensionLog } from "./extension-log.js";
 import { applyLocalGuestProfile } from "./guest-auth.js";
+import { CONTENT_SCRIPT_FILES } from "./sites/content-script-files.js";
 
 let offscreenDocumentReady = false;
 const recentExtensionLogs = [];
@@ -64,7 +65,7 @@ async function ensureTabContentScript(tabId) {
     try {
       await chrome.scripting.executeScript({
         target: { tabId },
-        files: ["fmaMetadata.js", "content.js"],
+        files: CONTENT_SCRIPT_FILES,
       });
     } catch (error) {
       extensionLog("background", "Content script inject failed", {
@@ -308,7 +309,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           } catch {
             // Not present, inject
             try {
-              await chrome.scripting.executeScript({ target: { tabId }, files: ['fmaMetadata.js', 'content.js'] });
+              await chrome.scripting.executeScript({ target: { tabId }, files: CONTENT_SCRIPT_FILES });
               sendResponse({ success: true, injected: true });
             } catch (injectError) {
               sendResponse({ success: false, error: injectError.message || 'Inject failed' });
