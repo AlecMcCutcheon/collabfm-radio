@@ -15,6 +15,8 @@ backend/broadcaster-extension/
   sites/
     shared/                     # DOM helpers, MediaSession fallback, keyboard dispatch
     fma/metadata.js             # Free Music Archive — title/artist + license scraping
+    jamendo/metadata.js         # Jamendo — player DOM + API license enrichment
+    jamendo/mediaControls.js    # Jamendo — play/pause/skip
     ncs/metadata.js             # NoCopyrightSounds — DOM metadata
     youtube-music/mediaControls.js
     soundcloud/mediaControls.js
@@ -36,13 +38,14 @@ Each site file registers on `window.__collabfmSiteRegistry`. `sites/registry.js`
 | Site folder | Host patterns (manifest) | Metadata | License enrichment | Stage media controls |
 |-------------|--------------------------|----------|--------------------|----------------------|
 | `fma/` | `freemusicarchive.org` | DOM scrape | Track page URL + CC license link | — |
+| `jamendo/` | `jamendo.com` | DOM + API | Track page URL + CC license link | Play / pause / skip |
 | `ncs/` | `ncs.io` | DOM scrape | — | — |
 | `youtube-music/` | `music.youtube.com` | MediaSession fallback | — | Play / pause / skip |
 | `soundcloud/` | `soundcloud.com` | MediaSession fallback | — | Play / pause / skip |
 
-On any other tab, the extension can still **capture audio** if the broadcaster selects that tab. Title and artist may come from **`navigator.mediaSession`** when the page exposes it. **License metadata** is only scraped where an adapter implements `enrichMetadata` (FMA today). **Media controls** on Stage appear only when the active tab matches an adapter with `mediaControls.supports`.
+On any other tab, the extension can still **capture audio** if the broadcaster selects that tab. Title and artist may come from **`navigator.mediaSession`** when the page exposes it. **License metadata** is enriched where an adapter implements `enrichMetadata` (Free Music Archive and Jamendo). **Media controls** on Stage appear only when the active tab matches an adapter with `mediaControls.supports`.
 
-See [Content Policy](./Content-Policy.md) for why FMA is the default allowed source and why other hostnames require manual admin allowlisting.
+See [Content Policy](./Content-Policy.md) for why FMA and Jamendo are default allowed sources and why other hostnames require manual admin allowlisting.
 
 ---
 
@@ -50,7 +53,7 @@ See [Content Policy](./Content-Policy.md) for why FMA is the default allowed sou
 
 1. `content.js` asks the matched site adapter for `getPlayerMetadata()` (title, artist, album art).
 2. If none, it falls back to `sites/shared/mediaSession.js`.
-3. Optional `enrichMetadata()` runs asynchronously (e.g. FMA license URL after the player updates).
+3. Optional `enrichMetadata()` runs asynchronously (e.g. FMA or Jamendo track URL and license after the player updates).
 4. Metadata is sent to the CollabFM server over the relay WebSocket and REST `/api/metadata`.
 5. The **content policy** evaluates reported source, artist, and license fields before showing track info on now-playing, Discord, and the session log.
 
@@ -83,5 +86,5 @@ See [backend/broadcaster-extension/README.md](../../backend/broadcaster-extensio
 ## Related guides
 
 - [Broadcasting & Stage](./Broadcasting-and-Stage.md) — pairing, go live, promote DJ, using media controls
-- [Content Policy](./Content-Policy.md) — allowlists, license rules, FMA defaults
+- [Content Policy](./Content-Policy.md) — allowlists, license rules, FMA and Jamendo defaults
 - [Admin Panel — System](./Admin-Panel.md) — extension download, pairing requirement, policy settings

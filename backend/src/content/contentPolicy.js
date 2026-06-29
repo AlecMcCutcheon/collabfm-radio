@@ -24,15 +24,25 @@ export function isContentPolicyMutedMetadata(title, artist) {
   );
 }
 
+/** Hosts where the extension may still be enriching license metadata after title/artist arrive. */
+function isLicenseEnrichmentHost(host) {
+  const normalized = String(host || "").trim().toLowerCase();
+  if (!normalized) return false;
+  return (
+    normalized === "freemusicarchive.org" ||
+    normalized.endsWith(".freemusicarchive.org") ||
+    normalized === "jamendo.com" ||
+    normalized.endsWith(".jamendo.com")
+  );
+}
+
 /** Defer deny while source is unknown and source or artist allowlist rules may still apply. */
 export function shouldDeferContentPolicyEnforcement(decision, input, policy) {
   if (decision?.action !== "deny") return false;
 
   if (decision.matchType === "license_missing") {
     const host = normalizeHost(input?.source ?? input?.site ?? null);
-    const isFmaHost =
-      host === "freemusicarchive.org" || host.endsWith(".freemusicarchive.org");
-    if (isFmaHost && hasTrackMetadata(input?.artist, input?.title)) {
+    if (isLicenseEnrichmentHost(host) && hasTrackMetadata(input?.artist, input?.title)) {
       return true;
     }
     return false;

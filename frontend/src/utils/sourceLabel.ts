@@ -1,5 +1,6 @@
 const SOURCE_LABELS: Record<string, string> = {
   "freemusicarchive.org": "Free Music Archive",
+  "jamendo.com": "Jamendo",
   "ncs.io": "NoCopyrightSounds",
   "music.youtube.com": "YouTube Music",
   "soundcloud.com": "SoundCloud",

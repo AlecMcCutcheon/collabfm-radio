@@ -9,6 +9,7 @@ Chrome extension source served from **Admin → System → Extension download** 
 ```
 sites/
   shared/           # Reusable helpers (DOM observers, MediaSession, album art, keyboard core)
+  jamendo/              # Jamendo metadata, license API enrichment, media controls
   fma/              # Free Music Archive metadata + license scraping
   ncs/              # NoCopyrightSounds DOM metadata
   youtube-music/    # Media controls adapter

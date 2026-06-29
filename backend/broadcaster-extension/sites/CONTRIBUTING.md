@@ -39,7 +39,7 @@ Only implement the sections your site needs. Media-only sites can omit `metadata
 
 ## Files to update when adding a site
 
-1. **New folder** under `sites/<id>/` (copy `sites/ncs/metadata.js` or `sites/fma/metadata.js` as a template).
+1. **New folder** under `sites/<id>/` (copy `sites/jamendo/` or `sites/fma/metadata.js` as a template).
 2. **`sites/content-script-files.js`** — append your script path **before** `sites/registry.js`.
 3. **`manifest.json`** — duplicate the same path in `content_scripts[].js` (must match load order).
 4. **`manifest.json`** — add URL `matches` for your host (see `CONTENT_SCRIPT_MATCHES` in `content-script-files.js`).

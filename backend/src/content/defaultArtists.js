@@ -1,7 +1,7 @@
 /** Default source and license allowlists for new installs — reported metadata only, not a legal guarantee. */
 export const DEFAULT_ALLOWED_ARTISTS = [];
 
-export const DEFAULT_ALLOWED_SOURCES = ["freemusicarchive.org"];
+export const DEFAULT_ALLOWED_SOURCES = ["freemusicarchive.org", "jamendo.com"];
 
 /**
  * Standard Creative Commons licenses suitable for non-commercial community radio

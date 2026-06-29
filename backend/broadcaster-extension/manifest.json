@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CollabFM Broadcaster",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Broadcast your tab audio to CollabFM with a modern UI.",
   "permissions": [
     "storage",
@@ -38,7 +38,9 @@
         "https://ncs.io/*",
         "https://*.ncs.io/*",
         "https://freemusicarchive.org/*",
-        "https://*.freemusicarchive.org/*"
+        "https://*.freemusicarchive.org/*",
+        "https://www.jamendo.com/*",
+        "https://jamendo.com/*"
       ],
       "js": [
         "sites/shared/domUtils.js",
@@ -47,7 +49,9 @@
         "sites/shared/mediaSession.js",
         "sites/shared/mediaControlsCore.js",
         "sites/fma/metadata.js",
+        "sites/jamendo/metadata.js",
         "sites/ncs/metadata.js",
+        "sites/jamendo/mediaControls.js",
         "sites/youtube-music/mediaControls.js",
         "sites/soundcloud/mediaControls.js",
         "sites/registry.js",

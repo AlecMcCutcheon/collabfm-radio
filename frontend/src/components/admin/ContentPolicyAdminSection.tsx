@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Lock, X } from "lucide-react";
 import { api } from "../../api/client";
 import { FMA_CC_SEARCH_URL } from "../../constants/fma";
+import { JAMENDO_CC_SEARCH_URL } from "../../constants/jamendo";
 import type {
   ContentPolicy,
   ContentPolicyAction,
@@ -464,7 +465,7 @@ export function ContentPolicyAdminSection({ flash, onError }: ContentPolicyAdmin
         The policy engine is a <strong className="font-medium text-gray-200">filtering tool</strong>
         , not a copyright detector. It applies your configured allowlists and fallbacks to reported
         source, track, and license metadata. It does not analyze audio, verify licenses, or determine whether
-        content is legally cleared to stream. Default policy targets Free Music Archive (
+        content is legally cleared to stream.         Default policy targets Free Music Archive (
         <a
           href={FMA_CC_SEARCH_URL}
           target="_blank"
@@ -473,7 +474,16 @@ export function ContentPolicyAdminSection({ flash, onError }: ContentPolicyAdmin
         >
           CC search
         </a>
-        ) — the only source where the extension reports scrapeable license metadata by default.
+        ) and{" "}
+        <a
+          href={JAMENDO_CC_SEARCH_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-radio-accent hover:underline"
+        >
+          Jamendo (CC search)
+        </a>
+        — sources where the extension reports scrapeable license metadata by default.
       </p>
 
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-gray-300 leading-relaxed">

@@ -30,7 +30,7 @@ Decisions are logged on the server for admin review.
 
 | Type | Default |
 |------|---------|
-| **Allowed sources** | `freemusicarchive.org` |
+| **Allowed sources** | `freemusicarchive.org`, `jamendo.com` |
 | **Allowed artists** | *(none)* |
 | **Allowed licenses** | CC BY, CC BY-SA, CC BY-NC, CC BY-NC-SA, CC BY-ND, CC BY-NC-ND, CC0 (one line per kind; flexible CC spelling and URLs) |
 | **Missing metadata** | Deny |
@@ -40,7 +40,7 @@ Decisions are logged on the server for admin review.
 
 Upgraded instances keep their saved policy until an admin resets defaults. Legacy policies without license fields do not enforce license rules until license safety rails are configured.
 
-**Why only Free Music Archive by default?** CollabFM can scrape Creative Commons license metadata from FMA track pages and link listeners to the specific song URL. Browse [Free Music Archive (CC search)](https://freemusicarchive.org/search?adv=1&music-filter-CC-attribution-only=true&music-filter-CC-attribution-sharealike=1&music-filter-CC-attribution-noderivatives=1&music-filter-CC-attribution-noncommercial=1&music-filter-CC-attribution-noncommercial-sharealike=true&music-filter-CC-attribution-noncommercial-noderivatives=true) for tracks that match the default license allowlist. Default allowed licenses are the standard CC suite appropriate for non-commercial community radio—matching CollabFM’s own [CC BY-NC 4.0](https://github.com/AlecMcCutcheon/collabfm-radio/blob/main/LICENSE) software license. **CC BY** and **CC BY-SA** allow commercial and non-commercial use with attribution. **CC BY-NC** and **CC BY-NC-SA** restrict commercial use, which fits a hobby/homelab station. **CC BY-ND** and **CC BY-NC-ND** allow streaming unmodified recordings (no remixing). **CC0** dedicates works to the public domain. You only need one line per license kind in the allowlist; the matcher normalizes spacing, dashes, and `creativecommons.org` URLs (e.g. `CC BY SA`, `CC-BY-SA`, and `creativecommons.org/licenses/by-sa/` all match **CC BY-SA**). Each kind is still matched precisely—CC BY does not match CC BY-NC.
+**Why Free Music Archive and Jamendo by default?** CollabFM can report Creative Commons license metadata and link listeners to the specific track URL on [Free Music Archive (CC search)](https://freemusicarchive.org/search?adv=1&music-filter-CC-attribution-only=true&music-filter-CC-attribution-sharealike=1&music-filter-CC-attribution-noderivatives=1&music-filter-CC-attribution-noncommercial=1&music-filter-CC-attribution-noncommercial-sharealike=true&music-filter-CC-attribution-noncommercial-noderivatives=true) and [Jamendo (CC search)](https://www.jamendo.com/search?license_ccby=1&license_ccbysa=1&license_ccbync=1&license_ccbyncsa=1&license_ccbynd=1&license_ccbyncnd=1). Browse those catalogs for tracks that match the default license allowlist. Default allowed licenses are the standard CC suite appropriate for non-commercial community radio—matching CollabFM’s own [CC BY-NC 4.0](https://github.com/AlecMcCutcheon/collabfm-radio/blob/main/LICENSE) software license. **CC BY** and **CC BY-SA** allow commercial and non-commercial use with attribution. **CC BY-NC** and **CC BY-NC-SA** restrict commercial use, which fits a hobby/homelab station. **CC BY-ND** and **CC BY-NC-ND** allow streaming unmodified recordings (no remixing). **CC0** dedicates works to the public domain. You only need one line per license kind in the allowlist; the matcher normalizes spacing, dashes, and `creativecommons.org` URLs (e.g. `CC BY SA`, `CC-BY-SA`, and `creativecommons.org/licenses/by-sa/` all match **CC BY-SA**). Each kind is still matched precisely—CC BY does not match CC BY-NC.
 
 Other tab sources do not report license metadata in a verifiable way—the extension can still capture audio from many sites, but admins must add those hostnames to the allowlist manually if they choose to permit them.
 
@@ -60,7 +60,7 @@ Other tab sources do not report license metadata in a verifiable way—the exten
 | **When license is missing** | Action if no license type/URL is reported for an allowed track |
 | **When license is not allowed** | Action if license metadata does not match the allowlist |
 | **Allowed licenses** | One line per CC kind (flexible spelling/URLs) or custom substring against license type and URL |
-| **Source allowlist** | Hostnames (e.g. `freemusicarchive.org`) |
+| **Source allowlist** | Hostnames (e.g. `freemusicarchive.org`, `jamendo.com`) |
 | **Artist allowlist** | Names and optional alternate names |
 
 **Save content policy** applies changes immediately for new metadata and capability updates.
@@ -72,10 +72,10 @@ Other tab sources do not report license metadata in a verifiable way—the exten
 ## Broadcaster behavior
 
 - The extension reports the active tab **site**, **track metadata**, and **license metadata** (when available) to the server.
-- On [Free Music Archive](https://freemusicarchive.org/search?adv=1&music-filter-CC-attribution-only=true&music-filter-CC-attribution-sharealike=1&music-filter-CC-attribution-noderivatives=1&music-filter-CC-attribution-noncommercial=1&music-filter-CC-attribution-noncommercial-sharealike=true&music-filter-CC-attribution-noncommercial-noderivatives=true), the extension scrapes license information from the track page after the player updates. Now-playing and session log show source and license links when metadata is available.
+- On [Free Music Archive](https://freemusicarchive.org/search?adv=1&music-filter-CC-attribution-only=true&music-filter-CC-attribution-sharealike=1&music-filter-CC-attribution-noderivatives=1&music-filter-CC-attribution-noncommercial=1&music-filter-CC-attribution-noncommercial-sharealike=true&music-filter-CC-attribution-noncommercial-noderivatives=true) and [Jamendo](https://www.jamendo.com/search?license_ccby=1&license_ccbysa=1&license_ccbync=1&license_ccbyncsa=1&license_ccbynd=1&license_ccbyncnd=1), the extension enriches metadata with the track page URL and Creative Commons license link after the player updates. Now-playing and session log show source and license links when metadata is available.
 - If the source is unknown while metadata arrives, the server may **hold** now-playing updates until the source is known—avoiding a flash of blocked track titles on the website or Discord.
 - When the live DJ is **switched** on stage, content policy is re-evaluated immediately for the new broadcaster—blocked tracks should not show real metadata on now-playing or in the session log.
-- If license metadata is still loading on FMA, the server may **defer** a license-missing deny until enrichment completes.
+- If license metadata is still loading on FMA or Jamendo, the server may **defer** a license-missing deny until enrichment completes.
 - When a source is **denied**, relay audio is muted and listeners see the policy notice until an allowed source is used.
 
 Broadcast only content you have the right to share. CollabFM is intended for **private or invited audiences**—friends, community servers, homelab listeners—not as a public commercial broadcast service.

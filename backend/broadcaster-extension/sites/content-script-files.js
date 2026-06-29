@@ -9,7 +9,9 @@ export const CONTENT_SCRIPT_FILES = [
   "sites/shared/mediaSession.js",
   "sites/shared/mediaControlsCore.js",
   "sites/fma/metadata.js",
+  "sites/jamendo/metadata.js",
   "sites/ncs/metadata.js",
+  "sites/jamendo/mediaControls.js",
   "sites/youtube-music/mediaControls.js",
   "sites/soundcloud/mediaControls.js",
   "sites/registry.js",
@@ -24,4 +26,6 @@ export const CONTENT_SCRIPT_MATCHES = [
   "https://*.ncs.io/*",
   "https://freemusicarchive.org/*",
   "https://*.freemusicarchive.org/*",
+  "https://www.jamendo.com/*",
+  "https://jamendo.com/*",
 ];
