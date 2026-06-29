@@ -14,6 +14,8 @@ Ideas under consideration—not commitments, and not in any fixed order. If some
 
 ~~**Admin container update notifications**~~ — **Shipped (in-app).** Admin → System → Container updates: enable notifications; GHCR tag (`latest` or `develop`) is auto-selected from the running image's baked channel. Banner when a newer build is **published and pullable** on that tag.
 
+~~**Broadcaster extension — site adapters**~~ — **Shipped.** Per-site folders under `backend/broadcaster-extension/sites/` (metadata, license enrichment, media controls) with a thin `content.js` orchestrator; contributor guide in `sites/CONTRIBUTING.md` and [Broadcaster Extension wiki](./wiki/Broadcaster-Extension.md).
+
 ---
 
 ## Container & release workflow

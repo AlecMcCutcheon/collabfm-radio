@@ -3,6 +3,7 @@
 ### Guides
 - [Navigating the UI](./Navigating-the-UI.md)
 - [Broadcasting & Stage](./Broadcasting-and-Stage.md)
+- [Broadcaster Extension](./Broadcaster-Extension.md)
 - [Admin Panel](./Admin-Panel.md)
 - [Content Policy](./Content-Policy.md)
 - [API Access & Security](./API-Access-and-Security.md)

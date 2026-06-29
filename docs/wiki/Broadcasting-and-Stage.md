@@ -141,9 +141,15 @@ If there is no music note icon, that connection is not on a supported site or do
 
 ## Metadata sources (extension)
 
-The Chrome extension can capture tab audio from many sources and reports title, artist, and cover art when the active page exposes them. **Media controls** (above) are available only when the tab reports that capability. **License metadata** is scraped on [Free Music Archive](https://freemusicarchive.org/search?adv=1&music-filter-CC-attribution-only=true&music-filter-CC-attribution-sharealike=1&music-filter-CC-attribution-noderivatives=1&music-filter-CC-attribution-noncommercial=1&music-filter-CC-attribution-noncommercial-sharealike=true&music-filter-CC-attribution-noncommercial-noderivatives=true) — track page URL and Creative Commons license link when present.
+The Chrome extension can capture tab audio from many sources. **Site adapters** under `backend/broadcaster-extension/sites/` handle source-specific behavior:
+
+- **Metadata** — title, artist, and cover art from DOM scraping or `navigator.mediaSession`.
+- **License enrichment** — track page URL and Creative Commons license link on [Free Music Archive](https://freemusicarchive.org/search?adv=1&music-filter-CC-attribution-only=true&music-filter-CC-attribution-sharealike=1&music-filter-CC-attribution-noderivatives=1&music-filter-CC-attribution-noncommercial=1&music-filter-CC-attribution-noncommercial-sharealike=true&music-filter-CC-attribution-noncommercial-noderivatives=true) (the only built-in adapter that reports license metadata today).
+- **Media controls** — Stage play/pause/skip for tabs that register a media-controls adapter (see [Media controls](#media-controls-supported-sites) above).
 
 When track and license metadata are available, listeners see source and license links under now-playing on the web UI and in the live session log. FMA is the only source in the default content policy because license metadata can be reported automatically; default allowed licenses cover standard Creative Commons terms (CC BY, CC BY-SA, CC BY-NC, CC BY-NC-SA, CC BY-ND, CC BY-NC-ND, CC0) suited to non-commercial community radio.
+
+**Developers:** extension layout, built-in adapters, and how to add a site — [Broadcaster Extension](./Broadcaster-Extension.md).
 
 ---
 

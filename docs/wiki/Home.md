@@ -8,6 +8,7 @@ Detailed guides beyond the [main README](https://github.com/AlecMcCutcheon/colla
 |-------|----------------|
 | [Navigating the UI](./Navigating-the-UI.md) | Chat, admin entry, mobile vs desktop, main radio screen |
 | [Broadcasting & Stage](./Broadcasting-and-Stage.md) | Go live, extension pairing, promote a DJ, media controls |
+| [Broadcaster Extension](./Broadcaster-Extension.md) | Extension layout, site adapters, contributing new sources |
 | [Chat & Party Effects](./Chat-and-Party-Effects.md) | Live chat, GIFs, synced party effects, hearts, hotkeys |
 | [Admin Panel](./Admin-Panel.md) | All admin tabs and what each setting does (including **container update notifications**) |
 | [Content Policy](./Content-Policy.md) | Broadcast allowlists, enforcement, and responsible use |

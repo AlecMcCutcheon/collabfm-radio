@@ -33,7 +33,7 @@ Instead of one person running a show alone, multiple broadcasters can join the *
 
 Want to play with a running CollabFM before self-hosting? Join the [Discord server](https://discord.gg/7bTRzEunSz). Guest access is at the admin’s discretion—when `@Jebes_Cust` or another radio admin is online and using it, say you’d like to try it. No guarantees on timing or access.
 
-- **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) (includes [API access tiers](./docs/ARCHITECTURE.md#api-access))
+- **Architecture:** [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) (includes [API access tiers](./docs/ARCHITECTURE.md#api-access) and [broadcaster extension layout](./docs/wiki/Broadcaster-Extension.md))
 - **Audio pipeline:** [docs/audio-pipeline.md](./docs/audio-pipeline.md)
 - **Roadmap:** [docs/ROADMAP.md](./docs/ROADMAP.md)
 - **Guides (UI & integrations):** [docs/wiki/Home.md](./docs/wiki/Home.md)
@@ -48,7 +48,7 @@ I use CollabFM myself and plan to keep improving it. [Issues](https://github.com
 
 For most users, DJ switching, Discord listening, and the web UI are a **smooth experience**. The live audio path can still hit **occasional hiccups**—brief stalls or encoding glitches that **usually self-recover** on the backend, but there is room to do better on latency, reliability, and edge cases. If you know streaming or audio pipelines, have stress-tested your own instance, or want to help harden the encode path, [issues](https://github.com/AlecMcCutcheon/collabfm-radio/issues) and [pull requests](https://github.com/AlecMcCutcheon/collabfm-radio/pulls) in that area are especially welcome. See [docs/audio-pipeline.md](./docs/audio-pipeline.md) for how the stack fits together.
 
-If CollabFM helps you, [donations are appreciated](https://www.paypal.com/donate/?business=YSFG23ABNS6HY&no_recurring=0&item_name=If+my+projects+help+you%2C+donations+are+appreciated.+Feedback%2C+issues%2C+or+PRs+help+too%21&currency_code=USD)—issues and PRs help too.
+If CollabFM helps you, [donations are appreciated](https://www.paypal.com/donate/?business=YSFG23ABNS6HY&no_recurring=0&item_name=If+my+projects+help+you%2C+donations+are+appreciated.+Feedback%2C+issues%2C+or+PRs+help+too%21&currency_code=USD)—issues and PRs help too. Site-specific extension support (metadata, license scraping, stage media controls) is a good first contribution—see [Broadcaster Extension](./docs/wiki/Broadcaster-Extension.md) and [`backend/broadcaster-extension/sites/CONTRIBUTING.md`](./backend/broadcaster-extension/sites/CONTRIBUTING.md).
 
 ---
 
@@ -60,6 +60,7 @@ Planned directions and ideas—not a schedule or promise of delivery:
 - ~~**Content policy — licensing & stricter defaults** — FMA-first default source; Creative Commons license allowlist with flexible matching; license safety rails; FMA metadata and license scraping; source/license links on now-playing and session log; policy re-check on DJ switch.~~ *(shipped)*
 - ~~**Dynamic stage UI** — stage slots in the GUI match the configured max stage users (Admin → Radio).~~ *(shipped)*
 - ~~**Container update notifications** — Admin → System → Container updates: track `latest` or `develop` on GHCR, get a banner when a newer **published** image is pullable; each image bakes in its own build ID. See [Upgrading](#container-update-notifications) and [Admin Panel](./docs/wiki/Admin-Panel.md#tab-system).~~ *(shipped)*
+- ~~**Broadcaster extension — site adapters** — per-site folders under `backend/broadcaster-extension/sites/`; [wiki guide](./docs/wiki/Broadcaster-Extension.md) and [`sites/CONTRIBUTING.md`](./backend/broadcaster-extension/sites/CONTRIBUTING.md).~~ *(shipped)*
 - **Hybrid users** — optional local password on SSO-linked accounts (and related account management).
 - **Gated registration** — access-request form, admin approve/deny queue, one-time enrollment tokens.
 
@@ -460,8 +461,17 @@ Runtime data in dev goes under `backend/local/` (gitignored). See [docs/ARCHITEC
 | Path | Role |
 |------|------|
 | `backend/` | Radio server (`bot.js`), voice bot (`relay-bot.js`), SQLite |
+| `backend/broadcaster-extension/` | Chrome extension — `sites/` adapters per source, `content.js` orchestrator |
 | `frontend/` | React UI (Vite + Tailwind) |
 | `docker/` | Dockerfile, compose, entrypoint |
+
+### Broadcaster extension
+
+Site-specific metadata, license scraping, and stage media controls live in **`backend/broadcaster-extension/sites/`** as small adapters registered on `window.__collabfmSiteRegistry`. Shared helpers sit in `sites/shared/`; load order is defined in `sites/content-script-files.js` and mirrored in `manifest.json`.
+
+- **Operator guide:** [Broadcaster Extension (wiki)](./docs/wiki/Broadcaster-Extension.md)
+- **Contributing a site:** [`backend/broadcaster-extension/sites/CONTRIBUTING.md`](./backend/broadcaster-extension/sites/CONTRIBUTING.md)
+- **Local test:** Chrome → Load unpacked → `backend/broadcaster-extension/`
 
 ---
 

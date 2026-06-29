@@ -2,6 +2,8 @@
 
 Chrome extension source served from **Admin → System → Extension download** and bundled in the CollabFM backend.
 
+**Docs:** [Broadcaster Extension (wiki)](../../docs/wiki/Broadcaster-Extension.md) · [Contributing site adapters](./sites/CONTRIBUTING.md)
+
 ## Layout
 
 ```

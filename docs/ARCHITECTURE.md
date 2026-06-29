@@ -28,6 +28,22 @@ Details, config, and debugging: [audio-pipeline.md](./audio-pipeline.md).
 | `discord/` | Voice bot embeds, station picker, heart button |
 | `bridge.js` | Integration surface for `bot.js` |
 
+## Broadcaster extension (`backend/broadcaster-extension/`)
+
+The extension under `backend/broadcaster-extension/` captures tab audio and reports metadata to the radio server. Site-specific behavior lives in **`sites/` adapters** (metadata scraping, license enrichment, stage media controls) registered on `window.__collabfmSiteRegistry`; `content.js` is a thin orchestrator.
+
+| Piece | Role |
+|-------|------|
+| `content.js` | Poll loop, relay WebSocket, delegates to `window.__collabfmSites` |
+| `sites/registry.js` | Match hostname → adapter; metadata vs media-controls lookup |
+| `sites/shared/` | DOM observers, MediaSession fallback, keyboard dispatch for controls |
+| `sites/*/metadata.js` | Per-source title/artist and optional license URL scraping |
+| `sites/*/mediaControls.js` | Per-source play/pause/skip for Stage |
+| `sites/content-script-files.js` | Script load order for manifest and `background.js` inject |
+| `background.js` | `tabCapture`, offscreen document, dynamic script injection |
+
+Built-in adapters, metadata/policy interaction, and contributor workflow: [docs/wiki/Broadcaster-Extension.md](./wiki/Broadcaster-Extension.md). Operator steps: [Broadcasting & Stage](./wiki/Broadcasting-and-Stage.md).
+
 ## Auth & config
 
 - **First boot** → `/setup` wizard creates local admin

@@ -86,4 +86,5 @@ Broadcast only content you have the right to share. CollabFM is intended for **p
 
 - [Admin Panel](./Admin-Panel.md) — System tab overview
 - [Broadcasting & Stage](./Broadcasting-and-Stage.md) — extension pairing and go-live
+- [Broadcaster Extension](./Broadcaster-Extension.md) — site adapters and where license metadata is scraped
 - [Main README — Legal & responsible use](https://github.com/AlecMcCutcheon/collabfm-radio#legal--responsible-use)

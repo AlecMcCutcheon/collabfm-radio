@@ -1,6 +1,6 @@
 # Site adapters — contributor guide
 
-This workbench splits per-site compatibility into small files so pull requests can add or update one source without editing a monolithic `content.js`.
+This guide splits per-site compatibility into small files so pull requests can add or update one source without editing a monolithic `content.js`.
 
 ## What belongs in a site folder
 
@@ -61,3 +61,10 @@ Only implement the sections your site needs. Media-only sites can omit `metadata
 ## Shipping
 
 Bump `manifest.json` version, test locally, then download from Admin → System or zip this folder for distribution.
+
+## Pull requests
+
+- **One site per PR** when possible — keeps review focused and load order / manifest diffs easy to follow.
+- **Describe behavior** — what metadata or controls you tested, and on which URL patterns.
+- **Policy note** — new hostnames are **not** allowed by default content policy; mention in the PR if operators must add the hostname under Admin → System → Content policy.
+- **No unrelated refactors** — shared helpers belong in `sites/shared/`; keep site folders limited to that source’s DOM or keyboard behavior.
