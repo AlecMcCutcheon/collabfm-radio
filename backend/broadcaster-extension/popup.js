@@ -655,7 +655,7 @@ function updateAuthStatus(message, type) {
 function tabUrlSupportsMediaControls(url) {
   try {
     const hostname = new URL(url).hostname;
-    return hostname === "music.youtube.com" || hostname === "soundcloud.com" || hostname === "jamendo.com" || hostname.endsWith(".jamendo.com");
+    return hostname === "music.youtube.com" || hostname === "soundcloud.com" || hostname === "media.ibroadcast.com" || hostname === "jamendo.com" || hostname.endsWith(".jamendo.com");
   } catch {
     return false;
   }

@@ -14,6 +14,7 @@ sites/
   ncs/              # NoCopyrightSounds DOM metadata
   youtube-music/    # Media controls adapter
   soundcloud/       # Media controls adapter
+  ibroadcast/       # iBroadcast media controls (MediaSession metadata)
   registry.js       # Resolves the active site and delegates metadata / controls
   content-script-files.js   # Single load-order list (manifest + background inject)
 content.js          # Thin orchestrator (monitoring loop, messaging)

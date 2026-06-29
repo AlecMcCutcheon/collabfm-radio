@@ -20,6 +20,7 @@ backend/broadcaster-extension/
     ncs/metadata.js             # NoCopyrightSounds — DOM metadata
     youtube-music/mediaControls.js
     soundcloud/mediaControls.js
+    ibroadcast/mediaControls.js    # iBroadcast — play/pause/skip via window.ibui
     registry.js                 # Picks the active site adapter for the tab
     content-script-files.js     # Load order (manifest + background inject)
     CONTRIBUTING.md             # Step-by-step for new adapters
@@ -42,6 +43,7 @@ Each site file registers on `window.__collabfmSiteRegistry`. `sites/registry.js`
 | `ncs/` | `ncs.io` | DOM scrape | — | — |
 | `youtube-music/` | `music.youtube.com` | MediaSession fallback | — | Play / pause / skip |
 | `soundcloud/` | `soundcloud.com` | MediaSession fallback | — | Play / pause / skip |
+| `ibroadcast/` | `media.ibroadcast.com` | MediaSession fallback | — | Play / pause / skip (`window.ibui`) |
 
 On any other tab, the extension can still **capture audio** if the broadcaster selects that tab. Title and artist may come from **`navigator.mediaSession`** when the page exposes it. **License metadata** is enriched where an adapter implements `enrichMetadata` (Free Music Archive and Jamendo). **Media controls** on Stage appear only when the active tab matches an adapter with `mediaControls.supports`.
 

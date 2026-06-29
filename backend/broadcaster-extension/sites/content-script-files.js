@@ -14,6 +14,7 @@ export const CONTENT_SCRIPT_FILES = [
   "sites/jamendo/mediaControls.js",
   "sites/youtube-music/mediaControls.js",
   "sites/soundcloud/mediaControls.js",
+  "sites/ibroadcast/mediaControls.js",
   "sites/registry.js",
   "content.js",
 ];
@@ -28,4 +29,5 @@ export const CONTENT_SCRIPT_MATCHES = [
   "https://*.freemusicarchive.org/*",
   "https://www.jamendo.com/*",
   "https://jamendo.com/*",
+  "https://media.ibroadcast.com/*",
 ];

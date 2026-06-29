@@ -4,6 +4,7 @@ const SOURCE_LABELS: Record<string, string> = {
   "ncs.io": "NoCopyrightSounds",
   "music.youtube.com": "YouTube Music",
   "soundcloud.com": "SoundCloud",
+  "media.ibroadcast.com": "iBroadcast",
 };
 
 function normalizeHost(siteOrUrl: string): string {
