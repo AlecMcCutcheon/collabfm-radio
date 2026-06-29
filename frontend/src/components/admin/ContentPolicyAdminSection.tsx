@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Lock, X } from "lucide-react";
 import { api } from "../../api/client";
 import { FMA_CC_SEARCH_URL } from "../../constants/fma";
-import { JAMENDO_CC_SEARCH_URL } from "../../constants/jamendo";
+import { JAMENDO_EXPLORE_URL } from "../../constants/jamendo";
 import type {
   ContentPolicy,
   ContentPolicyAction,
@@ -476,14 +476,14 @@ export function ContentPolicyAdminSection({ flash, onError }: ContentPolicyAdmin
         </a>
         ) and{" "}
         <a
-          href={JAMENDO_CC_SEARCH_URL}
+          href={JAMENDO_EXPLORE_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="text-radio-accent hover:underline"
         >
-          Jamendo (CC search)
+          Jamendo (explore)
         </a>
-        — sources where the extension reports scrapeable license metadata by default.
+        — default sources where the extension reports scrapeable license metadata per track.
       </p>
 
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-gray-300 leading-relaxed">
