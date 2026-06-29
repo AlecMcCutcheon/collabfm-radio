@@ -1,5 +1,9 @@
 import crypto from "crypto";
-import { DEFAULT_ALLOWED_ARTISTS, DEFAULT_ALLOWED_SOURCES } from "./defaultArtists.js";
+import {
+  DEFAULT_ALLOWED_ARTISTS,
+  DEFAULT_ALLOWED_SOURCES,
+  DEFAULT_ALLOWED_LICENSES,
+} from "./defaultArtists.js";
 
 const UNKNOWN_ARTISTS = new Set([
   "",
@@ -23,6 +27,17 @@ export function isContentPolicyMutedMetadata(title, artist) {
 /** Defer deny while source is unknown and source or artist allowlist rules may still apply. */
 export function shouldDeferContentPolicyEnforcement(decision, input, policy) {
   if (decision?.action !== "deny") return false;
+
+  if (decision.matchType === "license_missing") {
+    const host = normalizeHost(input?.source ?? input?.site ?? null);
+    const isFmaHost =
+      host === "freemusicarchive.org" || host.endsWith(".freemusicarchive.org");
+    if (isFmaHost && hasTrackMetadata(input?.artist, input?.title)) {
+      return true;
+    }
+    return false;
+  }
+
   if (decision.matchType !== "metadata_missing") return false;
   const host = normalizeHost(input?.source ?? input?.site ?? null);
   if (host) return false;
@@ -63,6 +78,9 @@ export function buildDefaultContentPolicy() {
     sourceNoMatch: "deny",
     artistNoMatch: "deny",
     defaultAction: "deny",
+    licenseMissing: "deny",
+    licenseNoMatch: "deny",
+    allowedLicenses: [...DEFAULT_ALLOWED_LICENSES],
   };
 }
 
@@ -135,6 +153,8 @@ export function normalizePolicy(raw) {
     ? raw.rules.map((rule) => normalizeRule(rule)).filter(Boolean)
     : base.rules;
 
+  const isLegacyPolicy = !Object.prototype.hasOwnProperty.call(raw, "licenseMissing");
+
   return {
     enabled: raw.enabled !== false,
     rules,
@@ -142,6 +162,17 @@ export function normalizePolicy(raw) {
     sourceNoMatch: normalizeAction(raw.sourceNoMatch) || base.sourceNoMatch,
     artistNoMatch: normalizeAction(raw.artistNoMatch) || base.artistNoMatch,
     defaultAction: normalizeAction(raw.defaultAction) || base.defaultAction,
+    licenseMissing:
+      normalizeAction(raw.licenseMissing) || (isLegacyPolicy ? "allow" : base.licenseMissing),
+    licenseNoMatch:
+      normalizeAction(raw.licenseNoMatch) || (isLegacyPolicy ? "allow" : base.licenseNoMatch),
+    allowedLicenses: Array.isArray(raw.allowedLicenses)
+      ? raw.allowedLicenses
+          .map((entry) => String(entry || "").trim())
+          .filter(Boolean)
+      : isLegacyPolicy
+        ? []
+        : base.allowedLicenses,
   };
 }
 
@@ -234,6 +265,174 @@ function buildDecision(action, summary, extra = {}) {
   };
 }
 
+function hasLicenseMetadata(input) {
+  const type = String(input?.licenseType || "").trim();
+  const url = String(input?.licenseUrl || "").trim();
+  return !!(type || url);
+}
+
+function licenseEnforcementActive(policy) {
+  const hasAllowlist =
+    Array.isArray(policy.allowedLicenses) && policy.allowedLicenses.length > 0;
+  return policy.licenseMissing !== "allow" || hasAllowlist;
+}
+
+function matchesCcByLicense(hay) {
+  if (/\/licenses\/by-nc/.test(hay)) return false;
+  if (/\/licenses\/by-nd/.test(hay)) return false;
+  if (/\/licenses\/by-sa/.test(hay)) return false;
+  if (/\/licenses\/by\//.test(hay)) return true;
+  return /\bcc[\s-]by(\s+\d|\/|$)/.test(hay) && !/\bcc[\s-]by[\s-](nc|nd|sa)/.test(hay);
+}
+
+function matchesCcBySaLicense(hay) {
+  if (/\/licenses\/by-nc-sa\//.test(hay)) return false;
+  if (/\/licenses\/by-sa\//.test(hay)) return true;
+  return /\bcc[\s-]by[\s-]sa/.test(hay);
+}
+
+function matchesCcByNcLicense(hay) {
+  if (/\/licenses\/by-nc-sa\//.test(hay)) return false;
+  if (/\/licenses\/by-nc-nd\//.test(hay)) return false;
+  if (/\/licenses\/by-nc\//.test(hay)) return true;
+  return /\bcc[\s-]by[\s-]nc(\s+\d|\/|$)/.test(hay) && !/\bcc[\s-]by[\s-]nc[\s-](sa|nd)/.test(hay);
+}
+
+function matchesCcByNcSaLicense(hay) {
+  if (/\/licenses\/by-nc-sa\//.test(hay)) return true;
+  return /\bcc[\s-]by[\s-]nc[\s-]sa/.test(hay);
+}
+
+function matchesCcByNdLicense(hay) {
+  if (/\/licenses\/by-nc/.test(hay)) return false;
+  if (/\/licenses\/by-nc-nd\//.test(hay)) return false;
+  if (/\/licenses\/by-nd\//.test(hay)) return true;
+  return /\bcc[\s-]by[\s-]nd(\s+\d|\/|$)/.test(hay);
+}
+
+function matchesCcByNcNdLicense(hay) {
+  if (/\/licenses\/by-nc-nd\//.test(hay)) return true;
+  return /\bcc[\s-]by[\s-]nc[\s-]nd/.test(hay);
+}
+
+function matchesCc0License(hay) {
+  return (
+    /creativecommons\.org\/publicdomain\/zero\//.test(hay) ||
+    /\bcc[\s-]?0(\s+\d|\/|$)/.test(hay)
+  );
+}
+
+const CC_KIND_MATCHERS = {
+  by: matchesCcByLicense,
+  "by-sa": matchesCcBySaLicense,
+  "by-nc": matchesCcByNcLicense,
+  "by-nc-sa": matchesCcByNcSaLicense,
+  "by-nd": matchesCcByNdLicense,
+  "by-nc-nd": matchesCcByNcNdLicense,
+  cc0: matchesCc0License,
+};
+
+function tokenizeLicensePattern(raw) {
+  return String(raw || "")
+    .toLowerCase()
+    .trim()
+    .replace(/https?:\/\//g, "")
+    .replace(/creativecommons\.org\//g, "")
+    .replace(/\blicenses\//g, "")
+    .replace(/\bpublicdomain\//g, "publicdomain ")
+    .replace(/[/_]+/g, " ")
+    .replace(/[^\w\s-]+/g, " ")
+    .split(/[\s-]+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function modifiersToCcKind(modifiers) {
+  const set = new Set(modifiers);
+  if (set.has("sa") && set.has("nd")) return null;
+  if (set.has("nc") && set.has("sa") && set.has("nd")) return null;
+
+  if (set.has("nc") && set.has("sa")) return "by-nc-sa";
+  if (set.has("nc") && set.has("nd")) return "by-nc-nd";
+  if (set.has("sa")) return "by-sa";
+  if (set.has("nc")) return "by-nc";
+  if (set.has("nd")) return "by-nd";
+  if (modifiers.length === 0) return "by";
+  return null;
+}
+
+/** Map admin-entered CC text/URL to a canonical license kind, or null for custom patterns. */
+function resolveCcLicenseKind(pattern) {
+  const raw = String(pattern || "").trim().toLowerCase();
+  if (!raw) return null;
+
+  if (/\bcc\s*0\b/.test(raw) || raw.includes("publicdomain/zero") || raw.includes("publicdomain zero")) {
+    return "cc0";
+  }
+
+  const tokens = tokenizeLicensePattern(raw);
+  const versionIdx = tokens.findIndex((token) => /^\d/.test(token));
+  const licenseTokens = versionIdx >= 0 ? tokens.slice(0, versionIdx) : tokens;
+
+  if (licenseTokens[0] === "zero" || (licenseTokens[0] === "publicdomain" && licenseTokens[1] === "zero")) {
+    return "cc0";
+  }
+
+  let idx = 0;
+  if (licenseTokens[idx] === "cc") idx += 1;
+  if (licenseTokens[idx] !== "by") return null;
+  idx += 1;
+
+  const modifiers = licenseTokens.slice(idx).filter((token) => ["nc", "nd", "sa"].includes(token));
+  if (modifiers.length !== licenseTokens.length - idx) return null;
+
+  return modifiersToCcKind(modifiers);
+}
+
+function licensePatternMatches(hay, pattern) {
+  const p = String(pattern || "").trim().toLowerCase();
+  if (!p) return false;
+
+  const kind = resolveCcLicenseKind(pattern);
+  if (kind && CC_KIND_MATCHERS[kind]) {
+    return CC_KIND_MATCHERS[kind](hay);
+  }
+
+  return hay.includes(p);
+}
+
+function licenseMatchesAllowed(input, allowedLicenses) {
+  if (!Array.isArray(allowedLicenses) || allowedLicenses.length === 0) return true;
+  const hay = `${input?.licenseType || ""} ${input?.licenseUrl || ""}`.toLowerCase();
+  return allowedLicenses.some((pattern) => licensePatternMatches(hay, pattern));
+}
+
+function applyLicenseGate(priorAction, summary, extra, input, policy) {
+  if (!licenseEnforcementActive(policy)) {
+    return buildDecision(priorAction, summary, extra);
+  }
+
+  if (!hasLicenseMetadata(input)) {
+    return buildDecision(policy.licenseMissing, "License metadata missing", {
+      ...extra,
+      matchType: "license_missing",
+      licenseType: null,
+      licenseUrl: null,
+    });
+  }
+
+  if (!licenseMatchesAllowed(input, policy.allowedLicenses)) {
+    return buildDecision(policy.licenseNoMatch, "License not in allowlist", {
+      ...extra,
+      matchType: "license_no_match",
+      licenseType: input?.licenseType ?? null,
+      licenseUrl: input?.licenseUrl ?? null,
+    });
+  }
+
+  return buildDecision(priorAction, summary, extra);
+}
+
 /**
  * Evaluate content policy for a broadcast track.
  * Known sources are checked first (allow/deny before metadata).
@@ -254,14 +453,24 @@ export function evaluateBroadcastContent(input, policy) {
   if (host) {
     for (const rule of normalizedPolicy.rules) {
       if (rule.match === "source" && sourceMatches(host, rule.value)) {
-        return buildDecision(rule.action, `Rule matched: approved source (${rule.value})`, {
+        const baseDecision = {
           ruleId: rule.id,
           matchType: "source",
           ruleLabel: rule.value,
           source: host,
           artist,
           title,
-        });
+        };
+        if (rule.action !== "allow") {
+          return buildDecision(rule.action, `Rule matched: source (${rule.value})`, baseDecision);
+        }
+        return applyLicenseGate(
+          rule.action,
+          `Rule matched: approved source (${rule.value})`,
+          baseDecision,
+          input,
+          normalizedPolicy,
+        );
       }
     }
     return buildDecision(
@@ -297,14 +506,24 @@ export function evaluateBroadcastContent(input, policy) {
 
   for (const rule of normalizedPolicy.rules) {
     if (rule.match === "artist" && ruleArtistMatches(artist, rule)) {
-      return buildDecision(rule.action, `Rule matched: approved artist (${rule.value})`, {
+      const baseDecision = {
         ruleId: rule.id,
         matchType: "artist",
         ruleLabel: rule.value,
         source: null,
         artist,
         title,
-      });
+      };
+      if (rule.action !== "allow") {
+        return buildDecision(rule.action, `Rule matched: artist (${rule.value})`, baseDecision);
+      }
+      return applyLicenseGate(
+        rule.action,
+        `Rule matched: approved artist (${rule.value})`,
+        baseDecision,
+        input,
+        normalizedPolicy,
+      );
     }
   }
 

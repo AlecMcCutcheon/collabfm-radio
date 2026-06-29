@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Coffee, ExternalLink, Radio, X } from "lucide-react";
 import { api } from "../api/client";
+import { FMA_CC_SEARCH_URL } from "../constants/fma";
 
 const DONATION_URL =
   "https://www.paypal.com/donate/?business=YSFG23ABNS6HY&no_recurring=0&item_name=If+my+projects+help+you%2C+donations+are+appreciated.+Feedback%2C+issues%2C+or+PRs+help+too%21&currency_code=USD";
@@ -27,10 +28,9 @@ function buildSections(): AboutSection[] {
     },
     {
       title: "Music & copyright",
-      body: "CollabFM enforces a configurable content policy by default. The policy engine is a filtering tool—it applies allowlists to metadata from the extension, not a copyright detector. Default rules may reference royalty-free or creator-friendly sources as convenience only, not guarantees that every track is cleared for your use. You are responsible for securing appropriate rights and licenses. Common starting points:",
+      body: "CollabFM enforces a configurable content policy by default. The policy engine applies source, artist, and license allowlists to metadata reported by the browser extension—it is not a copyright detector and does not verify licensing legally. New installs default to Free Music Archive because the extension can scrape license metadata there. Default allowed licenses are standard Creative Commons terms suited to non-commercial community radio (CC BY, CC BY-SA, CC BY-NC, CC BY-NC-SA, CC BY-ND, CC BY-NC-ND, and CC0), which aligns with CollabFM’s own CC BY-NC 4.0 software license. The extension can capture audio from many tab sources, but only hostnames on your allowlist are permitted—and FMA is the only default because license information is reported automatically there. Admins may add other sources manually; you are responsible for securing appropriate rights for anything you broadcast.",
       links: [
-        { href: "https://ncs.io", label: "NoCopyrightSounds (ncs.io)" },
-        { href: "https://pixabay.com/music/", label: "Pixabay Music" },
+        { href: FMA_CC_SEARCH_URL, label: "Free Music Archive — CC search" },
       ],
     },
     {

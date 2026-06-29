@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import { usePartyEffectActions } from "../context/PartyEffectsContext";
 import type { BroadcastSessionLog, GuestContext, SessionSongLogEntry } from "../types/api";
 import { subscribeLiveEvent } from "../utils/liveEvents";
+import { friendlySourceLabel } from "../utils/sourceLabel";
 import { AlbumArtImage } from "./AlbumArtImage";
 
 interface SessionSongLogModalProps {
@@ -68,6 +69,30 @@ function SongLogRow({
           ) : null}
         </div>
         <p className="text-xs text-gray-400 truncate">{entry.artist || "Unknown artist"}</p>
+        {entry.url || entry.licenseUrl ? (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 min-w-0">
+            {entry.url ? (
+              <a
+                href={entry.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-gray-500 hover:text-gray-300 inline-block truncate max-w-full"
+              >
+                {friendlySourceLabel(entry.sourceSite ?? undefined, entry.url)}
+              </a>
+            ) : null}
+            {entry.licenseUrl ? (
+              <a
+                href={entry.licenseUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-gray-500 hover:text-gray-300 inline-block truncate max-w-full"
+              >
+                {entry.licenseType || "License"}
+              </a>
+            ) : null}
+          </div>
+        ) : null}
         <p className="text-[11px] text-gray-500 mt-0.5 truncate">
           {djLabel} · {formatPlayedAt(entry.startedAt)}
         </p>

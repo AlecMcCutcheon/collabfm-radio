@@ -152,6 +152,10 @@ export interface SessionSongLogEntry {
   title: string;
   artist: string;
   albumArt?: string | null;
+  url?: string | null;
+  sourceSite?: string | null;
+  licenseType?: string | null;
+  licenseUrl?: string | null;
   fromRequest?: boolean;
   requestSongKey?: string | null;
   broadcasterUserId: string | null;
@@ -265,6 +269,9 @@ export interface ContentPolicy {
   sourceNoMatch: ContentPolicyAction;
   artistNoMatch: ContentPolicyAction;
   defaultAction: ContentPolicyAction;
+  licenseMissing: ContentPolicyAction;
+  licenseNoMatch: ContentPolicyAction;
+  allowedLicenses: string[];
 }
 
 export interface VoiceBotConfig {
@@ -335,6 +342,9 @@ export interface SongMetadata {
   artist: string;
   albumArt?: string;
   url?: string;
+  sourceSite?: string;
+  licenseType?: string;
+  licenseUrl?: string;
 }
 
 export interface BroadcastStatus {

@@ -108,7 +108,7 @@ Separate from party effects but part of the social layer:
 | Where | What |
 |-------|------|
 | **Now playing** (radio panel) | **Heart icon** on the current track — supports the live DJ (grants XP when allowed) |
-| **Session log** | Open **LIVE** pill → heart past tracks in the session |
+| **Session log** | Open **LIVE** pill → heart past tracks; source and license links when reported |
 | **Discord** | Heart button on the voice bot **Now Playing** embed |
 
 Admins can tune guest heart XP under **Admin → System → DJ leveling**.

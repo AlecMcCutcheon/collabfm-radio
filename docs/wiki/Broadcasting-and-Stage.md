@@ -116,7 +116,7 @@ Guests cannot promote. Inactive connections show **Only active broadcaster or ad
 
 ## Media controls (supported sites)
 
-When a DJ broadcasts via the **Chrome extension** from a supported site (e.g. **YouTube Music**, **Soundcloud**), CollabFM can send play/pause/skip to that tab.
+When a DJ broadcasts via the **Chrome extension** from a tab that reports **media control** capability, CollabFM can send play/pause/skip to that tab.
 
 ### Who can control
 
@@ -136,6 +136,14 @@ When a DJ broadcasts via the **Chrome extension** from a supported site (e.g. **
 5. On mobile stage menu only: **Pin** / **Unpin** — pinned controls appear on the **Radio** view below the volume slider.
 
 If there is no music note icon, that connection is not on a supported site or does not report media capability.
+
+---
+
+## Metadata sources (extension)
+
+The Chrome extension can capture tab audio from many sources and reports title, artist, and cover art when the active page exposes them. **Media controls** (above) are available only when the tab reports that capability. **License metadata** is scraped on [Free Music Archive](https://freemusicarchive.org/search?adv=1&music-filter-CC-attribution-only=true&music-filter-CC-attribution-sharealike=1&music-filter-CC-attribution-noderivatives=1&music-filter-CC-attribution-noncommercial=1&music-filter-CC-attribution-noncommercial-sharealike=true&music-filter-CC-attribution-noncommercial-noderivatives=true) — track page URL and Creative Commons license link when present.
+
+When track and license metadata are available, listeners see source and license links under now-playing on the web UI and in the live session log. FMA is the only source in the default content policy because license metadata can be reported automatically; default allowed licenses cover standard Creative Commons terms (CC BY, CC BY-SA, CC BY-NC, CC BY-NC-SA, CC BY-ND, CC BY-NC-ND, CC0) suited to non-commercial community radio.
 
 ---
 

@@ -16,11 +16,89 @@ if (window.radioBroadcasterContentScriptLoaded) {
   let ncsDomObserver = null;
   let ncsDomCheckTimer = null;
   let ncsDomReadyListener = null;
+  let fmaDomObserver = null;
+  let fmaDomCheckTimer = null;
+  let fmaDomReadyListener = null;
   let lastSentMetadata = null;
   let metadataUnavailableCount = 0;
   let isPageUnloading = false;
   let lastSentCapabilities = null;
   const MAX_UNAVAILABLE_COUNT = 3; // Only clear metadata after 3 consecutive failed checks
+
+  function isFmaSite() {
+    return window.__collabfmFma?.isFmaSite?.() === true;
+  }
+
+  function stopFmaDomObserver() {
+    if (fmaDomObserver) {
+      fmaDomObserver.disconnect();
+      fmaDomObserver = null;
+    }
+    if (fmaDomReadyListener) {
+      document.removeEventListener("DOMContentLoaded", fmaDomReadyListener);
+      fmaDomReadyListener = null;
+    }
+    if (fmaDomCheckTimer) {
+      clearTimeout(fmaDomCheckTimer);
+      fmaDomCheckTimer = null;
+    }
+  }
+
+  function scheduleFmaDomCheck() {
+    if (fmaDomCheckTimer) clearTimeout(fmaDomCheckTimer);
+    fmaDomCheckTimer = setTimeout(() => {
+      fmaDomCheckTimer = null;
+      void checkMetadata();
+    }, 150);
+  }
+
+  function startFmaDomObserver() {
+    stopFmaDomObserver();
+
+    const attach = () => {
+      if (!document.body) return;
+      fmaDomObserver = new MutationObserver(() => {
+        scheduleFmaDomCheck();
+      });
+      fmaDomObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    };
+
+    if (document.body) {
+      attach();
+      return;
+    }
+
+    fmaDomReadyListener = () => {
+      fmaDomReadyListener = null;
+      attach();
+    };
+    document.addEventListener("DOMContentLoaded", fmaDomReadyListener);
+  }
+
+  async function enrichMetadata(metadata) {
+    if (!metadata?.title || !metadata?.artist) return metadata;
+    if (!isFmaSite() || !window.__collabfmFma?.resolveFmaMetadataTracked) {
+      return metadata;
+    }
+    const enriched = await window.__collabfmFma.resolveFmaMetadataTracked(metadata);
+    return enriched || metadata;
+  }
+
+  function metadataHasChanged(previous, current) {
+    if (!previous) return true;
+    return (
+      previous.title !== current.title ||
+      previous.artist !== current.artist ||
+      String(previous.albumArt || "") !== String(current.albumArt || "") ||
+      String(previous.licenseType || "") !== String(current.licenseType || "") ||
+      String(previous.licenseUrl || "") !== String(current.licenseUrl || "") ||
+      String(previous.url || "") !== String(current.url || "")
+    );
+  }
 
   function isNcsSite() {
     try {
@@ -202,6 +280,13 @@ if (window.radioBroadcasterContentScriptLoaded) {
 
   // Function to get current metadata (site-specific DOM scrapers, then MediaSession)
   async function getCurrentMetadata() {
+    if (isFmaSite()) {
+      const fmaMeta = window.__collabfmFma?.getFmaPlayerMetadata?.();
+      if (fmaMeta?.title && fmaMeta?.artist) {
+        return fmaMeta;
+      }
+    }
+
     if (isNcsSite()) {
       const ncsMeta = getNcsDomMetadata();
       if (ncsMeta?.title && ncsMeta?.artist) {
@@ -309,17 +394,17 @@ if (window.radioBroadcasterContentScriptLoaded) {
   // Function to check for metadata changes
   async function checkMetadata() {
     console.log('[Radio Broadcaster] Checking for metadata changes...');
-    const currentMetadata = await getCurrentMetadata();
+    let currentMetadata = await getCurrentMetadata();
+
+    if (currentMetadata) {
+      currentMetadata = await enrichMetadata(currentMetadata);
+    }
     
     if (currentMetadata) {
       // Valid metadata detected - reset unavailable counter
       metadataUnavailableCount = 0;
       
-      // Check if metadata has actually changed from what we last sent
-      const hasChanged = !lastSentMetadata || 
-        lastSentMetadata.title !== currentMetadata.title || 
-        lastSentMetadata.artist !== currentMetadata.artist ||
-        String(lastSentMetadata.albumArt || "") !== String(currentMetadata.albumArt || "");
+      const hasChanged = metadataHasChanged(lastSentMetadata, currentMetadata);
       
       console.log('[Radio Broadcaster] Metadata change check:', {
         currentMetadata,
@@ -561,7 +646,9 @@ if (window.radioBroadcasterContentScriptLoaded) {
 
     if (message.type === 'GET_CURRENT_METADATA_FROM_CONTENT') {
       console.log('[Radio Broadcaster] Getting current metadata on request');
-      getCurrentMetadata().then((currentMetadata) => {
+      getCurrentMetadata()
+        .then((currentMetadata) => enrichMetadata(currentMetadata))
+        .then((currentMetadata) => {
         console.log('[Radio Broadcaster] Current metadata response:', currentMetadata);
         sendResponse({ metadata: currentMetadata });
       });
@@ -606,6 +693,8 @@ if (window.radioBroadcasterContentScriptLoaded) {
       }
       clearMetadataBootstrapTimers();
       stopNcsDomObserver();
+      stopFmaDomObserver();
+      window.__collabfmFma?.clearFmaResolveState?.();
 
       // Always restart fresh so reconnect picks up MediaSession without a page reload.
       lastSentMetadata = null;
@@ -635,10 +724,15 @@ if (window.radioBroadcasterContentScriptLoaded) {
       if (isNcsSite()) {
         startNcsDomObserver();
       }
+      if (isFmaSite()) {
+        startFmaDomObserver();
+      }
       void checkMetadata();
 
       if (message.forceRestart !== false) {
-        void getCurrentMetadata().then((currentMetadata) => {
+        void getCurrentMetadata()
+          .then((currentMetadata) => enrichMetadata(currentMetadata))
+          .then((currentMetadata) => {
           if (!currentMetadata?.title || !currentMetadata?.artist) return;
           lastSentMetadata = { ...currentMetadata };
           sendMetadataUpdate(currentMetadata);
@@ -667,6 +761,8 @@ if (window.radioBroadcasterContentScriptLoaded) {
       }
       clearMetadataBootstrapTimers();
       stopNcsDomObserver();
+      stopFmaDomObserver();
+      window.__collabfmFma?.clearFmaResolveState?.();
 
       lastSentMetadata = null;
 
@@ -691,6 +787,8 @@ if (window.radioBroadcasterContentScriptLoaded) {
     }
     clearMetadataBootstrapTimers();
     stopNcsDomObserver();
+    stopFmaDomObserver();
+    window.__collabfmFma?.clearFmaResolveState?.();
   });
   try {
     window.addEventListener('pagehide', () => { isPageUnloading = true; });

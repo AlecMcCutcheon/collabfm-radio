@@ -30,6 +30,8 @@ function evaluateRequestBody(body) {
       source: body.source ?? body.site ?? null,
       artist: body.artist ?? null,
       title: body.title ?? null,
+      licenseType: body.licenseType ?? null,
+      licenseUrl: body.licenseUrl ?? null,
     },
     policy,
   );
