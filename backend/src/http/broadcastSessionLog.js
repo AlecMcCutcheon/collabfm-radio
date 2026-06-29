@@ -138,6 +138,7 @@ function enrichSessionLog(actorId = null) {
         albumArt: song.albumArt ?? null,
         url: song.url ?? null,
         sourceSite: song.sourceSite ?? null,
+        sourceLabel: song.sourceLabel ?? null,
         licenseType: song.licenseType ?? null,
         licenseUrl: song.licenseUrl ?? null,
         fromRequest: !!song.fromRequest,

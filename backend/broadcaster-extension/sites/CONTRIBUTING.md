@@ -68,3 +68,7 @@ Bump `manifest.json` version, test locally, then download from Admin → System 
 - **Describe behavior** — what metadata or controls you tested, and on which URL patterns.
 - **Policy note** — new hostnames are **not** allowed by default content policy; mention in the PR if operators must add the hostname under Admin → System → Content policy.
 - **No unrelated refactors** — shared helpers belong in `sites/shared/`; keep site folders limited to that source’s DOM or keyboard behavior.
+
+## Jamendo adapter notes
+
+If you change `sites/jamendo/metadata.js`, remember the shipped extension uses a **shared CollabFM `client_id`** for Jamendo API license lookups. Document any API-related behavior in [../README.md](../README.md#jamendo-api-client_id); operators who need their own quota should load unpacked and edit `JAMENDO_CLIENT_ID` locally rather than committing a private ID upstream.

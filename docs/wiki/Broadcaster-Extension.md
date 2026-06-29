@@ -72,6 +72,14 @@ Details for operators: [Broadcasting & Stage — Media controls](./Broadcasting-
 
 ---
 
+## Jamendo API and rate limits
+
+The Jamendo adapter enriches track URLs and Creative Commons license metadata via `api.jamendo.com`. The extension ZIP from **Admin → System** uses a **shared CollabFM `client_id`** (see `sites/jamendo/metadata.js`). Jamendo rate-limits by `client_id`; heavy use across many broadcasters could occasionally delay or skip API enrichment until limits reset. DOM metadata and track-page fallback still work.
+
+Operators who want to avoid shared limits can [load the extension unpacked](../../backend/broadcaster-extension/README.md#jamendo-api-client_id), register their own Jamendo developer application, and replace `JAMENDO_CLIENT_ID` locally. Jamendo also allows contacting them to raise limits for a registered app — see [Jamendo for developers](https://developer.jamendo.com/).
+
+---
+
 ## Local development
 
 1. Clone the repo and open `backend/broadcaster-extension/` in Chrome (**Load unpacked**).

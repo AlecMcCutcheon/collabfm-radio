@@ -367,7 +367,11 @@ export function RadioPanel({
                       rel="noopener noreferrer"
                       className="text-xs text-gray-400 hover:text-gray-300 inline-block truncate max-w-full"
                     >
-                      {friendlySourceLabel(player.metadata.sourceSite, player.metadata.url)}
+                      {friendlySourceLabel(
+                        player.metadata.sourceSite,
+                        player.metadata.url,
+                        player.metadata.sourceLabel,
+                      )}
                     </a>
                   ) : null}
                   {player.metadata.licenseUrl ? (

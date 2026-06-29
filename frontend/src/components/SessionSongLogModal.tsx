@@ -78,7 +78,11 @@ function SongLogRow({
                 rel="noopener noreferrer"
                 className="text-[11px] text-gray-500 hover:text-gray-300 inline-block truncate max-w-full"
               >
-                {friendlySourceLabel(entry.sourceSite ?? undefined, entry.url)}
+                {friendlySourceLabel(
+                  entry.sourceSite ?? undefined,
+                  entry.url,
+                  entry.sourceLabel ?? undefined,
+                )}
               </a>
             ) : null}
             {entry.licenseUrl ? (

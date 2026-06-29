@@ -31,3 +31,16 @@ See [sites/CONTRIBUTING.md](./sites/CONTRIBUTING.md).
 2. **Load unpacked** → select this `backend/broadcaster-extension/` directory
 
 After changes, re-download or reload the extension and bump `manifest.json` version when shipping.
+
+## Jamendo API (`client_id`)
+
+License enrichment on [Jamendo](https://www.jamendo.com/) calls the public [Jamendo API](https://developer.jamendo.com/) (`api.jamendo.com`) using a **shared CollabFM `client_id`** baked into `sites/jamendo/metadata.js` (`JAMENDO_CLIENT_ID`). That keeps the extension download-and-go for most stations.
+
+**Rate limits.** Jamendo applies per–`client_id` limits. A busy station—or many stations on the same shipped ID—could eventually hit them. When that happens, license links may stop enriching until the limit resets; title/artist from the player DOM still work, and the adapter can fall back to scraping the track page HTML.
+
+**What you can do**
+
+- **Contact Jamendo** — their developer docs describe requesting higher limits for a registered application ([Jamendo for developers](https://developer.jamendo.com/)).
+- **Use your own `client_id`** — register an app with Jamendo, then **Load unpacked** from this folder, set `JAMENDO_CLIENT_ID` in `sites/jamendo/metadata.js`, and reload the extension. That avoids sharing CollabFM’s quota entirely. Re-downloading the ZIP from Admin → System restores the default ID.
+
+Do not commit a personal `client_id` to the upstream repo unless the project explicitly switches to a configurable ID later.

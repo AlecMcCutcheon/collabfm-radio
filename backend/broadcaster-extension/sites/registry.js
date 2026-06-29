@@ -77,6 +77,10 @@
       return !!findMediaControlsSite();
     },
 
+    getSourceLabel() {
+      return matchSite()?.label ?? null;
+    },
+
     simulateMediaKey(action) {
       const site = findMediaControlsSite();
       if (!site?.mediaControls?.simulateMediaKey) {

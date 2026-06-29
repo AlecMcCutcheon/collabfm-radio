@@ -17,8 +17,14 @@ function normalizeHost(siteOrUrl: string): string {
   }
 }
 
-/** Friendly label for a broadcaster source hostname or track URL. */
-export function friendlySourceLabel(site?: string, trackUrl?: string): string {
+/** Friendly label for a broadcaster source hostname, track URL, or explicit adapter label. */
+export function friendlySourceLabel(
+  site?: string,
+  trackUrl?: string,
+  explicitLabel?: string,
+): string {
+  const named = String(explicitLabel || "").trim();
+  if (named) return named;
   const host = normalizeHost(site || "") || normalizeHost(trackUrl || "");
   if (!host) return "Source";
   return SOURCE_LABELS[host] || host;

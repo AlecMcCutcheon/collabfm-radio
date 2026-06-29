@@ -49,6 +49,7 @@ export function bumpTrackSession(title, artist, albumArt = null, trackExtras = n
     albumArt: resolvedArt,
     url: resolvedExtras.url ?? null,
     sourceSite: resolvedExtras.sourceSite ?? null,
+    sourceLabel: resolvedExtras.sourceLabel ?? null,
     licenseType: resolvedExtras.licenseType ?? null,
     licenseUrl: resolvedExtras.licenseUrl ?? null,
     broadcasterUserId: status.broadcasterUserId ? String(status.broadcasterUserId) : null,

@@ -19,6 +19,20 @@ if (window.radioBroadcasterContentScriptLoaded) {
   let lastSentCapabilities = null;
   const MAX_UNAVAILABLE_COUNT = 3;
 
+  function normalizedPageSite() {
+    return (
+      window.__collabfmDomUtils?.normalizeHostname?.(window.location.hostname) ||
+      window.location.hostname.replace(/^www\./, "")
+    );
+  }
+
+  function withSourceLabel(metadata) {
+    if (!metadata?.title || !metadata?.artist) return metadata;
+    const label = sites()?.getSourceLabel?.();
+    if (!label) return metadata;
+    return { ...metadata, sourceLabel: label };
+  }
+
   function metadataHasChanged(previous, current) {
     if (!previous) return true;
     return (
@@ -27,7 +41,8 @@ if (window.radioBroadcasterContentScriptLoaded) {
       String(previous.albumArt || "") !== String(current.albumArt || "") ||
       String(previous.licenseType || "") !== String(current.licenseType || "") ||
       String(previous.licenseUrl || "") !== String(current.licenseUrl || "") ||
-      String(previous.url || "") !== String(current.url || "")
+      String(previous.url || "") !== String(current.url || "") ||
+      String(previous.sourceLabel || "") !== String(current.sourceLabel || "")
     );
   }
 
@@ -103,6 +118,7 @@ if (window.radioBroadcasterContentScriptLoaded) {
 
     if (currentMetadata) {
       currentMetadata = await sites()?.enrichMetadata?.(currentMetadata);
+      currentMetadata = withSourceLabel(currentMetadata);
     }
 
     if (currentMetadata) {
@@ -144,6 +160,7 @@ if (window.radioBroadcasterContentScriptLoaded) {
       console.log("[Radio Broadcaster] Getting current metadata on request");
       getCurrentMetadata()
         .then((currentMetadata) => sites()?.enrichMetadata?.(currentMetadata))
+        .then((currentMetadata) => withSourceLabel(currentMetadata))
         .then((currentMetadata) => {
           console.log("[Radio Broadcaster] Current metadata response:", currentMetadata);
           sendResponse({ metadata: currentMetadata });
@@ -154,7 +171,7 @@ if (window.radioBroadcasterContentScriptLoaded) {
     if (message.type === "GET_MEDIA_CAPABILITIES") {
       sendResponse({
         supportsMediaControls: sites()?.supportsMediaControls?.() === true,
-        site: window.location.hostname,
+        site: normalizedPageSite(),
       });
       return;
     }
@@ -194,7 +211,7 @@ if (window.radioBroadcasterContentScriptLoaded) {
 
       const capabilities = {
         supportsMediaControls: sites()?.supportsMediaControls?.() === true,
-        site: window.location.hostname,
+        site: normalizedPageSite(),
       };
 
       const capabilitiesChanged =
@@ -217,6 +234,7 @@ if (window.radioBroadcasterContentScriptLoaded) {
       if (message.forceRestart !== false) {
         void getCurrentMetadata()
           .then((currentMetadata) => sites()?.enrichMetadata?.(currentMetadata))
+        .then((currentMetadata) => withSourceLabel(currentMetadata))
           .then((currentMetadata) => {
             if (!currentMetadata?.title || !currentMetadata?.artist) return;
             lastSentMetadata = { ...currentMetadata };

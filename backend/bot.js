@@ -778,6 +778,7 @@ function unwrapPolicyMutedNativeMetadata(metadata) {
     licenseType: metadata.rawLicenseType ?? metadata.licenseType ?? null,
     licenseUrl: metadata.rawLicenseUrl ?? metadata.licenseUrl ?? null,
     url: metadata.rawUrl ?? metadata.url ?? null,
+    sourceLabel: metadata.rawSourceLabel ?? metadata.sourceLabel ?? null,
     timestamp: metadata.timestamp,
   };
 }
@@ -847,6 +848,7 @@ function reapplyContentPolicyAfterCapabilitiesUpdate(authUserId, userWsId) {
     timestamp: Date.now(),
     sourceSite: wsInfo?.capabilities?.site ?? null,
     policyPending: deferred && !muted,
+    ...(stored.sourceLabel ? { sourceLabel: stored.sourceLabel } : {}),
     ...(stored.licenseType ? { licenseType: stored.licenseType } : {}),
     ...(stored.licenseUrl ? { licenseUrl: stored.licenseUrl } : {}),
     ...(stored.url ? { url: stored.url } : {}),
@@ -858,6 +860,7 @@ function reapplyContentPolicyAfterCapabilitiesUpdate(authUserId, userWsId) {
           ...(stored.licenseType ? { rawLicenseType: stored.licenseType } : {}),
           ...(stored.licenseUrl ? { rawLicenseUrl: stored.licenseUrl } : {}),
           ...(stored.url ? { rawUrl: stored.url } : {}),
+          ...(stored.sourceLabel ? { rawSourceLabel: stored.sourceLabel } : {}),
         }
       : {}),
   };
@@ -870,6 +873,7 @@ function reapplyContentPolicyAfterCapabilitiesUpdate(authUserId, userWsId) {
       licenseUrl: metadata.licenseUrl,
       url: stored.url,
       sourceSite: metadata.sourceSite,
+      sourceLabel: stored.sourceLabel,
     });
   } else if (!deferred) {
     forceImmediateNowPlayingMetadata(stored.title, stored.artist, stored.albumArt ?? null, userWsId, {
@@ -877,6 +881,7 @@ function reapplyContentPolicyAfterCapabilitiesUpdate(authUserId, userWsId) {
       licenseUrl: stored.licenseUrl,
       url: stored.url,
       sourceSite: metadata.sourceSite,
+      sourceLabel: stored.sourceLabel,
     });
   }
 
@@ -1140,6 +1145,7 @@ function forceImmediateNowPlayingMetadata(
       ...(art ? { albumArt: art } : {}),
       ...(licenseFields?.url ? { url: licenseFields.url } : {}),
       ...(licenseFields?.sourceSite ? { sourceSite: licenseFields.sourceSite } : {}),
+      ...(licenseFields?.sourceLabel ? { sourceLabel: licenseFields.sourceLabel } : {}),
       ...(licenseFields?.licenseType ? { licenseType: licenseFields.licenseType } : {}),
       ...(licenseFields?.licenseUrl ? { licenseUrl: licenseFields.licenseUrl } : {}),
     };
@@ -1149,6 +1155,7 @@ function forceImmediateNowPlayingMetadata(
       albumArt: art || null,
       url: licenseFields?.url || null,
       sourceSite: licenseFields?.sourceSite || null,
+      sourceLabel: licenseFields?.sourceLabel || null,
       railId: targetRailId,
       ...(licenseFields?.licenseType ? { licenseType: licenseFields.licenseType } : {}),
       ...(licenseFields?.licenseUrl ? { licenseUrl: licenseFields.licenseUrl } : {}),
@@ -2589,7 +2596,7 @@ const lastLoggedStationMetadataSig = new Map();
 
 function nativeMetadataContentSig(meta) {
   if (!meta) return "";
-  return `${String(meta.title || "").trim()}\0${String(meta.artist || "").trim()}\0${meta.albumArt || ""}\0${meta.licenseType || ""}\0${meta.licenseUrl || ""}\0${meta.url || ""}`;
+  return `${String(meta.title || "").trim()}\0${String(meta.artist || "").trim()}\0${meta.albumArt || ""}\0${meta.licenseType || ""}\0${meta.licenseUrl || ""}\0${meta.url || ""}\0${meta.sourceLabel || ""}`;
 }
 
 function nativeMetadataUnchanged(existing, next) {
@@ -3942,12 +3949,14 @@ http.createServer(async (req, res) => {
               });
             }
 
-            const { title, artist, albumArt, broadcasterName, licenseType, licenseUrl, url } = postData;
+            const { title, artist, albumArt, broadcasterName, licenseType, licenseUrl, url, sourceLabel } = postData;
             const normalizedLicenseType =
               typeof licenseType === "string" ? licenseType.trim() : "";
             const normalizedLicenseUrl =
               typeof licenseUrl === "string" ? licenseUrl.trim() : "";
             const normalizedTrackUrl = typeof url === "string" ? url.trim() : "";
+            const normalizedSourceLabel =
+              typeof sourceLabel === "string" ? sourceLabel.trim() : "";
 
             // Validate required fields
             if (!title || !artist || typeof title !== 'string' || typeof artist !== 'string') {
@@ -4042,6 +4051,7 @@ http.createServer(async (req, res) => {
               timestamp: Date.now(),
               sourceSite: policySource || null,
               policyPending: policyDeferred && !policyMuted,
+              ...(normalizedSourceLabel ? { sourceLabel: normalizedSourceLabel } : {}),
               ...(normalizedLicenseType ? { licenseType: normalizedLicenseType } : {}),
               ...(normalizedLicenseUrl ? { licenseUrl: normalizedLicenseUrl } : {}),
               ...(normalizedTrackUrl ? { url: normalizedTrackUrl } : {}),
@@ -4053,6 +4063,7 @@ http.createServer(async (req, res) => {
                     ...(normalizedLicenseType ? { rawLicenseType: normalizedLicenseType } : {}),
                     ...(normalizedLicenseUrl ? { rawLicenseUrl: normalizedLicenseUrl } : {}),
                     ...(normalizedTrackUrl ? { rawUrl: normalizedTrackUrl } : {}),
+                    ...(normalizedSourceLabel ? { rawSourceLabel: normalizedSourceLabel } : {}),
                   }
                 : {}),
             };
@@ -4100,6 +4111,7 @@ http.createServer(async (req, res) => {
                 applySessionLogSourceLicense(metadata.title, metadata.artist, {
                   url: metadata.url,
                   sourceSite: metadata.sourceSite,
+                  sourceLabel: metadata.sourceLabel,
                   licenseType: metadata.licenseType,
                   licenseUrl: metadata.licenseUrl,
                 });
@@ -4169,6 +4181,7 @@ http.createServer(async (req, res) => {
                   licenseUrl: metadata.licenseUrl,
                   url: metadata.url,
                   sourceSite: metadata.sourceSite,
+                  sourceLabel: metadata.sourceLabel,
                 },
               );
             } else if (postsToMainStream && !policyDeferred) {
@@ -4189,6 +4202,7 @@ http.createServer(async (req, res) => {
                     licenseUrl: metadata.licenseUrl,
                     url: metadata.url,
                     sourceSite: metadata.sourceSite,
+                    sourceLabel: metadata.sourceLabel,
                   },
                 );
               } else {
@@ -4450,11 +4464,13 @@ http.createServer(async (req, res) => {
       const trackLicenseUrl = usingNativeMetadata ? nativeMetadata?.licenseUrl || null : null;
       const nativeTrackUrl = usingNativeMetadata ? nativeMetadata?.url || null : null;
       const nativeSourceSite = usingNativeMetadata ? nativeMetadata?.sourceSite || null : null;
+      const nativeSourceLabel = usingNativeMetadata ? nativeMetadata?.sourceLabel || null : null;
       out.title = title;
       out.artist = artist;
       if (immediateArt) out.albumArt = immediateArt;
       if (nativeTrackUrl || trackUrl) out.url = nativeTrackUrl || trackUrl;
       if (nativeSourceSite) out.sourceSite = nativeSourceSite;
+      if (nativeSourceLabel) out.sourceLabel = nativeSourceLabel;
       if (trackLicenseType) out.licenseType = trackLicenseType;
       if (trackLicenseUrl) out.licenseUrl = trackLicenseUrl;
 
@@ -4523,6 +4539,7 @@ http.createServer(async (req, res) => {
         albumArt: immediateArt || null,
         url: nativeTrackUrl || trackUrl || null,
         sourceSite: nativeSourceSite,
+        sourceLabel: nativeSourceLabel,
         licenseType: trackLicenseType,
         licenseUrl: trackLicenseUrl,
       };
@@ -4533,7 +4550,8 @@ http.createServer(async (req, res) => {
         String(current.licenseType || '') !== String(newMeta.licenseType || '') ||
         String(current.licenseUrl || '') !== String(newMeta.licenseUrl || '') ||
         String(current.url || '') !== String(newMeta.url || '') ||
-        String(current.sourceSite || '') !== String(newMeta.sourceSite || '')
+        String(current.sourceSite || '') !== String(newMeta.sourceSite || '') ||
+        String(current.sourceLabel || '') !== String(newMeta.sourceLabel || '')
       ));
       const nativeArtUpgrade = !!(
         current &&
@@ -4553,6 +4571,7 @@ http.createServer(async (req, res) => {
           albumArt: immediateArt || null,
           url: nativeTrackUrl || trackUrl || null,
           sourceSite: nativeSourceSite,
+          sourceLabel: nativeSourceLabel,
           railId: activeWsId || null,
           ...(trackLicenseType ? { licenseType: trackLicenseType } : {}),
           ...(trackLicenseUrl ? { licenseUrl: trackLicenseUrl } : {}),
@@ -4564,6 +4583,7 @@ http.createServer(async (req, res) => {
         applySessionLogSourceLicense(title, artist, {
           url: nativeTrackUrl || trackUrl || null,
           sourceSite: nativeSourceSite,
+          sourceLabel: nativeSourceLabel,
           licenseType: trackLicenseType,
           licenseUrl: trackLicenseUrl,
         });
@@ -4603,7 +4623,8 @@ http.createServer(async (req, res) => {
         (String(current.licenseType || "") !== String(newMeta.licenseType || "") ||
           String(current.licenseUrl || "") !== String(newMeta.licenseUrl || "") ||
           String(current.url || "") !== String(newMeta.url || "") ||
-          String(current.sourceSite || "") !== String(newMeta.sourceSite || ""))
+          String(current.sourceSite || "") !== String(newMeta.sourceSite || "") ||
+          String(current.sourceLabel || "") !== String(newMeta.sourceLabel || ""))
       );
 
       if (nativeLicenseUpgrade) {
@@ -4642,7 +4663,8 @@ http.createServer(async (req, res) => {
           String(metaState.pending.licenseType || '') === String(newMeta.licenseType || '') &&
           String(metaState.pending.licenseUrl || '') === String(newMeta.licenseUrl || '') &&
           String(metaState.pending.url || '') === String(newMeta.url || '') &&
-          String(metaState.pending.sourceSite || '') === String(newMeta.sourceSite || ''));
+          String(metaState.pending.sourceSite || '') === String(newMeta.sourceSite || '') &&
+          String(metaState.pending.sourceLabel || '') === String(newMeta.sourceLabel || ''));
 
         if (!samePending) {
           metaState.pending = { ...newMeta, out };
@@ -4673,6 +4695,7 @@ http.createServer(async (req, res) => {
                   albumArt: metaState.pending.albumArt,
                   url: metaState.pending.url,
                   sourceSite: metaState.pending.sourceSite,
+                  sourceLabel: metaState.pending.sourceLabel,
                   railId: activeWsId || null,
                   ...(metaState.pending.licenseType
                     ? { licenseType: metaState.pending.licenseType }
@@ -4692,6 +4715,7 @@ http.createServer(async (req, res) => {
                 applySessionLogSourceLicense(metaState.pending.title, metaState.pending.artist, {
                   url: metaState.pending.url,
                   sourceSite: metaState.pending.sourceSite,
+                  sourceLabel: metaState.pending.sourceLabel,
                   licenseType: metaState.pending.licenseType,
                   licenseUrl: metaState.pending.licenseUrl,
                 });
@@ -6952,6 +6976,7 @@ setLevelingContext({
     return {
       url: stable.url ?? null,
       sourceSite: stable.sourceSite ?? null,
+      sourceLabel: stable.sourceLabel ?? null,
       licenseType: stable.licenseType ?? null,
       licenseUrl: stable.licenseUrl ?? null,
     };

@@ -626,6 +626,7 @@ function mergeTrackMetadata(incoming, previous) {
   if (previous.licenseType && !merged.licenseType) merged.licenseType = previous.licenseType;
   if (previous.licenseUrl && !merged.licenseUrl) merged.licenseUrl = previous.licenseUrl;
   if (previous.url && !merged.url) merged.url = previous.url;
+  if (previous.sourceLabel && !merged.sourceLabel) merged.sourceLabel = previous.sourceLabel;
   return merged;
 }
 

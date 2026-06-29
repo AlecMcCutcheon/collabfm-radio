@@ -27,6 +27,7 @@ export function appendSessionTrack({
   albumArt = null,
   url = null,
   sourceSite = null,
+  sourceLabel = null,
   licenseType = null,
   licenseUrl = null,
   broadcasterUserId,
@@ -53,6 +54,7 @@ export function appendSessionTrack({
     albumArt: albumArt ? String(albumArt) : null,
     url: url ? String(url) : null,
     sourceSite: sourceSite ? String(sourceSite) : null,
+    sourceLabel: sourceLabel ? String(sourceLabel) : null,
     licenseType: licenseType ? String(licenseType) : null,
     licenseUrl: licenseUrl ? String(licenseUrl) : null,
     fromRequest: false,
@@ -90,7 +92,7 @@ export function updateSessionTrackAlbumArtByTitleArtist(title, artist, albumArt)
 export function updateSessionTrackSourceLicenseByTitleArtist(
   title,
   artist,
-  { url = null, sourceSite = null, licenseType = null, licenseUrl = null } = {},
+  { url = null, sourceSite = null, sourceLabel = null, licenseType = null, licenseUrl = null } = {},
 ) {
   const trackTitle = String(title || "").trim();
   const trackArtist = String(artist || "").trim();
@@ -99,9 +101,12 @@ export function updateSessionTrackSourceLicenseByTitleArtist(
 
   const nextUrl = url ? String(url).trim() : "";
   const nextSourceSite = sourceSite ? String(sourceSite).trim() : "";
+  const nextSourceLabel = sourceLabel ? String(sourceLabel).trim() : "";
   const nextLicenseType = licenseType ? String(licenseType).trim() : "";
   const nextLicenseUrl = licenseUrl ? String(licenseUrl).trim() : "";
-  if (!nextUrl && !nextSourceSite && !nextLicenseType && !nextLicenseUrl) return null;
+  if (!nextUrl && !nextSourceSite && !nextSourceLabel && !nextLicenseType && !nextLicenseUrl) {
+    return null;
+  }
 
   for (let i = sessionSongs.length - 1; i >= 0; i--) {
     const song = sessionSongs[i];
@@ -114,6 +119,10 @@ export function updateSessionTrackSourceLicenseByTitleArtist(
     }
     if (nextSourceSite && song.sourceSite !== nextSourceSite) {
       song.sourceSite = nextSourceSite;
+      changed = true;
+    }
+    if (nextSourceLabel && song.sourceLabel !== nextSourceLabel) {
+      song.sourceLabel = nextSourceLabel;
       changed = true;
     }
     if (nextLicenseType && song.licenseType !== nextLicenseType) {

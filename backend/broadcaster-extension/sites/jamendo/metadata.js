@@ -3,7 +3,7 @@
   const { hostMatchesSuffix } = window.__collabfmDomUtils || {};
   const { createDomObserver } = window.__collabfmDomObserver || {};
 
-  /** Public Jamendo API client id (required for api.jamendo.com track lookups). */
+  /** Shared CollabFM Jamendo API client id — see ../../README.md#jamendo-api-client_id */
   const JAMENDO_CLIENT_ID = "342ccf12";
 
   let domObserverHandle = null;

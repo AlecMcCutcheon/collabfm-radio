@@ -154,6 +154,7 @@ export interface SessionSongLogEntry {
   albumArt?: string | null;
   url?: string | null;
   sourceSite?: string | null;
+  sourceLabel?: string | null;
   licenseType?: string | null;
   licenseUrl?: string | null;
   fromRequest?: boolean;
@@ -343,6 +344,7 @@ export interface SongMetadata {
   albumArt?: string;
   url?: string;
   sourceSite?: string;
+  sourceLabel?: string;
   licenseType?: string;
   licenseUrl?: string;
 }
