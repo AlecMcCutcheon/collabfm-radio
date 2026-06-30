@@ -1,8 +1,17 @@
 # CollabFM Broadcaster Extension
 
-Chrome extension source served from **Admin → System → Extension download** and bundled in the CollabFM backend.
+Chrome extension bundled in the CollabFM backend and published on the **[Chrome Web Store](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba)**.
 
-**Docs:** [Broadcaster Extension (wiki)](../../docs/wiki/Broadcaster-Extension.md) · [Contributing site adapters](./sites/CONTRIBUTING.md)
+**Docs:** [Broadcaster Extension (wiki)](../../docs/wiki/Broadcaster-Extension.md) · [Install & version sync](../../docs/wiki/Broadcaster-Extension.md#install--version-sync) · [Contributing site adapters](./sites/CONTRIBUTING.md)
+
+## Install (broadcasters)
+
+| Source | How |
+|--------|-----|
+| **Chrome Web Store** | [CollabFM Broadcaster](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba) — Chrome auto-updates |
+| **Server ZIP** | CollabFM **Go live** modal → **Download ZIP** → load unpacked in `chrome://extensions` |
+
+The Go live modal shows the ZIP version (from this folder’s `manifest.json` in your image) and the Web Store version. Store publishes from `main` are **manual** today; see the wiki for sync caveats.
 
 ## Layout
 
@@ -24,14 +33,14 @@ Each site adapter registers on `window.__collabfmSiteRegistry`. `sites/registry.
 
 ## Adding a site
 
-See [sites/CONTRIBUTING.md](./sites/CONTRIBUTING.md).
+See [sites/CONTRIBUTING.md](./sites/CONTRIBUTING.md). Site-adapter-only changes are usually backward compatible with older extension builds (you miss the new site until you update).
 
 ## Local development
 
 1. `chrome://extensions` → Developer mode
 2. **Load unpacked** → select this `backend/broadcaster-extension/` directory
 
-After changes, re-download or reload the extension and bump `manifest.json` version when shipping.
+After changes, reload the extension and bump `manifest.json` **version** when shipping.
 
 ## Jamendo API (`client_id`)
 
@@ -42,6 +51,6 @@ License enrichment on [Jamendo](https://www.jamendo.com/) calls the public [Jame
 **What you can do**
 
 - **Contact Jamendo** — their developer docs describe requesting higher limits for a registered application ([Jamendo for developers](https://developer.jamendo.com/)).
-- **Use your own `client_id`** — register an app with Jamendo, then **Load unpacked** from this folder, set `JAMENDO_CLIENT_ID` in `sites/jamendo/metadata.js`, and reload the extension. That avoids sharing CollabFM’s quota entirely. Re-downloading the ZIP from Admin → System restores the default ID.
+- **Use your own `client_id`** — register an app with Jamendo, then **Load unpacked** from this folder, set `JAMENDO_CLIENT_ID` in `sites/jamendo/metadata.js`, and reload the extension. That avoids sharing CollabFM’s quota entirely. Re-downloading the ZIP from Go live restores the default ID.
 
 Do not commit a personal `client_id` to the upstream repo unless the project explicitly switches to a configurable ID later.

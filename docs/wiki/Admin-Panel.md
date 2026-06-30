@@ -139,7 +139,7 @@ See [Content Policy](./Content-Policy.md) for full detail.
 - **Hide developer message & coffee button** — removes the original developer’s thank-you note and **Buy me a coffee** link from the About dialog (optional; for operators who prefer a cleaner About screen).
 - **Visualizer logo** — drag/drop or upload; **Reset visualizer to default**.
 
-**Extension download** — ZIP served to broadcasters from this tab’s area (also linked in Go live modal).
+**Extension install** — broadcasters use the **Go live** modal: **Download ZIP** (version from your image) or **Chrome Web Store** (auto-updates). Versions are shown side by side. Details: [Broadcaster Extension — Install & version sync](./Broadcaster-Extension.md#install--version-sync).
 
 **Container updates**
 
@@ -148,6 +148,6 @@ See [Content Policy](./Content-Policy.md) for full detail.
 - **Notify when a newer build is available** — compares your revision to the matching GHCR tag only (no cross-channel false alerts).
 - **Check now** / **Save** — refresh the comparison or persist notification preferences.
 
-After upgrading: pull the new image, set `COLLABFM_SYNC_MODE=update` for one recreate, then reinstall the extension if needed.
+After upgrading: pull the new image, set `COLLABFM_SYNC_MODE=update` for one recreate, then update the extension if needed (ZIP from Go live or wait for the Chrome Web Store after a manual publish).
 
 **System info** — database path, runtime mode (read-only reference).

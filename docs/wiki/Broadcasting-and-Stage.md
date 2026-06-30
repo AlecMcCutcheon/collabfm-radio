@@ -26,7 +26,8 @@ How to go on air, pair the Chrome extension, hand off the DJ role, and control m
 
 **Chrome extension** (recommended for tab audio):
 
-- Download the extension ZIP from **Admin → System** (or use the link in the modal).
+- Install from the **[Chrome Web Store](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba)** or download the **ZIP** from the **Go live** modal (mic icon) and load it unpacked.
+- The modal shows the **server ZIP version** and **Web Store version** so you can tell if they match — see [Broadcaster Extension — Install & version sync](./Broadcaster-Extension.md#install--version-sync).
 - Pair the extension first (see below), then start broadcasting from the extension popup.
 
 Closing the modal does **not** stop an active broadcast.

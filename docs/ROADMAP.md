@@ -18,6 +18,8 @@ Ideas under consideration—not commitments, and not in any fixed order. If some
 
 ~~**Jamendo extension support**~~ — **Shipped.** Jamendo site adapter (metadata + license via API, track URL, stage media controls); `jamendo.com` added to default content policy allowlist; docs and About updated.
 
+~~**Chrome Web Store listing**~~ — **Shipped.** [CollabFM Broadcaster](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba) published for easier install and Chrome auto-updates. Go live modal offers **Download ZIP** and **Chrome Web Store** side by side with bundled vs store version comparison.
+
 ---
 
 ## Container & release workflow
@@ -30,6 +32,16 @@ Ideas under consideration—not commitments, and not in any fixed order. If some
 Scripts: `./scripts/push-dev.sh`, `./scripts/promote-dev-to-main.sh` (see README [Upgrading](./README.md#preview--dev-channel-homelab)).
 
 **Future:** email or Discord DM when subscribed users/admins want off-site update alerts (beyond the Admin banner).
+
+---
+
+## Chrome Web Store publishing
+
+The extension is **live** on the [Chrome Web Store](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba). Uploads from `main` are **manual** today — there is no CI step yet to publish when `backend/broadcaster-extension/manifest.json` changes.
+
+**Future:** automated publish workflow (package ZIP from `main`, upload to the store on release). Even then, expect **~20–40 minutes** plus **Chrome review** before broadcasters receive the update. Operators should compare versions in the **Go live** modal (server ZIP vs store) and read [Install & version sync](./wiki/Broadcaster-Extension.md#install--version-sync).
+
+**Direction for extension growth:** community **site adapters** (metadata, license retrieval, stage media controls) — usually backward compatible; older extensions keep working with newer servers but miss new sites until updated.
 
 ---
 

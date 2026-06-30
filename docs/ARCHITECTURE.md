@@ -30,7 +30,7 @@ Details, config, and debugging: [audio-pipeline.md](./audio-pipeline.md).
 
 ## Broadcaster extension (`backend/broadcaster-extension/`)
 
-The extension under `backend/broadcaster-extension/` captures tab audio and reports metadata to the radio server. Site-specific behavior lives in **`sites/` adapters** (metadata scraping, license enrichment, stage media controls) registered on `window.__collabfmSiteRegistry`; `content.js` is a thin orchestrator.
+The extension under `backend/broadcaster-extension/` captures tab audio and reports metadata to the radio server. It is bundled in each image as a ZIP (Go live modal) and published on the [Chrome Web Store](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba). Site-specific behavior lives in **`sites/` adapters** (metadata scraping, license enrichment, stage media controls) registered on `window.__collabfmSiteRegistry`; `content.js` is a thin orchestrator.
 
 | Piece | Role |
 |-------|------|

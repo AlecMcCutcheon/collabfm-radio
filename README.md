@@ -29,7 +29,7 @@ Instead of one person running a show alone, multiple broadcasters can join the *
 - 💬 Live chat, synced reactions, and party effects
 - 🤖 Optional Discord voice bot
 - 👥 Guest listener and broadcaster links
-- 🎵 Browser or Chrome extension broadcasting
+- 🎵 Browser or [Chrome extension](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba) broadcasting (Web Store or server ZIP)
 - 🛡️ Configurable content policy for allowed sources, licenses, and artists
 - ❤️ XP, levels, hearts, and community-focused features
 
@@ -67,6 +67,8 @@ Planned directions and ideas—not a schedule or promise of delivery:
 - ~~**Container update notifications** — Admin → System → Container updates: track `latest` or `develop` on GHCR, get a banner when a newer **published** image is pullable; each image bakes in its own build ID. See [Upgrading](#container-update-notifications) and [Admin Panel](./docs/wiki/Admin-Panel.md#tab-system).~~ *(shipped)*
 - ~~**Broadcaster extension — site adapters** — per-site folders under `backend/broadcaster-extension/sites/`; [wiki guide](./docs/wiki/Broadcaster-Extension.md) and [`sites/CONTRIBUTING.md`](./backend/broadcaster-extension/sites/CONTRIBUTING.md).~~ *(shipped)*
 - ~~**Jamendo support**~~ — extension metadata, license enrichment, stage media controls; `jamendo.com` in default content policy.~~ *(shipped)*
+- ~~**Chrome Web Store listing**~~ — [CollabFM Broadcaster](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba) for easier install and Chrome auto-updates; Go live modal shows server ZIP vs store version.~~ *(shipped)*
+- **Chrome Web Store publish automation** — CI workflow to upload the extension from `main` when `manifest.json` changes (manual publish today).
 - **Hybrid users** — optional local password on SSO-linked accounts (and related account management).
 - **Gated registration** — access-request form, admin approve/deny queue, one-time enrollment tokens.
 
@@ -235,7 +237,7 @@ environment:
 
 If you **do** customize files in appdata, leave `preserve` and merge upstream changes manually, or back up your edits before using `update` (sync uses `--delete` for app paths not in the exclude list).
 
-Re-download and reinstall the **Chrome extension** from **Admin → System** after upgrades when broadcasting or content-policy behavior changes. The extension is bundled in the container image; syncing app code with `COLLABFM_SYNC_MODE=update` updates the ZIP served from Admin, but each broadcaster must install the new build locally.
+Reinstall or update the **Chrome extension** after server upgrades when broadcasting or content-policy behavior changes. Install from the **[Chrome Web Store](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba)** (auto-updates) or download the **ZIP** bundled in your container image via the **Go live** modal (mic icon) — the modal shows the server ZIP version and the Web Store version side by side. The store build is published **manually** today and can lag behind `:latest`; see [Broadcaster extension](#broadcaster-extension) and [Broadcaster Extension (wiki)](./docs/wiki/Broadcaster-Extension.md#install--version-sync).
 
 ### Container update notifications
 
@@ -365,10 +367,12 @@ radio.example.com {
 
 **Extension pairing:**
 
-1. Download the extension zip from **Admin → System**.
+1. Install the extension from the **[Chrome Web Store](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba)** or download the **ZIP** from the **Go live** modal (mic icon) and load it unpacked in `chrome://extensions`.
 2. In the extension popup, set **Radio host** to your site (`https://radio.example.com` or `http://ip:4002`).
 3. In Broadcaster Studio on the site, pair the device and approve in the extension.
 4. Select a tab and start broadcasting.
+
+See [Broadcaster extension](#broadcaster-extension) for version sync between the store and your server image.
 
 ### Guest broadcaster
 
@@ -401,7 +405,7 @@ Details: [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md).
 | **Share links** | Site-wide link list (broadcasters also create links in Broadcaster Studio) |
 | **OIDC** | SSO provider, group → role mapping |
 | **Radio** | Max stage users (default 7, max 9), log retention, PCM/discord buffer tuning |
-| **System** | Guest XP rules, extension auth, **content policy**, Last.fm/Giphy, Turnstile, **branding**, extension download |
+| **System** | Guest XP rules, extension auth, **content policy**, Last.fm/Giphy, Turnstile, **branding**, container updates |
 
 **Share link types:**
 
@@ -420,7 +424,7 @@ Details: [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md).
 - Each published image includes a short **package description** on GHCR noting what that build contains (commit message or release tag), plus a baked-in **build ID** (`channel:revision`) read by Admin → System
 - **Private packages:** `docker login ghcr.io` in Portainer or on the host
 - After pulling a new image, **recreate** the container. Set `COLLABFM_SYNC_MODE=update` for one start to refresh app files in appdata (see [Upgrading](#upgrading)); your database and `config.json` are preserved
-- **Re-download and reinstall** the browser extension from Admin → System after upgrades—especially when content policy or broadcasting behavior changes
+- **Re-download and reinstall** the browser extension after upgrades when content policy or broadcasting behavior changes — use the **Go live** modal ZIP or the [Chrome Web Store](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba) listing; compare versions in the modal before choosing
 - **Admin → System → Container updates:** enable notifications; GHCR tag (`latest` or `develop`) is auto-selected from the running image's channel
 
 ---
@@ -463,7 +467,28 @@ Runtime data in dev goes under `backend/local/` (gitignored). See [docs/ARCHITEC
 
 ### Broadcaster extension
 
+The **[CollabFM Broadcaster](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba)** extension is published on the **Chrome Web Store** for easier install and automatic Chrome updates. The same build is also bundled in each container image as a ZIP (served from the **Go live** modal).
+
 Site-specific metadata, license scraping, and stage media controls live in **`backend/broadcaster-extension/sites/`** as small adapters registered on `window.__collabfmSiteRegistry`. Shared helpers sit in `sites/shared/`; load order is defined in `sites/content-script-files.js` and mirrored in `manifest.json`.
+
+**Install options**
+
+| Source | Best for |
+|--------|----------|
+| [Chrome Web Store](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba) | Convenience; Chrome auto-updates when Google publishes a new version |
+| **ZIP from your instance** (Go live modal) | Staying aligned with the extension version baked into your running image |
+
+The **Go live** modal shows the **server ZIP version** (from `manifest.json` in the image) and the **Chrome Web Store version** so you can spot drift.
+
+**Version sync (read this if you self-host)**
+
+- Store publishing is **manual** today — there is no automated workflow yet to upload the extension from `main` on every release. The Web Store build can be **behind** your container (or ahead if you update Chrome before pulling a new image).
+- Even with automation later, expect roughly **20–40 minutes** plus **Chrome Web Store review** before a new store version is live for everyone.
+- Some releases change **both** the server and extension together (pairing, relay, content-policy handshakes). Keep those in sync when you can. Breaking paired changes should become less frequent as the project matures, but that is not guaranteed.
+- **Site-adapter-only** changes (new metadata, license, or media-control support for a site) are usually backward compatible: an older extension still works with a newer server; you only miss the new site until you update.
+- **Extension newer than server** (e.g. store auto-update while your image is old) can cause issues when both sides changed significantly — watch the repo, `manifest.json`, and the version labels in Go live.
+
+**Contributing**
 
 - **Operator guide:** [Broadcaster Extension (wiki)](./docs/wiki/Broadcaster-Extension.md)
 - **Contributing a site:** [`backend/broadcaster-extension/sites/CONTRIBUTING.md`](./backend/broadcaster-extension/sites/CONTRIBUTING.md)

@@ -2,7 +2,35 @@
 
 How the CollabFM **Chrome extension** is organized, what each built-in site adapter does, and how to contribute new source or media-control support.
 
-Extension source lives in the repo at `backend/broadcaster-extension/`. Admins and broadcasters install it from **Admin → System → Extension download** (bundled in the container image).
+Extension source lives in the repo at `backend/broadcaster-extension/`. It is bundled in each container image as a ZIP and published on the **[Chrome Web Store](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba)** as **CollabFM Broadcaster**.
+
+---
+
+## Install & version sync
+
+### Where to install
+
+| Method | How | Updates |
+|--------|-----|---------|
+| **Chrome Web Store** | [CollabFM Broadcaster](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba) | Chrome auto-updates when Google publishes a new version |
+| **ZIP from your server** | **Go live** modal (mic icon) → **Download ZIP**, then load unpacked in `chrome://extensions` | Re-download when you upgrade the container (or when the bundled version changes) |
+
+The **Go live** modal shows **both versions** — the ZIP build from your running image (`manifest.json`) and the current **Chrome Web Store** version — so you can see if they match.
+
+### Store vs server (important)
+
+- **Manual publish today.** There is no automated workflow yet to upload the extension from `main` on every release. The Web Store build can **lag** behind your `:latest` image until someone publishes manually.
+- **Review delay.** Even after upload (or once automation exists), expect roughly **20–40 minutes** plus **Chrome Web Store review** before the new version is live for everyone.
+- **Paired releases.** Some changes touch **both** the server and extension (pairing, relay protocol, content-policy handoffs). Those should stay on matching versions when possible. As CollabFM matures, breaking paired changes should become less common — but that is not guaranteed.
+- **Site adapters only.** New metadata, license, or media-control support for a site usually does **not** require a container upgrade. An older extension still works with a newer server; you only miss the new site until you update the extension.
+- **Extension ahead of server.** If Chrome auto-updates your extension but your instance is still on an older image, you can hit issues when both sides changed significantly. Prefer pulling the server image and checking Go live version labels before relying on a fresh store build.
+
+**Choose your workflow**
+
+- **Web Store** — easiest install and auto-updates; accept possible lag vs your self-hosted image.
+- **Server ZIP** — stays aligned with the extension bundled in your container; reinstall after upgrades.
+
+Watch the repo’s `backend/broadcaster-extension/manifest.json`, the versions in **Go live**, and your installed build at `chrome://extensions`.
 
 ---
 
@@ -76,7 +104,7 @@ Details for operators: [Broadcasting & Stage — Media controls](./Broadcasting-
 
 ## Jamendo API and rate limits
 
-The Jamendo adapter enriches track URLs and Creative Commons license metadata via `api.jamendo.com`. The extension ZIP from **Admin → System** uses a **shared CollabFM `client_id`** (see `sites/jamendo/metadata.js`). Jamendo rate-limits by `client_id`; heavy use across many broadcasters could occasionally delay or skip API enrichment until limits reset. DOM metadata and track-page fallback still work.
+The Jamendo adapter enriches track URLs and Creative Commons license metadata via `api.jamendo.com`. The extension ZIP from your server (and the Web Store build) uses a **shared CollabFM `client_id`** (see `sites/jamendo/metadata.js`). Jamendo rate-limits by `client_id`; heavy use across many broadcasters could occasionally delay or skip API enrichment until limits reset. DOM metadata and track-page fallback still work.
 
 Operators who want to avoid shared limits can [load the extension unpacked](../../backend/broadcaster-extension/README.md#jamendo-api-client_id), register their own Jamendo developer application, and replace `JAMENDO_CLIENT_ID` locally. Jamendo also allows contacting them to raise limits for a registered app — see [Jamendo for developers](https://developer.jamendo.com/).
 
@@ -87,7 +115,7 @@ Operators who want to avoid shared limits can [load the extension unpacked](../.
 1. Clone the repo and open `backend/broadcaster-extension/` in Chrome (**Load unpacked**).
 2. Set **Radio host** in the popup to your dev station (`http://localhost:4002` or your homelab URL).
 3. After code changes, click **Reload** on the extension card in `chrome://extensions`.
-4. Bump `manifest.json` **version** before shipping so broadcasters know to re-download from Admin → System.
+4. Bump `manifest.json` **version** before shipping so broadcasters can compare builds in **Go live** and on the [Chrome Web Store](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba). Store uploads from `main` are manual today — see [Install & version sync](#install--version-sync).
 
 See [backend/broadcaster-extension/README.md](../../backend/broadcaster-extension/README.md) for a short layout summary. Step-by-step for new site adapters: [sites/CONTRIBUTING.md](../../backend/broadcaster-extension/sites/CONTRIBUTING.md).
 
