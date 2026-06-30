@@ -82,6 +82,7 @@ export function BroadcastSourceModal({
           </div>
 
           <ExtensionInstallButtons
+            open={open}
             publicExtensionDownload={publicExtensionDownload}
             onZipDownloaded={onClose}
           />

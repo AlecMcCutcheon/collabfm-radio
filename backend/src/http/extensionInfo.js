@@ -34,9 +34,9 @@ function compareSemver(a, b) {
   return 0;
 }
 
-export async function getExtensionInstallInfo(extDir) {
+export async function getExtensionInstallInfo(extDir, { refresh = false } = {}) {
   const bundledVersion = readBundledExtensionVersion(extDir);
-  const webStore = await getChromeWebStoreVersion();
+  const webStore = await getChromeWebStoreVersion({ refresh });
   const webStoreVersion = webStore.version || null;
 
   let versionComparison = "unknown";

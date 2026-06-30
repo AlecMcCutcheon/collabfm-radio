@@ -748,7 +748,12 @@ export const api = {
     URL.revokeObjectURL(url);
   },
 
-  getExtensionInstallInfo: () => json<ExtensionInstallInfo>(`${API}/extension/public/info`),
+  getExtensionInstallInfo: (opts?: { refresh?: boolean }) => {
+    const qs = opts?.refresh ? "?refresh=1" : "";
+    return json<ExtensionInstallInfo>(`${API}/extension/public/info${qs}`, {
+      cache: "no-store",
+    });
+  },
 
   downloadExtensionZipPublic: async () => {
     const res = await fetch(apiUrl("/api/extension/public/download"));

@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import type { ExtensionInstallInfo } from "../types/api";
 
 interface ExtensionInstallButtonsProps {
+  open?: boolean;
   publicExtensionDownload?: boolean;
   onZipDownloaded?: () => void;
 }
@@ -30,6 +31,7 @@ function versionComparisonHint(info: ExtensionInstallInfo | null) {
 }
 
 export function ExtensionInstallButtons({
+  open = true,
   publicExtensionDownload = false,
   onZipDownloaded,
 }: ExtensionInstallButtonsProps) {
@@ -37,9 +39,11 @@ export function ExtensionInstallButtons({
   const [zipBusy, setZipBusy] = useState(false);
 
   useEffect(() => {
+    if (!open) return;
     let cancelled = false;
+    setInfo(null);
     void api
-      .getExtensionInstallInfo()
+      .getExtensionInstallInfo({ refresh: true })
       .then((result) => {
         if (!cancelled) setInfo(result);
       })
@@ -49,7 +53,7 @@ export function ExtensionInstallButtons({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [open]);
 
   const downloadZip = () => {
     if (zipBusy) return;

@@ -3,7 +3,7 @@ const EXTENSION_ID =
 
 export const CHROME_WEB_STORE_URL = `https://chromewebstore.google.com/detail/collabfm-broadcaster/${EXTENSION_ID}`;
 
-const CACHE_MS = 60 * 60 * 1000;
+const CACHE_MS = 5 * 60 * 1000;
 const UPDATE_CHECK_URL = `https://clients2.google.com/service/update2/crx?response=updatecheck&prodversion=131.0&acceptformat=crx2,crx3&x=id%3D${EXTENSION_ID}%26installsource%3Dondemand%26uc`;
 
 let cache = { version: null, fetchedAt: 0, error: null };
@@ -16,10 +16,10 @@ function parseVersionFromUpdateXml(xml) {
   return looseMatch?.[1]?.trim() || null;
 }
 
-/** Version published on the Chrome Web Store (Chrome update-check XML, cached 1h). */
-export async function getChromeWebStoreVersion() {
+/** Version published on the Chrome Web Store (Chrome update-check XML, cached briefly). */
+export async function getChromeWebStoreVersion({ refresh = false } = {}) {
   const now = Date.now();
-  if (cache.fetchedAt && now - cache.fetchedAt < CACHE_MS) {
+  if (!refresh && cache.fetchedAt && now - cache.fetchedAt < CACHE_MS) {
     return { version: cache.version, error: cache.error };
   }
 

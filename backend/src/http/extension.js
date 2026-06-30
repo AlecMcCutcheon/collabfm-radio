@@ -91,8 +91,14 @@ export async function handleExtensionRoutes(req, res, pathname, method) {
     }
     const extDir = resolveExtensionSourceDir();
     try {
-      const info = await getExtensionInstallInfo(extDir);
-      json(res, 200, info);
+      const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+      const refresh = url.searchParams.get("refresh") === "1";
+      const info = await getExtensionInstallInfo(extDir, { refresh });
+      res.writeHead(200, {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      });
+      res.end(JSON.stringify(info));
     } catch {
       json(res, 500, { error: "Failed to read extension info" });
     }
