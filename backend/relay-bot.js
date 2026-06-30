@@ -215,6 +215,7 @@ const relayConnections = new Map(); // guildId -> { connection, player, buffered
 const VOICE_MOVE_GRACE_MS = 2000;
 const pendingVoiceDisconnects = new Map(); // guildId -> timeout
 const intentionalVoiceLeaves = new Set(); // guildId
+const voiceJoinInProgress = new Set(); // guildId — /join until first now-playing sync
 
 function destroyRelayMedia(entry) {
   if (!entry) return;
@@ -230,6 +231,13 @@ function destroyRelayMedia(entry) {
 
 function botVoiceChannel(guildId) {
   return client.guilds.cache.get(guildId)?.members.me?.voice?.channel ?? null;
+}
+
+function isGuildProtectedFromCleanup(guildId) {
+  if (!guildId) return false;
+  if (voiceJoinInProgress.has(guildId)) return true;
+  if (relayConnections.has(guildId)) return true;
+  return !!botVoiceChannel(guildId);
 }
 
 function cancelPendingVoiceDisconnect(guildId) {
@@ -281,7 +289,7 @@ async function cleanupGuildVoiceNotices(guildId, entry = null) {
 
   try {
     const channel = await client.channels.fetch(channelId);
-    await deleteCollabFmVoiceNoticesInChannel(channel, { botId });
+    await deleteCollabFmVoiceNoticesInChannel(channel, { botId, guildProtected: false });
   } catch {}
 
   forgetNoticeChannel(guildId);
@@ -612,9 +620,7 @@ async function syncGuildVoiceNotice(guildId, entry, mainStatus, stationByRail, s
 
     rememberNoticeChannel(guildId, entry.noticeTextChannelId);
 
-    if (!entry.noticeMessageId && isVoiceMessageCleanupEnabled()) {
-      await deleteCollabFmVoiceNoticesInChannel(channel, { botId: client.user?.id });
-    }
+    const botId = client.user?.id;
 
     if (entry.noticeMessageId) {
       try {
@@ -631,6 +637,14 @@ async function syncGuildVoiceNotice(guildId, entry, mainStatus, stationByRail, s
     const message = await channel.send(payload);
     entry.noticeMessageId = message.id;
     entry.lastNoticeSnapshot = snapshot;
+
+    if (botId && isVoiceMessageCleanupEnabled()) {
+      await deleteCollabFmVoiceNoticesInChannel(channel, {
+        botId,
+        exceptMessageId: entry.noticeMessageId,
+        guildProtected: false,
+      });
+    }
   } catch (err) {
     console.warn(
       `⚠️ Relay bot: failed to sync now-playing embed (guild ${guildId}):`,
@@ -1225,9 +1239,10 @@ async function playRelayRadio(
   voiceChannel,
   { forceMainStation = false, textChannelId = null, newNoticeSession = false } = {},
 ) {
-  try {
-    const guildId = voiceChannel.guild.id;
+  const guildId = voiceChannel.guild.id;
+  voiceJoinInProgress.add(guildId);
 
+  try {
     const existing = relayConnections.get(guildId);
     const preservedStation = forceMainStation
       ? defaultGuildStation()
@@ -1245,17 +1260,6 @@ async function playRelayRadio(
     });
     if (textChannelId) {
       rememberNoticeChannel(guildId, textChannelId);
-      if (isVoiceMessageCleanupEnabled()) {
-        void (async () => {
-          try {
-            const channel = await client.channels.fetch(textChannelId);
-            const botId = client.user?.id;
-            if (botId) {
-              await deleteCollabFmVoiceNoticesInChannel(channel, { botId });
-            }
-          } catch {}
-        })();
-      }
     }
 
     if (existing) {
@@ -1310,7 +1314,7 @@ async function playRelayRadio(
     });
     persistVoiceBotConnections();
     void notifyMainServerVoicePresence(guildId, relayConnections.get(guildId));
-    void updatePresenceFromBroadcastStatus();
+    await updatePresenceFromBroadcastStatus();
 
     player.on(AudioPlayerStatus.Playing, () => {
       console.log(`🎶 Relay bot streaming to guild ${guildId} (${voiceChannel.guild.name})`);
@@ -1349,6 +1353,8 @@ async function playRelayRadio(
   } catch (err) {
     console.error("❌ Failed to play relay radio:", err.message);
     throw err;
+  } finally {
+    voiceJoinInProgress.delete(guildId);
   }
 }
 
@@ -1802,7 +1808,7 @@ client.once("clientReady", async () => {
 
   setTimeout(() => {
     void pruneAllStaleVoiceNotices(client, {
-      isBotInVoiceGuild: (guildId) => !!botVoiceChannel(guildId),
+      isGuildProtected: isGuildProtectedFromCleanup,
     });
   }, 8000);
 
@@ -1810,7 +1816,7 @@ client.once("clientReady", async () => {
   setInterval(updatePresenceFromBroadcastStatus, 5000);
   setInterval(() => {
     void pruneAllStaleVoiceNotices(client, {
-      isBotInVoiceGuild: (guildId) => !!botVoiceChannel(guildId),
+      isGuildProtected: isGuildProtectedFromCleanup,
     });
   }, 5 * 60 * 1000);
   setInterval(() => {

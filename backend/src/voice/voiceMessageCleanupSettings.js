@@ -42,3 +42,12 @@ export function getVoiceMessageCleanupSettings() {
 export function isVoiceMessageCleanupEnabled(settings = getVoiceMessageCleanupSettings()) {
   return settings.targets !== "off";
 }
+
+/** When the bot has an active voice session, never delete the now-playing embed. */
+export function resolveCleanupTargets(targets, { guildProtected = false } = {}) {
+  if (!guildProtected || targets === "off") return targets;
+  if (targets === "slash_replies") return "slash_replies";
+  if (targets === "sync_embed") return "off";
+  if (targets === "all") return "slash_replies";
+  return targets;
+}

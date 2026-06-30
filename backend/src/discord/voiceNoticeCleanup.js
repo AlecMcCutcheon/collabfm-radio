@@ -3,6 +3,7 @@ import { VOICE_STATION_SELECT_PREFIX } from "./voiceStationSelect.js";
 import {
   getVoiceMessageCleanupSettings,
   isVoiceMessageCleanupEnabled,
+  resolveCleanupTargets,
 } from "../voice/voiceMessageCleanupSettings.js";
 
 export function isCollabFmVoiceNoticeMessage(message) {
@@ -56,11 +57,13 @@ export function forgetNoticeChannel(guildId) {
 /** Delete bot messages in a text channel that match the configured cleanup target. */
 export async function deleteBotMessagesInChannel(
   channel,
-  { botId, exceptMessageId = null, targets = null } = {},
+  { botId, exceptMessageId = null, targets = null, guildProtected = false } = {},
 ) {
   if (!channel?.isTextBased?.() || !botId) return 0;
 
-  const cleanupTargets = targets ?? getVoiceMessageCleanupSettings().targets;
+  const settings = getVoiceMessageCleanupSettings();
+  const configuredTargets = targets ?? settings.targets;
+  const cleanupTargets = resolveCleanupTargets(configuredTargets, { guildProtected });
   if (cleanupTargets === "off") return 0;
 
   let deleted = 0;
@@ -87,7 +90,7 @@ export async function pruneNoticeChannel(
   client,
   guildId,
   channelId,
-  { botId, exceptMessageId = null, targets = null } = {},
+  { botId, exceptMessageId = null, targets = null, guildProtected = false } = {},
 ) {
   const cid = String(channelId || "").trim();
   if (!cid || !botId || !client) return 0;
@@ -98,6 +101,7 @@ export async function pruneNoticeChannel(
       botId,
       exceptMessageId,
       targets,
+      guildProtected,
     });
     if (deleted > 0) {
       console.log(
@@ -114,7 +118,7 @@ export async function scanGuildTextChannelsForStaleNotices(
   client,
   guildId,
   botId,
-  { targets = null } = {},
+  { targets = null, guildProtected = false } = {},
 ) {
   const guild = client.guilds.cache.get(guildId);
   if (!guild || !botId) return 0;
@@ -126,7 +130,7 @@ export async function scanGuildTextChannelsForStaleNotices(
 
   for (const channel of guild.channels.cache.values()) {
     if (!channel.isTextBased?.()) continue;
-    deleted += await deleteBotMessagesInChannel(channel, { botId, targets });
+    deleted += await deleteBotMessagesInChannel(channel, { botId, targets, guildProtected });
   }
   if (deleted > 0) {
     console.log(
@@ -137,9 +141,13 @@ export async function scanGuildTextChannelsForStaleNotices(
   return deleted;
 }
 
-export async function pruneStaleVoiceNoticesForGuild(client, guildId, { botId, botInVoice } = {}) {
+export async function pruneStaleVoiceNoticesForGuild(
+  client,
+  guildId,
+  { botId, guildProtected = false } = {},
+) {
   const settings = getVoiceMessageCleanupSettings();
-  if (!botId || botInVoice || !isVoiceMessageCleanupEnabled(settings)) return 0;
+  if (!botId || guildProtected || !isVoiceMessageCleanupEnabled(settings)) return 0;
 
   let deleted = 0;
   const voice = getSetting("voiceBot", {});
@@ -164,7 +172,7 @@ export async function pruneStaleVoiceNoticesForGuild(client, guildId, { botId, b
   return deleted;
 }
 
-export async function pruneAllStaleVoiceNotices(client, { isBotInVoiceGuild } = {}) {
+export async function pruneAllStaleVoiceNotices(client, { isGuildProtected } = {}) {
   const settings = getVoiceMessageCleanupSettings();
   const botId = client?.user?.id;
   if (!botId) return;
@@ -181,22 +189,22 @@ export async function pruneAllStaleVoiceNotices(client, { isBotInVoiceGuild } = 
   ]);
 
   let scanned = 0;
-  let skippedInVoice = 0;
+  let skippedProtected = 0;
 
   for (const guildId of guildIds) {
-    const inVoice = isBotInVoiceGuild ? isBotInVoiceGuild(guildId) : false;
-    if (inVoice) {
-      skippedInVoice += 1;
+    const protectedGuild = isGuildProtected ? isGuildProtected(guildId) : false;
+    if (protectedGuild) {
+      skippedProtected += 1;
       continue;
     }
     scanned += 1;
     await pruneStaleVoiceNoticesForGuild(client, guildId, {
       botId,
-      botInVoice: false,
+      guildProtected: false,
     });
   }
 
   console.log(
-    `🧹 Relay bot: message cleanup (${settings.targets}, ${settings.scope}) — scanned ${scanned} guild(s), skipped ${skippedInVoice} in voice`,
+    `🧹 Relay bot: message cleanup (${settings.targets}, ${settings.scope}) — scanned ${scanned} guild(s), skipped ${skippedProtected} active session(s)`,
   );
 }
