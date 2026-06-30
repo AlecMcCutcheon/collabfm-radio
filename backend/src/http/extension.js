@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import { getAppSession } from "../auth/routes.js";
 import { canUserBroadcastV2 } from "../bridge.js";
 import { buildExtensionZipBuffer } from "./packExtensionZip.js";
+import { getExtensionInstallInfo } from "./extensionInfo.js";
 import {
   confirmPairRequest,
   listDevicesForUser,
@@ -68,6 +69,33 @@ export async function handleExtensionRoutes(req, res, pathname, method) {
   if (method === "OPTIONS") {
     res.writeHead(204);
     res.end();
+    return true;
+  }
+
+  if (
+    (pathname === "/api/extension/public/info" || pathname === "/api/extension/info") &&
+    method === "GET"
+  ) {
+    const isPublic = pathname === "/api/extension/public/info";
+    if (!isPublic) {
+      const session = getAppSession(req);
+      if (!session?.user?.id) {
+        json(res, 401, { error: "Unauthorized" });
+        return true;
+      }
+      const canBroadcast = await canUserBroadcastV2(session.user.id);
+      if (!canBroadcast) {
+        json(res, 403, { error: "Forbidden" });
+        return true;
+      }
+    }
+    const extDir = resolveExtensionSourceDir();
+    try {
+      const info = await getExtensionInstallInfo(extDir);
+      json(res, 200, info);
+    } catch {
+      json(res, 500, { error: "Failed to read extension info" });
+    }
     return true;
   }
 

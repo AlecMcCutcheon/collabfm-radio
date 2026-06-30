@@ -22,6 +22,7 @@ import type {
   VoiceBotRuntime,
   ShareLink,
   BroadcastDevice,
+  ExtensionInstallInfo,
   PartyEffect,
   PartyEffectType,
   ProfilePartyEffectType,
@@ -746,6 +747,8 @@ export const api = {
     anchor.click();
     URL.revokeObjectURL(url);
   },
+
+  getExtensionInstallInfo: () => json<ExtensionInstallInfo>(`${API}/extension/public/info`),
 
   downloadExtensionZipPublic: async () => {
     const res = await fetch(apiUrl("/api/extension/public/download"));

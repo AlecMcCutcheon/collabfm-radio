@@ -227,6 +227,20 @@ export interface BroadcastDevice {
   lastUsedAt: string | null;
 }
 
+export interface ExtensionInstallInfo {
+  bundledVersion: string | null;
+  webStoreVersion: string | null;
+  webStoreUrl: string;
+  webStoreError?: string | null;
+  versionComparison:
+    | "match"
+    | "bundled_newer"
+    | "store_newer"
+    | "bundled_only"
+    | "store_only"
+    | "unknown";
+}
+
 export interface OidcConfig {
   enabled?: boolean;
   issuer?: string;

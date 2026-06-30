@@ -1,6 +1,6 @@
 import { Download, Globe, Mic, X } from "lucide-react";
-import { api } from "../api/client";
 import { WebBroadcasterControls } from "./WebBroadcasterControls";
+import { ExtensionInstallButtons } from "./ExtensionInstallButtons";
 
 interface BroadcastSourceModalProps {
   open: boolean;
@@ -17,17 +17,6 @@ export function BroadcastSourceModal({
   publicExtensionDownload = false,
 }: BroadcastSourceModalProps) {
   if (!open) return null;
-
-  const downloadExtension = () => {
-    const download = publicExtensionDownload
-      ? api.downloadExtensionZipPublic()
-      : api.downloadExtensionZip();
-    void download
-      .then(() => onClose())
-      .catch(() => {
-        window.alert("Extension download failed. Try again or ask the host for the ZIP.");
-      });
-  };
 
   return (
     <div
@@ -79,23 +68,24 @@ export function BroadcastSourceModal({
           <WebBroadcasterControls compact />
         </div>
 
-        <button
-          type="button"
-          onClick={downloadExtension}
-          className="w-full text-left rounded-xl border border-gray-600 bg-gray-800/80 hover:border-radio-accent hover:bg-gray-800 transition-all p-4"
-        >
-          <div className="flex items-start gap-3">
+        <div className="rounded-xl border border-gray-600 bg-gray-800/80 p-4">
+          <div className="flex items-start gap-3 mb-4">
             <Download className="w-6 h-6 text-radio-accent shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold text-white">Browser extension</p>
               <p className="text-sm text-gray-400 mt-1">
                 {publicExtensionDownload
-                  ? "Best audio — download the ZIP, load it unpacked in Chrome, then choose Guest link and paste your broadcaster share link."
-                  : "Best audio and metadata — download the ZIP, load it unpacked, then pair once from Studio."}
+                  ? "Best audio — load the ZIP unpacked in Chrome, or install from the Web Store, then choose Guest link and paste your broadcaster share link."
+                  : "Best audio and metadata — load the ZIP unpacked or install from the Web Store, then pair once from Studio."}
               </p>
             </div>
           </div>
-        </button>
+
+          <ExtensionInstallButtons
+            publicExtensionDownload={publicExtensionDownload}
+            onZipDownloaded={onClose}
+          />
+        </div>
       </div>
     </div>
   );
