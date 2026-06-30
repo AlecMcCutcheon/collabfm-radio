@@ -23,7 +23,8 @@
       background: #87CEFA;
     }
     .header { background: linear-gradient(135deg, #1f2937 0%, #111827 100%); color: #fff; padding: 16px; text-align: center; border-bottom: 1px solid #374151; }
-    .header h2 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 0.02em; color: #87CEFA; }
+    .header h2 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: 0.02em; color: #87CEFA; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+    .header-version { font-size: 11px; font-weight: 500; color: #6b7280; letter-spacing: 0; }
     .content { padding: 16px; }
     .card { margin-bottom: 16px; padding: 14px; border-radius: 16px; border: 1px solid #374151; background: rgba(17, 24, 39, 0.7); }
     .section-title { font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
@@ -309,6 +310,9 @@
     .metadata-text { display: flex; flex-direction: column; min-width: 0; gap: 4px; flex: 1; }
     .metadata-title { font-weight: 700; color: #90EE90; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .metadata-artist { color: #90EE90; opacity: 0.8; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .metadata-links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 2px; min-width: 0; }
+    .metadata-links a { font-size: 11px; color: #6b7280; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    .metadata-links a:hover { color: #9ca3af; text-decoration: underline; }
     .metadata-placeholder { color: #6b7280; font-size: 18px; }
     .pair-code { font-size: 28px; font-weight: 800; letter-spacing: 0.2em; color: #87CEFA; text-align: center; padding: 10px 0; }
     .pair-subtitle { font-size: 12px; color: #9ca3af; text-align: center; margin-bottom: 8px; }
@@ -346,7 +350,7 @@
 </head>
 <body>
   <div class="header">
-    <h2>CollabFM Broadcaster</h2>
+    <h2>CollabFM Broadcaster <span id="extensionVersion" class="header-version"></span></h2>
   </div>
 
   <div class="content">
@@ -361,6 +365,7 @@
         <div class="metadata-text">
           <div id="metadataTitle" class="metadata-title">Waiting for track info…</div>
           <div id="metadataArtist" class="metadata-artist">—</div>
+          <div id="metadataLinks" class="metadata-links" hidden></div>
         </div>
       </div>
     </div>

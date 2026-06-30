@@ -1200,9 +1200,35 @@ async function startBroadcast(tabId, streamId, relayUrl, volume, apiOriginOpt, d
         });
 
         recorder.ondataavailable = (event) => {
-          if (event.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
-            event.data.arrayBuffer().then(buf => ws.send(buf));
+          if (
+            isCleaningUp ||
+            broadcastStatus !== "connected" ||
+            !event.data?.size ||
+            !ws ||
+            ws.readyState !== WebSocket.OPEN
+          ) {
+            return;
           }
+          const tracks = tabStream?.getTracks?.() ?? [];
+          if (tracks.length > 0 && tracks.every((track) => track.readyState === "ended")) {
+            return;
+          }
+          void event.data
+            .arrayBuffer()
+            .then((buf) => {
+              if (ws?.readyState === WebSocket.OPEN) {
+                ws.send(buf);
+              }
+            })
+            .catch((error) => {
+              if (error?.name === "NotReadableError") return;
+              extensionLog(
+                "offscreen",
+                "Recorder chunk read failed",
+                { error: error?.message || String(error), name: error?.name },
+                "warn",
+              );
+            });
         };
 
         recorder.onerror = (error) => {

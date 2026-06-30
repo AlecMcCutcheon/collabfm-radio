@@ -8,6 +8,7 @@ import {
 } from "./guest-auth.js";
 import { formatPairedAuthStatus, syncPairedDeviceDisplayName, checkStoredPairing } from "./pair-auth.js";
 import { extensionLog } from "./extension-log.js";
+import { friendlySourceLabel } from "./source-label.js";
 
 const STREAM_VOLUME = 1;
 const GUEST_FORM_DRAFT_KEY = "guestFormDraft";
@@ -50,6 +51,13 @@ let currentPairing = null;
 let authMode = "pair";
 
 window.addEventListener("DOMContentLoaded", async () => {
+  const manifest = chrome.runtime.getManifest();
+  const versionEl = document.getElementById("extensionVersion");
+  if (versionEl && manifest?.version) {
+    versionEl.textContent = `v${manifest.version}`;
+    versionEl.title = `Extension version ${manifest.version}`;
+  }
+
   const settings = await chrome.storage.local.get([
     "radioHost",
     "relayUrl",
@@ -1074,6 +1082,10 @@ function mergeDisplayedMetadata(incoming, previous) {
   }
   const merged = { ...incoming };
   if (previous.albumArt && !merged.albumArt) merged.albumArt = previous.albumArt;
+  if (previous.licenseType && !merged.licenseType) merged.licenseType = previous.licenseType;
+  if (previous.licenseUrl && !merged.licenseUrl) merged.licenseUrl = previous.licenseUrl;
+  if (previous.url && !merged.url) merged.url = previous.url;
+  if (previous.sourceLabel && !merged.sourceLabel) merged.sourceLabel = previous.sourceLabel;
   return merged;
 }
 
@@ -1105,6 +1117,45 @@ function setMetadataArtwork(artworkImgEl, artworkPhEl, artUrl) {
   }
 }
 
+function updateMetadataLinks(metadata) {
+  const linksEl = document.getElementById("metadataLinks");
+  if (!linksEl) return;
+
+  linksEl.replaceChildren();
+
+  const trackUrl = String(metadata?.url || "").trim();
+  const licenseUrl = String(metadata?.licenseUrl || "").trim();
+
+  if (!trackUrl && !licenseUrl) {
+    linksEl.hidden = true;
+    return;
+  }
+
+  if (trackUrl) {
+    const sourceLink = document.createElement("a");
+    sourceLink.href = trackUrl;
+    sourceLink.target = "_blank";
+    sourceLink.rel = "noopener noreferrer";
+    sourceLink.textContent = friendlySourceLabel(
+      metadata?.sourceSite,
+      trackUrl,
+      metadata?.sourceLabel,
+    );
+    linksEl.appendChild(sourceLink);
+  }
+
+  if (licenseUrl) {
+    const licenseLink = document.createElement("a");
+    licenseLink.href = licenseUrl;
+    licenseLink.target = "_blank";
+    licenseLink.rel = "noopener noreferrer";
+    licenseLink.textContent = String(metadata?.licenseType || "").trim() || "License";
+    linksEl.appendChild(licenseLink);
+  }
+
+  linksEl.hidden = false;
+}
+
 function updateMetadataDisplay(metadata) {
   const metadataDisplay = document.getElementById("metadataDisplay");
   const titleEl = document.getElementById("metadataTitle");
@@ -1126,6 +1177,7 @@ function updateMetadataDisplay(metadata) {
     titleEl.textContent = "Waiting for track info…";
     artistEl.textContent = "—";
     setMetadataArtwork(artworkImgEl, artworkPhEl, null);
+    updateMetadataLinks(null);
     return;
   }
 
@@ -1134,11 +1186,13 @@ function updateMetadataDisplay(metadata) {
   titleEl.textContent = merged.title;
   artistEl.textContent = merged.artist;
   setMetadataArtwork(artworkImgEl, artworkPhEl, merged.albumArt);
+  updateMetadataLinks(merged);
 }
 
 function hideMetadataDisplay() {
   lastDisplayedMetadata = null;
   document.getElementById("metadataDisplay").style.display = "none";
+  updateMetadataLinks(null);
 }
 
 async function sendMediaControl(action, tabId = broadcastingTabId) {
