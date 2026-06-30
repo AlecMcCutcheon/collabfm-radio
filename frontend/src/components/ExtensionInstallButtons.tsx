@@ -15,13 +15,15 @@ function versionLabel(version: string | null | undefined) {
 
 function versionComparisonHint(info: ExtensionInstallInfo | null) {
   if (!info) return null;
+  const zip = versionLabel(info.bundledVersion);
+  const store = versionLabel(info.webStoreVersion);
   switch (info.versionComparison) {
     case "bundled_newer":
-      return "This server's ZIP is newer than the Chrome Web Store — use the ZIP for the latest build.";
+      return zip && store ? `Server ZIP (${zip}) is newer than the Web Store (${store}).` : "Server ZIP is newer than the Web Store.";
     case "store_newer":
-      return "Chrome Web Store has a newer version — update from the store or pull a newer server image.";
+      return zip && store ? `Web Store (${store}) is newer than the server ZIP (${zip}).` : "Web Store is newer than the server ZIP.";
     case "match":
-      return "ZIP and Chrome Web Store versions match.";
+      return zip ? `Versions match (${zip}).` : "Versions match.";
     default:
       return null;
   }
