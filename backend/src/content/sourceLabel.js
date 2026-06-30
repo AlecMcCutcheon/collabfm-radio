@@ -1,0 +1,28 @@
+const SOURCE_LABELS = {
+  "freemusicarchive.org": "Free Music Archive",
+  "jamendo.com": "Jamendo",
+  "ncs.io": "NoCopyrightSounds",
+  "music.youtube.com": "YouTube Music",
+  "soundcloud.com": "SoundCloud",
+  "media.ibroadcast.com": "iBroadcast",
+};
+
+function normalizeHost(siteOrUrl) {
+  const raw = String(siteOrUrl || "").trim().toLowerCase();
+  if (!raw) return "";
+  try {
+    const withProto = raw.includes("://") ? raw : `https://${raw}`;
+    return new URL(withProto).hostname.replace(/^www\./, "");
+  } catch {
+    return raw.replace(/^www\./, "").split("/")[0].split(":")[0];
+  }
+}
+
+/** Friendly label for a broadcaster source hostname, track URL, or explicit adapter label. */
+export function friendlySourceLabel(site, trackUrl, explicitLabel) {
+  const named = String(explicitLabel || "").trim();
+  if (named) return named;
+  const host = normalizeHost(site || "") || normalizeHost(trackUrl || "");
+  if (!host) return "Source";
+  return SOURCE_LABELS[host] || host;
+}

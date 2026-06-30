@@ -19,6 +19,25 @@ function normalizeArtUrl(value) {
   return null;
 }
 
+function pickLinkFields(metadata) {
+  if (!metadata) return {};
+  return {
+    url: normalizeText(metadata.url),
+    licenseUrl: normalizeText(metadata.licenseUrl),
+    licenseType: normalizeText(metadata.licenseType),
+    sourceLabel: normalizeText(metadata.sourceLabel),
+    sourceSite: normalizeText(metadata.sourceSite),
+  };
+}
+
+function mergeLinkFields(target, source) {
+  if (!source) return target;
+  for (const key of ["url", "licenseUrl", "licenseType", "sourceLabel", "sourceSite"]) {
+    if (!target[key] && source[key]) target[key] = source[key];
+  }
+  return target;
+}
+
 function isPlaceholderPlaybackTitle(title) {
   const text = String(title || "").trim();
   if (!text || text === "N/A") return true;
@@ -53,6 +72,11 @@ export function createRailPlaybackResolver({
         title: null,
         artist: null,
         albumArtUrl: null,
+        url: null,
+        licenseUrl: null,
+        licenseType: null,
+        sourceLabel: null,
+        sourceSite: null,
         active: false,
         isLive: false,
       };
@@ -68,12 +92,20 @@ export function createRailPlaybackResolver({
     let artist = normalizeText(snapshot?.artist) ?? normalizeText(info.trackArtist);
     let albumArtUrl =
       normalizeArtUrl(snapshot?.albumArt) ?? normalizeArtUrl(info.trackAlbumArt);
+    let linkFields = {
+      url: null,
+      licenseUrl: null,
+      licenseType: null,
+      sourceLabel: null,
+      sourceSite: null,
+    };
 
     const native = getStoredNativeMetadataForRail?.(railId);
     if (native) {
       title = normalizeText(native.title) ?? title;
       artist = normalizeText(native.artist) ?? artist;
       albumArtUrl = normalizeArtUrl(native.albumArt) ?? albumArtUrl;
+      mergeLinkFields(linkFields, pickLinkFields(native));
     }
 
     if (railId === activeWsId) {
@@ -82,12 +114,33 @@ export function createRailPlaybackResolver({
         title = normalizeText(stable.title) ?? title;
         artist = normalizeText(stable.artist) ?? artist;
         albumArtUrl = normalizeArtUrl(stable.albumArt) ?? albumArtUrl;
+        mergeLinkFields(linkFields, pickLinkFields(stable));
       }
       const liveTitle = normalizeText(getCurrentSong());
       const liveArtist = normalizeText(getCurrentArtist());
       if (liveTitle && !isPlaceholderPlaybackTitle(liveTitle)) {
         title = liveTitle;
         artist = liveArtist ?? artist;
+        linkFields = {
+          url: null,
+          licenseUrl: null,
+          licenseType: null,
+          sourceLabel: null,
+          sourceSite: null,
+        };
+        if (
+          stable &&
+          normalizeText(stable.title) === title &&
+          normalizeText(stable.artist) === artist
+        ) {
+          mergeLinkFields(linkFields, pickLinkFields(stable));
+        } else if (
+          native &&
+          normalizeText(native.title) === title &&
+          normalizeText(native.artist) === artist
+        ) {
+          mergeLinkFields(linkFields, pickLinkFields(native));
+        }
       }
     }
 
@@ -99,6 +152,7 @@ export function createRailPlaybackResolver({
       title,
       artist,
       albumArtUrl,
+      ...linkFields,
       active: true,
       isLive: railId === activeWsId,
     };

@@ -445,6 +445,15 @@ function playbackInfoForEntry(entry, mainStatus, stationByRail, stationByLabel, 
     (followsLiveRail ? normalizePlaybackText(mainStatus?.artist) : null);
   const albumArtUrl =
     station?.albumArtUrl ?? (followsLiveRail ? mainStatus?.albumArtUrl : null) ?? null;
+  const url = station?.url ?? (followsLiveRail ? mainStatus?.url : null) ?? null;
+  const licenseUrl =
+    station?.licenseUrl ?? (followsLiveRail ? mainStatus?.licenseUrl : null) ?? null;
+  const licenseType =
+    station?.licenseType ?? (followsLiveRail ? mainStatus?.licenseType : null) ?? null;
+  const sourceLabel =
+    station?.sourceLabel ?? (followsLiveRail ? mainStatus?.sourceLabel : null) ?? null;
+  const sourceSite =
+    station?.sourceSite ?? (followsLiveRail ? mainStatus?.sourceSite : null) ?? null;
 
   return {
     stationLabel: isMain
@@ -456,6 +465,11 @@ function playbackInfoForEntry(entry, mainStatus, stationByRail, stationByLabel, 
     title,
     artist,
     albumArtUrl,
+    url,
+    licenseUrl,
+    licenseType,
+    sourceLabel,
+    sourceSite,
     broadcastActive: isMain ? !!mainStatus?.active : !!station && station.active !== false,
     isLive: station?.isLive ?? (railId != null && railId === liveRailId),
   };
@@ -532,6 +546,11 @@ async function syncGuildVoiceNotice(guildId, entry, mainStatus, stationByRail, s
     isLive: playback.isLive,
     radioDisplayName: branding.radioDisplayName,
     albumArtUrl: playback.albumArtUrl,
+    url: playback.url,
+    licenseUrl: playback.licenseUrl,
+    licenseType: playback.licenseType,
+    sourceLabel: playback.sourceLabel,
+    sourceSite: playback.sourceSite,
   });
   const components = [
     buildVoiceStationSelectRow({

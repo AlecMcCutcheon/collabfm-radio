@@ -1,4 +1,5 @@
 import { EmbedBuilder } from "discord.js";
+import { friendlySourceLabel } from "../content/sourceLabel.js";
 
 /** Discord can fetch this; used when no HTTPS art is available. */
 const FALLBACK_ART_URL =
@@ -55,6 +56,53 @@ export function resolveDiscordEmbedArtUrl(albumArtUrl) {
   return FALLBACK_ART_URL;
 }
 
+function isPublicHttpUrl(url) {
+  return isDiscordReachableUrl(url);
+}
+
+function escapeDiscordMarkdownLabel(label) {
+  return String(label || "")
+    .trim()
+    .replace(/\\/g, "\\\\")
+    .replace(/\[/g, "\\[")
+    .replace(/\]/g, "\\]");
+}
+
+function formatDiscordMarkdownLink(label, url) {
+  const href = String(url || "").trim();
+  const text = escapeDiscordMarkdownLabel(label);
+  if (!href || !text || !isPublicHttpUrl(href)) return null;
+  return `[${text}](${href})`;
+}
+
+export function extractTrackLinkFields(metadata) {
+  if (!metadata) return {};
+  const url = String(metadata.url || "").trim() || null;
+  const licenseUrl = String(metadata.licenseUrl || "").trim() || null;
+  const licenseType = String(metadata.licenseType || "").trim() || null;
+  const sourceLabel = String(metadata.sourceLabel || "").trim() || null;
+  const sourceSite = String(metadata.sourceSite || "").trim() || null;
+  return { url, licenseUrl, licenseType, sourceLabel, sourceSite };
+}
+
+function buildArtistLineWithLinks(artist, linkFields) {
+  if (!artist) return null;
+  const links = [];
+  const sourceLink = linkFields.url
+    ? formatDiscordMarkdownLink(
+        friendlySourceLabel(linkFields.sourceSite, linkFields.url, linkFields.sourceLabel),
+        linkFields.url,
+      )
+    : null;
+  const licenseLink = linkFields.licenseUrl
+    ? formatDiscordMarkdownLink(linkFields.licenseType || "License", linkFields.licenseUrl)
+    : null;
+  if (sourceLink) links.push(sourceLink);
+  if (licenseLink) links.push(licenseLink);
+  if (!links.length) return `*${artist}*`;
+  return `*${artist}* ${links.join(" ")}`;
+}
+
 export function formatNowPlayingTrack(title, artist) {
   const normalizedTitle = normalizeTitle(title);
   const normalizedArtist = normalizeArtist(artist);
@@ -78,6 +126,10 @@ export function voiceNoticeSnapshot(
     playback.title || "",
     playback.artist || "",
     playback.albumArtUrl || "",
+    playback.url || "",
+    playback.licenseUrl || "",
+    playback.licenseType || "",
+    playback.sourceLabel || "",
     playback.broadcastActive ? "1" : "0",
     playback.isLive ? "1" : "0",
     menuKey,
@@ -94,6 +146,11 @@ export function buildVoiceNowPlayingEmbed({
   isLive,
   radioDisplayName,
   albumArtUrl,
+  url,
+  licenseUrl,
+  licenseType,
+  sourceLabel,
+  sourceSite,
 }) {
   const normalizedTitle = normalizeTitle(title);
   const normalizedArtist = normalizeArtist(artist);
@@ -101,6 +158,13 @@ export function buildVoiceNowPlayingEmbed({
   const brand = String(radioDisplayName || "Radio").trim() || "Radio";
   const dj = String(djName || "").trim();
   const artUrl = resolveDiscordEmbedArtUrl(albumArtUrl);
+  const linkFields = extractTrackLinkFields({
+    url,
+    licenseUrl,
+    licenseType,
+    sourceLabel,
+    sourceSite,
+  });
 
   let statusText;
   let color;
@@ -124,7 +188,8 @@ export function buildVoiceNowPlayingEmbed({
   if (normalizedTitle || normalizedArtist) {
     const lines = [];
     if (normalizedTitle) lines.push(`**${normalizedTitle}**`);
-    if (normalizedArtist) lines.push(`*${normalizedArtist}*`);
+    const artistLine = buildArtistLineWithLinks(normalizedArtist, linkFields);
+    if (artistLine) lines.push(artistLine);
     embed.setDescription(lines.join("\n"));
   } else {
     embed.setDescription(

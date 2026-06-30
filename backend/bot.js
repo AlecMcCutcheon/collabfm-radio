@@ -888,6 +888,48 @@ function reapplyContentPolicyAfterCapabilitiesUpdate(authUserId, userWsId) {
   return { muted, deferred, decision, metadata };
 }
 
+function resolvePlaybackLinkExtras(title, artist) {
+  const resolvedTitle = String(title || "").trim();
+  const resolvedArtist = String(artist || "").trim();
+  if (!resolvedTitle || !resolvedArtist) {
+    return {
+      url: null,
+      licenseUrl: null,
+      licenseType: null,
+      sourceLabel: null,
+      sourceSite: null,
+    };
+  }
+
+  const pick = (metadata) => ({
+    url: metadata?.url ?? null,
+    licenseUrl: metadata?.licenseUrl ?? null,
+    licenseType: metadata?.licenseType ?? null,
+    sourceLabel: metadata?.sourceLabel ?? null,
+    sourceSite: metadata?.sourceSite ?? null,
+  });
+
+  const native = getNativeMetadataForActiveRail();
+  if (
+    native &&
+    String(native.title || "").trim() === resolvedTitle &&
+    String(native.artist || "").trim() === resolvedArtist
+  ) {
+    return pick(native);
+  }
+
+  const stable = globalThis.__metaState?.lastStabilized;
+  if (
+    stable &&
+    String(stable.title || "").trim() === resolvedTitle &&
+    String(stable.artist || "").trim() === resolvedArtist
+  ) {
+    return pick(stable);
+  }
+
+  return pick(null);
+}
+
 function syncInternalSongMirror() {
   try {
     const art =
@@ -895,18 +937,22 @@ function syncInternalSongMirror() {
         ? lookupAlbumArtForLiveTrack(currentSong, currentArtist, { stored: true }) ||
           fallbackAlbumArtUrl(currentSong, currentArtist)
         : null;
+    const title =
+      currentSong &&
+      currentSong !== "N/A" &&
+      !isPlaceholderPlaybackTitle(currentSong)
+        ? currentSong
+        : null;
+    const artist =
+      currentArtist && currentArtist !== "N/A" && !streamMetadataDisabled
+        ? currentArtist
+        : null;
+    const linkExtras = resolvePlaybackLinkExtras(title, artist);
     mirrorInternalSongInfo({
-      title:
-        currentSong &&
-        currentSong !== "N/A" &&
-        !isPlaceholderPlaybackTitle(currentSong)
-          ? currentSong
-          : null,
-      artist:
-        currentArtist && currentArtist !== "N/A" && !streamMetadataDisabled
-          ? currentArtist
-          : null,
+      title,
+      artist,
       albumArtUrl: art,
+      ...linkExtras,
       liveRailId: activeWsId,
       active: broadcastStatus.active,
       broadcasterDisplayName: broadcastStatus.broadcasterDisplayName,
@@ -3347,10 +3393,21 @@ http.createServer(async (req, res) => {
           lookupAlbumArtForLiveTrack(resolvedTitle, resolvedArtist) ||
             fallbackAlbumArtUrl(resolvedTitle, resolvedArtist),
         );
+    const linkExtras =
+      resolvedTitle && resolvedArtist
+        ? resolvePlaybackLinkExtras(resolvedTitle, resolvedArtist)
+        : {
+            url: null,
+            licenseUrl: null,
+            licenseType: null,
+            sourceLabel: null,
+            sourceSite: null,
+          };
     sendInternalJson(res, {
       title: resolvedTitle,
       artist: resolvedArtist,
       albumArtUrl: art,
+      ...linkExtras,
       liveRailId: activeWsId,
       active: broadcastStatus.active,
       broadcasterDisplayName: broadcastStatus.broadcasterDisplayName,
