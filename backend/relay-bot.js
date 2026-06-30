@@ -39,6 +39,7 @@ import {
 } from "./src/discord/voiceStationSelect.js";
 import {
   deleteCollabFmVoiceNoticesInChannel,
+  findCollabFmVoiceNoticeMessage,
   forgetNoticeChannel,
   pruneAllStaleVoiceNotices,
   rememberNoticeChannel,
@@ -216,6 +217,7 @@ const VOICE_MOVE_GRACE_MS = 2000;
 const pendingVoiceDisconnects = new Map(); // guildId -> timeout
 const intentionalVoiceLeaves = new Set(); // guildId
 const voiceJoinInProgress = new Set(); // guildId — /join until first now-playing sync
+const noticeSyncLocks = new Map(); // guildId — serialize embed send/edit per guild
 
 function destroyRelayMedia(entry) {
   if (!entry) return;
@@ -289,7 +291,11 @@ async function cleanupGuildVoiceNotices(guildId, entry = null) {
 
   try {
     const channel = await client.channels.fetch(channelId);
-    await deleteCollabFmVoiceNoticesInChannel(channel, { botId, guildProtected: false });
+    await deleteCollabFmVoiceNoticesInChannel(channel, {
+      botId,
+      guildProtected: false,
+      minAgeMs: 0,
+    });
   } catch {}
 
   forgetNoticeChannel(guildId);
@@ -556,6 +562,32 @@ async function deleteVoiceNotice(entry) {
 }
 
 async function syncGuildVoiceNotice(guildId, entry, mainStatus, stationByRail, stationsPayload) {
+  const prev = noticeSyncLocks.get(guildId) || Promise.resolve();
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const chain = prev.then(() => gate);
+  noticeSyncLocks.set(guildId, chain);
+
+  try {
+    await prev;
+    await syncGuildVoiceNoticeInner(guildId, entry, mainStatus, stationByRail, stationsPayload);
+  } finally {
+    release();
+    if (noticeSyncLocks.get(guildId) === chain) {
+      noticeSyncLocks.delete(guildId);
+    }
+  }
+}
+
+async function syncGuildVoiceNoticeInner(
+  guildId,
+  entry,
+  mainStatus,
+  stationByRail,
+  stationsPayload,
+) {
   if (!entry?.noticeTextChannelId) return;
 
   const liveRailId = stationsPayload?.liveRailId ?? null;
@@ -634,17 +666,19 @@ async function syncGuildVoiceNotice(guildId, entry, mainStatus, stationByRail, s
       }
     }
 
+    if (botId) {
+      const existingNotice = await findCollabFmVoiceNoticeMessage(channel, botId);
+      if (existingNotice) {
+        entry.noticeMessageId = existingNotice.id;
+        await existingNotice.edit(payload);
+        entry.lastNoticeSnapshot = snapshot;
+        return;
+      }
+    }
+
     const message = await channel.send(payload);
     entry.noticeMessageId = message.id;
     entry.lastNoticeSnapshot = snapshot;
-
-    if (botId && isVoiceMessageCleanupEnabled()) {
-      await deleteCollabFmVoiceNoticesInChannel(channel, {
-        botId,
-        exceptMessageId: entry.noticeMessageId,
-        guildProtected: false,
-      });
-    }
   } catch (err) {
     console.warn(
       `⚠️ Relay bot: failed to sync now-playing embed (guild ${guildId}):`,

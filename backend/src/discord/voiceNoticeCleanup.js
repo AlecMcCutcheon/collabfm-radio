@@ -25,12 +25,38 @@ function isVoiceSlashReplyMessage(message) {
   return !isCollabFmVoiceNoticeMessage(message);
 }
 
-export function shouldDeleteBotMessageForCleanup(message, targets) {
+export const VOICE_NOTICE_MIN_CLEANUP_AGE_MS = 60_000;
+
+export function shouldDeleteBotMessageForCleanup(
+  message,
+  targets,
+  { protectSyncEmbed = false, minAgeMs = 0 } = {},
+) {
+  if (minAgeMs > 0 && message?.createdTimestamp) {
+    if (Date.now() - message.createdTimestamp < minAgeMs) return false;
+  }
+  if (protectSyncEmbed && isCollabFmVoiceNoticeMessage(message)) return false;
+
   if (targets === "off") return false;
   if (targets === "all") return true;
   if (targets === "sync_embed") return isCollabFmVoiceNoticeMessage(message);
   if (targets === "slash_replies") return isVoiceSlashReplyMessage(message);
   return false;
+}
+
+/** Reuse an existing now-playing embed instead of posting a duplicate. */
+export async function findCollabFmVoiceNoticeMessage(channel, botId) {
+  if (!channel?.isTextBased?.() || !botId) return null;
+
+  try {
+    const messages = await channel.messages.fetch({ limit: 25 });
+    for (const message of messages.values()) {
+      if (message.author.id !== botId) continue;
+      if (isCollabFmVoiceNoticeMessage(message)) return message;
+    }
+  } catch {}
+
+  return null;
 }
 
 export function rememberNoticeChannel(guildId, channelId) {
@@ -57,7 +83,14 @@ export function forgetNoticeChannel(guildId) {
 /** Delete bot messages in a text channel that match the configured cleanup target. */
 export async function deleteBotMessagesInChannel(
   channel,
-  { botId, exceptMessageId = null, targets = null, guildProtected = false } = {},
+  {
+    botId,
+    exceptMessageId = null,
+    targets = null,
+    guildProtected = false,
+    protectSyncEmbed = false,
+    minAgeMs = VOICE_NOTICE_MIN_CLEANUP_AGE_MS,
+  } = {},
 ) {
   if (!channel?.isTextBased?.() || !botId) return 0;
 
@@ -66,13 +99,23 @@ export async function deleteBotMessagesInChannel(
   const cleanupTargets = resolveCleanupTargets(configuredTargets, { guildProtected });
   if (cleanupTargets === "off") return 0;
 
+  const skipSyncEmbed = protectSyncEmbed || guildProtected;
+  const exceptId = exceptMessageId ? String(exceptMessageId) : null;
+
   let deleted = 0;
   try {
     const messages = await channel.messages.fetch({ limit: 100 });
     for (const message of messages.values()) {
       if (message.author.id !== botId) continue;
-      if (exceptMessageId && message.id === exceptMessageId) continue;
-      if (!shouldDeleteBotMessageForCleanup(message, cleanupTargets)) continue;
+      if (exceptId && String(message.id) === exceptId) continue;
+      if (
+        !shouldDeleteBotMessageForCleanup(message, cleanupTargets, {
+          protectSyncEmbed: skipSyncEmbed,
+          minAgeMs,
+        })
+      ) {
+        continue;
+      }
       try {
         await message.delete();
         deleted += 1;
@@ -90,7 +133,14 @@ export async function pruneNoticeChannel(
   client,
   guildId,
   channelId,
-  { botId, exceptMessageId = null, targets = null, guildProtected = false } = {},
+  {
+    botId,
+    exceptMessageId = null,
+    targets = null,
+    guildProtected = false,
+    protectSyncEmbed = false,
+    minAgeMs = VOICE_NOTICE_MIN_CLEANUP_AGE_MS,
+  } = {},
 ) {
   const cid = String(channelId || "").trim();
   if (!cid || !botId || !client) return 0;
@@ -102,6 +152,8 @@ export async function pruneNoticeChannel(
       exceptMessageId,
       targets,
       guildProtected,
+      protectSyncEmbed,
+      minAgeMs,
     });
     if (deleted > 0) {
       console.log(
@@ -118,7 +170,12 @@ export async function scanGuildTextChannelsForStaleNotices(
   client,
   guildId,
   botId,
-  { targets = null, guildProtected = false } = {},
+  {
+    targets = null,
+    guildProtected = false,
+    protectSyncEmbed = false,
+    minAgeMs = VOICE_NOTICE_MIN_CLEANUP_AGE_MS,
+  } = {},
 ) {
   const guild = client.guilds.cache.get(guildId);
   if (!guild || !botId) return 0;
@@ -130,7 +187,13 @@ export async function scanGuildTextChannelsForStaleNotices(
 
   for (const channel of guild.channels.cache.values()) {
     if (!channel.isTextBased?.()) continue;
-    deleted += await deleteBotMessagesInChannel(channel, { botId, targets, guildProtected });
+    deleted += await deleteBotMessagesInChannel(channel, {
+      botId,
+      targets,
+      guildProtected,
+      protectSyncEmbed,
+      minAgeMs,
+    });
   }
   if (deleted > 0) {
     console.log(
