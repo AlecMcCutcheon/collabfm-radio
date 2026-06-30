@@ -38,6 +38,12 @@ import {
   voiceStationMenuKey,
 } from "./src/discord/voiceStationSelect.js";
 import {
+  deleteCollabFmVoiceNoticesInChannel,
+  forgetNoticeChannel,
+  pruneAllStaleVoiceNotices,
+  rememberNoticeChannel,
+} from "./src/discord/voiceNoticeCleanup.js";
+import {
   PcmRelayDecoder,
   MAIN_STATION_ID,
   PCM_FRAME_BYTES,
@@ -242,6 +248,7 @@ function removeRelayConnection(
 
   if (intentional) intentionalVoiceLeaves.add(guildId);
   destroyRelayMedia(existing);
+  void cleanupGuildVoiceNotices(guildId, existing);
 
   relayConnections.delete(guildId);
   persistVoiceBotConnections();
@@ -250,13 +257,37 @@ function removeRelayConnection(
   console.log(`👋 Relay bot disconnected from guild ${guildId} (${reason}). Remaining: ${relayConnections.size}`);
 }
 
+async function cleanupGuildVoiceNotices(guildId, entry = null) {
+  const existing = entry || relayConnections.get(guildId);
+  const botId = client.user?.id;
+  if (!botId) return;
+
+  if (existing?.noticeMessageId) {
+    await deleteVoiceNotice(existing);
+    existing.noticeMessageId = null;
+    existing.lastNoticeSnapshot = null;
+  }
+
+  const voice = getSetting("voiceBot", {});
+  const channelId =
+    existing?.noticeTextChannelId || voice.noticeChannels?.[String(guildId)] || null;
+  if (!channelId) {
+    forgetNoticeChannel(guildId);
+    return;
+  }
+
+  try {
+    const channel = await client.channels.fetch(channelId);
+    await deleteCollabFmVoiceNoticesInChannel(channel, { botId });
+  } catch {}
+
+  forgetNoticeChannel(guildId);
+}
+
 async function leaveVoiceGuild(guildId) {
   if (!relayConnections.has(guildId)) return false;
 
   intentionalVoiceLeaves.add(guildId);
-
-  const existing = relayConnections.get(guildId);
-  await deleteVoiceNotice(existing);
 
   try {
     const me = client.guilds.cache.get(guildId)?.members?.me;
@@ -575,6 +606,12 @@ async function syncGuildVoiceNotice(guildId, entry, mainStatus, stationByRail, s
   try {
     const channel = await client.channels.fetch(entry.noticeTextChannelId);
     if (!channel?.isTextBased?.()) return;
+
+    rememberNoticeChannel(guildId, entry.noticeTextChannelId);
+
+    if (!entry.noticeMessageId) {
+      await deleteCollabFmVoiceNoticesInChannel(channel, { botId: client.user?.id });
+    }
 
     if (entry.noticeMessageId) {
       try {
@@ -1746,8 +1783,19 @@ client.once("clientReady", async () => {
   }
   await registerRelayCommands();
 
+  void pruneAllStaleVoiceNotices(client, {
+    isBotInVoiceGuild: (guildId) => !!botVoiceChannel(guildId),
+    deep: true,
+  });
+
   void updatePresenceFromBroadcastStatus();
   setInterval(updatePresenceFromBroadcastStatus, 5000);
+  setInterval(() => {
+    void pruneAllStaleVoiceNotices(client, {
+      isBotInVoiceGuild: (guildId) => !!botVoiceChannel(guildId),
+      deep: false,
+    });
+  }, 5 * 60 * 1000);
   setInterval(() => {
     touchVoiceBotHeartbeat();
     persistVoiceBotConnections();

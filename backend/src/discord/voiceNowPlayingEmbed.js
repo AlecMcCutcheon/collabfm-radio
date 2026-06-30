@@ -85,9 +85,8 @@ export function extractTrackLinkFields(metadata) {
   return { url, licenseUrl, licenseType, sourceLabel, sourceSite };
 }
 
-function buildArtistLineWithLinks(artist, linkFields) {
-  if (!artist) return null;
-  const links = [];
+function appendTrackMetadataLines(lines, artist, linkFields) {
+  if (artist) lines.push(`*${artist}*`);
   const sourceLink = linkFields.url
     ? formatDiscordMarkdownLink(
         friendlySourceLabel(linkFields.sourceSite, linkFields.url, linkFields.sourceLabel),
@@ -97,10 +96,8 @@ function buildArtistLineWithLinks(artist, linkFields) {
   const licenseLink = linkFields.licenseUrl
     ? formatDiscordMarkdownLink(linkFields.licenseType || "License", linkFields.licenseUrl)
     : null;
-  if (sourceLink) links.push(sourceLink);
-  if (licenseLink) links.push(licenseLink);
-  if (!links.length) return `*${artist}*`;
-  return `*${artist}* ${links.join(" ")}`;
+  if (sourceLink) lines.push(sourceLink);
+  if (licenseLink) lines.push(licenseLink);
 }
 
 export function formatNowPlayingTrack(title, artist) {
@@ -188,8 +185,7 @@ export function buildVoiceNowPlayingEmbed({
   if (normalizedTitle || normalizedArtist) {
     const lines = [];
     if (normalizedTitle) lines.push(`**${normalizedTitle}**`);
-    const artistLine = buildArtistLineWithLinks(normalizedArtist, linkFields);
-    if (artistLine) lines.push(artistLine);
+    appendTrackMetadataLines(lines, normalizedArtist, linkFields);
     embed.setDescription(lines.join("\n"));
   } else {
     embed.setDescription(
