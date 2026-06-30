@@ -43,6 +43,7 @@ import {
   pruneAllStaleVoiceNotices,
   rememberNoticeChannel,
 } from "./src/discord/voiceNoticeCleanup.js";
+import { isVoiceMessageCleanupEnabled } from "./src/voice/voiceMessageCleanupSettings.js";
 import {
   PcmRelayDecoder,
   MAIN_STATION_ID,
@@ -258,6 +259,8 @@ function removeRelayConnection(
 }
 
 async function cleanupGuildVoiceNotices(guildId, entry = null) {
+  if (!isVoiceMessageCleanupEnabled()) return;
+
   const existing = entry || relayConnections.get(guildId);
   const botId = client.user?.id;
   if (!botId) return;
@@ -609,7 +612,7 @@ async function syncGuildVoiceNotice(guildId, entry, mainStatus, stationByRail, s
 
     rememberNoticeChannel(guildId, entry.noticeTextChannelId);
 
-    if (!entry.noticeMessageId) {
+    if (!entry.noticeMessageId && isVoiceMessageCleanupEnabled()) {
       await deleteCollabFmVoiceNoticesInChannel(channel, { botId: client.user?.id });
     }
 
@@ -1242,15 +1245,17 @@ async function playRelayRadio(
     });
     if (textChannelId) {
       rememberNoticeChannel(guildId, textChannelId);
-      void (async () => {
-        try {
-          const channel = await client.channels.fetch(textChannelId);
-          const botId = client.user?.id;
-          if (botId) {
-            await deleteCollabFmVoiceNoticesInChannel(channel, { botId });
-          }
-        } catch {}
-      })();
+      if (isVoiceMessageCleanupEnabled()) {
+        void (async () => {
+          try {
+            const channel = await client.channels.fetch(textChannelId);
+            const botId = client.user?.id;
+            if (botId) {
+              await deleteCollabFmVoiceNoticesInChannel(channel, { botId });
+            }
+          } catch {}
+        })();
+      }
     }
 
     if (existing) {
@@ -1798,7 +1803,6 @@ client.once("clientReady", async () => {
   setTimeout(() => {
     void pruneAllStaleVoiceNotices(client, {
       isBotInVoiceGuild: (guildId) => !!botVoiceChannel(guildId),
-      deep: true,
     });
   }, 8000);
 
@@ -1807,7 +1811,6 @@ client.once("clientReady", async () => {
   setInterval(() => {
     void pruneAllStaleVoiceNotices(client, {
       isBotInVoiceGuild: (guildId) => !!botVoiceChannel(guildId),
-      deep: false,
     });
   }, 5 * 60 * 1000);
   setInterval(() => {

@@ -22,7 +22,7 @@ import {
   RoleBadge,
   OIDC_FIELDS,
 } from "../components/admin/adminUi";
-import type { AdminUser, AudioPipelineSettings, BrandingSettings, BuildInfo, ContainerUpdateStatus, IntegrationsSettings, LimitsSettings, OidcConfig, ShareLink, StreamInfo, VoiceBotConfig, VoiceBotRuntime, WhitelistEntry } from "../types/api";
+import type { AdminUser, AudioPipelineSettings, BrandingSettings, BuildInfo, ContainerUpdateStatus, IntegrationsSettings, LimitsSettings, OidcConfig, ShareLink, StreamInfo, VoiceBotConfig, VoiceBotMessageCleanupScope, VoiceBotMessageCleanupTarget, VoiceBotRuntime, WhitelistEntry } from "../types/api";
 import { applyStationTitle } from "../utils/stationTitle";
 import { absolutePublicUrl } from "../utils/publicUrl";
 import { imageFallbackHandler, proceduralStationLogo, resolveBrandingImageUrl } from "../utils/brandingImage";
@@ -89,6 +89,7 @@ export function AdminPage() {
     botToken: "",
     enabled: true,
     publicBaseUrl: "",
+    messageCleanup: { targets: "all", scope: "remembered" },
   });
   const [voiceRuntime, setVoiceRuntime] = useState<VoiceBotRuntime | null>(null);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
@@ -704,6 +705,55 @@ export function AdminPage() {
                 <AdminBtn variant="success" disabled={botBusy || !voiceBot.verified || voiceRuntime?.mode === "external"} onClick={() => void startVoiceBot()}>Start bot</AdminBtn>
                 <AdminBtn variant="danger" disabled={botBusy || !voiceRuntime?.running || voiceRuntime?.mode === "external"} onClick={() => void stopVoiceBot()}>Stop bot</AdminBtn>
               </div>
+            </AdminSection>
+
+            <AdminSection
+              title="Message cleanup"
+              description="Control what the voice bot deletes when it leaves voice, on startup, and on periodic sweeps. Remembered channels are text channels where /join was used."
+            >
+              <AdminField
+                label="What to remove"
+                hint="Now-playing embed is the live sync card with station selector. Slash replies are /join, /leave, and /station responses."
+              >
+                <AdminSelect
+                  value={voiceBot.messageCleanup?.targets ?? "all"}
+                  onChange={(e) =>
+                    setVoiceBot({
+                      ...voiceBot,
+                      messageCleanup: {
+                        targets: e.target.value as VoiceBotMessageCleanupTarget,
+                        scope: voiceBot.messageCleanup?.scope ?? "remembered",
+                      },
+                    })
+                  }
+                >
+                  <option value="off">Off — never auto-delete</option>
+                  <option value="sync_embed">Now-playing embed only</option>
+                  <option value="slash_replies">Slash command replies only (/join, /leave, /station)</option>
+                  <option value="all">All bot messages in scope</option>
+                </AdminSelect>
+              </AdminField>
+              <AdminField
+                label="Where to scan"
+                hint="Remembered channels only is safest. All text channels scans every text channel in servers where the bot is not in voice."
+              >
+                <AdminSelect
+                  value={voiceBot.messageCleanup?.scope ?? "remembered"}
+                  disabled={(voiceBot.messageCleanup?.targets ?? "all") === "off"}
+                  onChange={(e) =>
+                    setVoiceBot({
+                      ...voiceBot,
+                      messageCleanup: {
+                        targets: voiceBot.messageCleanup?.targets ?? "all",
+                        scope: e.target.value as VoiceBotMessageCleanupScope,
+                      },
+                    })
+                  }
+                >
+                  <option value="remembered">Remembered channels only</option>
+                  <option value="all_channels">All text channels in server</option>
+                </AdminSelect>
+              </AdminField>
             </AdminSection>
 
             <AdminSection title="Server whitelist" description="Only these Discord server IDs may use /join.">

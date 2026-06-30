@@ -18,7 +18,7 @@ import {
   updateUser,
   upsertWhitelistEntry,
 } from "../db/index.js";
-import { getVoiceBotConfig, mergeSecretField } from "../settings/runtime.js";
+import { getVoiceBotConfig, mergeSecretField, normalizeVoiceMessageCleanupSettings } from "../settings/runtime.js";
 import {
   integrationsAdminPayload,
   saveIntegrationsSettings,
@@ -80,6 +80,7 @@ function voiceBotPayload() {
       botTokenConfigured: !!voiceBot.botToken,
       enabled: voiceBot.enabled !== false,
       publicBaseUrl: getSetting("publicBaseUrl", ""),
+      messageCleanup: normalizeVoiceMessageCleanupSettings(voiceBot.messageCleanup),
       verified: voiceBot.verified
         ? {
             at: voiceBot.verified.at,
@@ -500,6 +501,9 @@ export async function handleAdminRoutes(req, res, pathname, method) {
           "publicBaseUrl",
           String(body.publicBaseUrl).trim().replace(/\/+$/, ""),
         );
+      }
+      if (body.messageCleanup != null) {
+        next.messageCleanup = normalizeVoiceMessageCleanupSettings(body.messageCleanup);
       }
       const fp = credentialsFingerprint(clientId, botToken);
       if (current.verified?.fingerprint && current.verified.fingerprint !== fp) {

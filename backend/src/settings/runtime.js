@@ -1,9 +1,11 @@
 import { getSetting, setSetting } from "../db/index.js";
+import { normalizeVoiceMessageCleanupSettings } from "../voice/voiceMessageCleanupSettings.js";
 
 const VOICE_BOT_DEFAULTS = {
   clientId: "",
   botToken: "",
   enabled: true,
+  messageCleanup: normalizeVoiceMessageCleanupSettings(),
 };
 
 export function ensureDefaultSettings(configFile = {}) {
@@ -38,8 +40,11 @@ export function getVoiceBotConfig(configFile = {}) {
     clientId: stored.clientId || legacy.clientId || "",
     botToken: stored.botToken || legacy.botToken || "",
     enabled: stored.enabled !== false,
+    messageCleanup: normalizeVoiceMessageCleanupSettings(stored.messageCleanup),
   };
 }
+
+export { normalizeVoiceMessageCleanupSettings };
 
 export function maskSecret(value) {
   if (!value) return "";

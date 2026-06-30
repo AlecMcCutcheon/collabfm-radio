@@ -275,12 +275,21 @@ export interface ContentPolicy {
   allowedLicenses: string[];
 }
 
+export type VoiceBotMessageCleanupTarget = "off" | "sync_embed" | "slash_replies" | "all";
+export type VoiceBotMessageCleanupScope = "remembered" | "all_channels";
+
+export interface VoiceBotMessageCleanupSettings {
+  targets: VoiceBotMessageCleanupTarget;
+  scope: VoiceBotMessageCleanupScope;
+}
+
 export interface VoiceBotConfig {
   clientId: string;
   botToken: string;
   botTokenConfigured?: boolean;
   enabled: boolean;
   publicBaseUrl?: string;
+  messageCleanup?: VoiceBotMessageCleanupSettings;
   verified?: VoiceBotVerified | null;
 }
 
