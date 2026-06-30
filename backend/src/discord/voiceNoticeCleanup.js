@@ -1,19 +1,4 @@
 import { getSetting, setSetting } from "../db/index.js";
-import { VOICE_STATION_SELECT_PREFIX } from "./voiceStationSelect.js";
-
-export function isCollabFmVoiceNoticeMessage(message) {
-  if (!message?.author?.bot) return false;
-  const embed = message.embeds?.[0];
-  if (!embed || embed.title !== "Now Playing") return false;
-
-  const hasStationSelect = (message.components || []).some((row) =>
-    (row.components || []).some((component) =>
-      String(component.customId || "").startsWith(VOICE_STATION_SELECT_PREFIX),
-    ),
-  );
-  if (hasStationSelect) return true;
-  return embed.footer?.text === "Switch station ↓";
-}
 
 export function rememberNoticeChannel(guildId, channelId) {
   const gid = String(guildId || "").trim();
@@ -36,7 +21,8 @@ export function forgetNoticeChannel(guildId) {
   setSetting("voiceBot", { ...voice, noticeChannels });
 }
 
-export async function deleteCollabFmVoiceNoticesInChannel(
+/** Delete recent messages authored by this bot in a text channel. */
+export async function deleteBotMessagesInChannel(
   channel,
   { botId, exceptMessageId = null } = {},
 ) {
@@ -48,7 +34,6 @@ export async function deleteCollabFmVoiceNoticesInChannel(
     for (const message of messages.values()) {
       if (message.author.id !== botId) continue;
       if (exceptMessageId && message.id === exceptMessageId) continue;
-      if (!isCollabFmVoiceNoticeMessage(message)) continue;
       try {
         await message.delete();
         deleted += 1;
@@ -58,6 +43,9 @@ export async function deleteCollabFmVoiceNoticesInChannel(
 
   return deleted;
 }
+
+/** @deprecated Use deleteBotMessagesInChannel */
+export const deleteCollabFmVoiceNoticesInChannel = deleteBotMessagesInChannel;
 
 export async function pruneNoticeChannel(
   client,
@@ -70,13 +58,13 @@ export async function pruneNoticeChannel(
 
   try {
     const channel = await client.channels.fetch(cid);
-    const deleted = await deleteCollabFmVoiceNoticesInChannel(channel, {
+    const deleted = await deleteBotMessagesInChannel(channel, {
       botId,
       exceptMessageId,
     });
     if (deleted > 0) {
       console.log(
-        `🧹 Relay bot: removed ${deleted} stale now-playing message(s) in guild ${guildId} channel ${cid}`,
+        `🧹 Relay bot: removed ${deleted} bot message(s) in guild ${guildId} channel ${cid}`,
       );
     }
     return deleted;
@@ -96,11 +84,11 @@ export async function scanGuildTextChannelsForStaleNotices(client, guildId, botI
 
   for (const channel of guild.channels.cache.values()) {
     if (!channel.isTextBased?.()) continue;
-    deleted += await deleteCollabFmVoiceNoticesInChannel(channel, { botId });
+    deleted += await deleteBotMessagesInChannel(channel, { botId });
   }
   if (deleted > 0) {
     console.log(
-      `🧹 Relay bot: removed ${deleted} stale now-playing message(s) across guild ${guildId}`,
+      `🧹 Relay bot: removed ${deleted} bot message(s) across guild ${guildId}`,
     );
     forgetNoticeChannel(guildId);
   }
@@ -161,6 +149,6 @@ export async function pruneAllStaleVoiceNotices(
   }
 
   console.log(
-    `🧹 Relay bot: stale notice sweep (${deep ? "deep" : "targeted"}) — scanned ${scanned} guild(s), skipped ${skippedInVoice} in voice`,
+    `🧹 Relay bot: bot message sweep (${deep ? "deep" : "targeted"}) — scanned ${scanned} guild(s), skipped ${skippedInVoice} in voice`,
   );
 }
