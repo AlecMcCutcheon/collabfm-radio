@@ -1240,6 +1240,18 @@ async function playRelayRadio(
       newNoticeSession,
       existing,
     });
+    if (textChannelId) {
+      rememberNoticeChannel(guildId, textChannelId);
+      void (async () => {
+        try {
+          const channel = await client.channels.fetch(textChannelId);
+          const botId = client.user?.id;
+          if (botId) {
+            await deleteCollabFmVoiceNoticesInChannel(channel, { botId });
+          }
+        } catch {}
+      })();
+    }
 
     if (existing) {
       destroyRelayMedia(existing);
@@ -1783,10 +1795,12 @@ client.once("clientReady", async () => {
   }
   await registerRelayCommands();
 
-  void pruneAllStaleVoiceNotices(client, {
-    isBotInVoiceGuild: (guildId) => !!botVoiceChannel(guildId),
-    deep: true,
-  });
+  setTimeout(() => {
+    void pruneAllStaleVoiceNotices(client, {
+      isBotInVoiceGuild: (guildId) => !!botVoiceChannel(guildId),
+      deep: true,
+    });
+  }, 8000);
 
   void updatePresenceFromBroadcastStatus();
   setInterval(updatePresenceFromBroadcastStatus, 5000);

@@ -90,6 +90,10 @@ export async function scanGuildTextChannelsForStaleNotices(client, guildId, botI
   if (!guild || !botId) return 0;
 
   let deleted = 0;
+  try {
+    await guild.channels.fetch();
+  } catch {}
+
   for (const channel of guild.channels.cache.values()) {
     if (!channel.isTextBased?.()) continue;
     deleted += await deleteCollabFmVoiceNoticesInChannel(channel, { botId });
@@ -139,13 +143,24 @@ export async function pruneAllStaleVoiceNotices(
     ...client.guilds.cache.keys(),
   ]);
 
+  let scanned = 0;
+  let skippedInVoice = 0;
+
   for (const guildId of guildIds) {
     const inVoice = isBotInVoiceGuild ? isBotInVoiceGuild(guildId) : false;
-    if (inVoice) continue;
+    if (inVoice) {
+      skippedInVoice += 1;
+      continue;
+    }
+    scanned += 1;
     await pruneStaleVoiceNoticesForGuild(client, guildId, {
       botId,
       botInVoice: false,
       deep,
     });
   }
+
+  console.log(
+    `🧹 Relay bot: stale notice sweep (${deep ? "deep" : "targeted"}) — scanned ${scanned} guild(s), skipped ${skippedInVoice} in voice`,
+  );
 }
