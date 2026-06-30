@@ -18,6 +18,10 @@ Instead of one person running a show alone, multiple broadcasters can join the *
   <img src="previews/CollabFM-Preview-2-Blocked.png" alt="CollabFM content policy — blocked track muted with policy notice on now playing" width="900" />
 </p>
 
+<p align="center">
+  <img src="previews/CollabFM-Preview-New.gif" alt="CollabFM walkthrough — stage, broadcasting, chat, party effects, and Discord voice bot" width="900" />
+</p>
+
 ## Why CollabFM?
 
 - 🎙️ Multiple DJs can join the stage and hand off the live broadcast
