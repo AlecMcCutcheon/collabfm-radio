@@ -66,6 +66,7 @@ Planned directions and ideas—not a schedule or promise of delivery:
 - ✅ ~~**Dynamic stage UI**~~ — stage slots in the GUI match the configured max stage users (Admin → Radio).
 - ✅ ~~**Container update notifications**~~ — Admin → System → Container updates: track `latest` or `develop` on GHCR, get a banner when a newer **published** image is pullable; each image bakes in its own build ID. See [Upgrading](#container-update-notifications) and [Admin Panel](./docs/wiki/Admin-Panel.md#tab-system).
 - ✅ ~~**Broadcaster extension — site adapters**~~ — per-site folders under `backend/broadcaster-extension/sites/`; [wiki guide](./docs/wiki/Broadcaster-Extension.md) and [`sites/CONTRIBUTING.md`](./backend/broadcaster-extension/sites/CONTRIBUTING.md).
+- ✅ ~~**FMA support**~~ — extension metadata and license scraping from track pages; `freemusicarchive.org` in default content policy; source and license links on now-playing.
 - ✅ ~~**Jamendo support**~~ — extension metadata, license enrichment, stage media controls; `jamendo.com` in default content policy.
 - ✅ ~~**Chrome Web Store listing**~~ — [CollabFM Broadcaster](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba) for easier install and Chrome auto-updates; Go live modal shows server ZIP vs store version.
 - ✅ ~~**Chrome Web Store stage workflow**~~ — CI uploads extension ZIP on `main` (upload only, skips when in review); **submit for review manually** in the Developer Dashboard when ready (intentional).

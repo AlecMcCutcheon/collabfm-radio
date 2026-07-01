@@ -21,6 +21,9 @@ Admin → System → Container updates: enable notifications; GHCR tag (`latest`
 ✅ ~~**Broadcaster extension — site adapters**~~  
 Per-site folders under `backend/broadcaster-extension/sites/` (metadata, license enrichment, media controls) with a thin `content.js` orchestrator; contributor guide in `sites/CONTRIBUTING.md` and [Broadcaster Extension wiki](./wiki/Broadcaster-Extension.md).
 
+✅ ~~**FMA extension support**~~  
+Free Music Archive site adapter (metadata + license scraping from track pages, track URL); `freemusicarchive.org` as the default allowed source; source and license links on now-playing and in the live session log.
+
 ✅ ~~**Jamendo extension support**~~  
 Jamendo site adapter (metadata + license via API, track URL, stage media controls); `jamendo.com` added to default content policy allowlist; docs and About updated.
 
