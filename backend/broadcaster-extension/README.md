@@ -11,7 +11,7 @@ Chrome extension bundled in the CollabFM backend and published on the **[Chrome 
 | **Chrome Web Store** | [CollabFM Broadcaster](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba) — Chrome auto-updates |
 | **Server ZIP** | CollabFM **Go live** modal → **Download ZIP** → load unpacked in `chrome://extensions` |
 
-The Go live modal shows the ZIP version (from this folder’s `manifest.json` in your image) and the Web Store version. Store publishes from `main` are **manual** today; see the wiki for sync caveats.
+The Go live modal shows the ZIP version (from this folder’s `manifest.json` in your image) and the Web Store version. CI **stages** ZIP uploads on `main` automatically; **submit for review** in the Developer Dashboard when ready — see the wiki for sync details.
 
 ## Layout
 

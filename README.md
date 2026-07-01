@@ -61,16 +61,17 @@ If CollabFM helps you, [donations are appreciated](https://www.paypal.com/donate
 
 Planned directions and ideas—not a schedule or promise of delivery:
 
-- ~~**Content policy** — configurable source and artist allowlists enforced by default; metadata-based filtering (not audio analysis), admin UI, extension integration, and [wiki guide](./docs/wiki/Content-Policy.md).~~ *(shipped)*
-- ~~**Content policy — licensing & stricter defaults** — FMA-first default source; Creative Commons license allowlist with flexible matching; license safety rails; FMA metadata and license scraping; source/license links on now-playing and session log; policy re-check on DJ switch.~~ *(shipped)*
-- ~~**Dynamic stage UI** — stage slots in the GUI match the configured max stage users (Admin → Radio).~~ *(shipped)*
-- ~~**Container update notifications** — Admin → System → Container updates: track `latest` or `develop` on GHCR, get a banner when a newer **published** image is pullable; each image bakes in its own build ID. See [Upgrading](#container-update-notifications) and [Admin Panel](./docs/wiki/Admin-Panel.md#tab-system).~~ *(shipped)*
-- ~~**Broadcaster extension — site adapters** — per-site folders under `backend/broadcaster-extension/sites/`; [wiki guide](./docs/wiki/Broadcaster-Extension.md) and [`sites/CONTRIBUTING.md`](./backend/broadcaster-extension/sites/CONTRIBUTING.md).~~ *(shipped)*
-- ~~**Jamendo support**~~ — extension metadata, license enrichment, stage media controls; `jamendo.com` in default content policy.~~ *(shipped)*
-- ~~**Chrome Web Store listing**~~ — [CollabFM Broadcaster](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba) for easier install and Chrome auto-updates; Go live modal shows server ZIP vs store version.~~ *(shipped)*
-- ~~**Chrome Web Store stage workflow**~~ — CI uploads extension ZIP on `main` (upload only, skips when in review); you submit for review manually.~~ *(shipped)*
-- **Hybrid users** — optional local password on SSO-linked accounts (and related account management).
-- **Gated registration** — access-request form, admin approve/deny queue, one-time enrollment tokens.
+- ✅ ~~**Content policy**~~ — configurable source and artist allowlists enforced by default; metadata-based filtering (not audio analysis), admin UI, extension integration, and [wiki guide](./docs/wiki/Content-Policy.md).
+- ✅ ~~**Content policy — licensing & stricter defaults**~~ — FMA-first default source; Creative Commons license allowlist with flexible matching; license safety rails; FMA metadata and license scraping; source/license links on now-playing and session log; policy re-check on DJ switch.
+- ✅ ~~**Dynamic stage UI**~~ — stage slots in the GUI match the configured max stage users (Admin → Radio).
+- ✅ ~~**Container update notifications**~~ — Admin → System → Container updates: track `latest` or `develop` on GHCR, get a banner when a newer **published** image is pullable; each image bakes in its own build ID. See [Upgrading](#container-update-notifications) and [Admin Panel](./docs/wiki/Admin-Panel.md#tab-system).
+- ✅ ~~**Broadcaster extension — site adapters**~~ — per-site folders under `backend/broadcaster-extension/sites/`; [wiki guide](./docs/wiki/Broadcaster-Extension.md) and [`sites/CONTRIBUTING.md`](./backend/broadcaster-extension/sites/CONTRIBUTING.md).
+- ✅ ~~**Jamendo support**~~ — extension metadata, license enrichment, stage media controls; `jamendo.com` in default content policy.
+- ✅ ~~**Chrome Web Store listing**~~ — [CollabFM Broadcaster](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba) for easier install and Chrome auto-updates; Go live modal shows server ZIP vs store version.
+- ✅ ~~**Chrome Web Store stage workflow**~~ — CI uploads extension ZIP on `main` (upload only, skips when in review); **submit for review manually** in the Developer Dashboard when ready (intentional).
+- ⏳ **Hybrid users** — optional local password on SSO-linked accounts (and related account management).
+- ⏳ **Gated registration** — access-request form, admin approve/deny queue, one-time enrollment tokens.
+- ⏳ **Off-site update alerts** — email or Discord DM beyond the in-app Admin container banner.
 
 More detail on each item: [docs/ROADMAP.md](./docs/ROADMAP.md).
 
@@ -237,7 +238,7 @@ environment:
 
 If you **do** customize files in appdata, leave `preserve` and merge upstream changes manually, or back up your edits before using `update` (sync uses `--delete` for app paths not in the exclude list).
 
-Reinstall or update the **Chrome extension** after server upgrades when broadcasting or content-policy behavior changes. Install from the **[Chrome Web Store](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba)** (auto-updates) or download the **ZIP** bundled in your container image via the **Go live** modal (mic icon) — the modal shows the server ZIP version and the Web Store version side by side. The store build is published **manually** today and can lag behind `:latest`; see [Broadcaster extension](#broadcaster-extension) and [Broadcaster Extension (wiki)](./docs/wiki/Broadcaster-Extension.md#install--version-sync).
+Reinstall or update the **Chrome extension** after server upgrades when broadcasting or content-policy behavior changes. Install from the **[Chrome Web Store](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba)** (auto-updates after Google approves a release) or download the **ZIP** from the **Go live** modal — the modal shows server vs store versions. CI **stages** store ZIPs on `main` automatically; **submit for review** in the Developer Dashboard when you are ready (intentional). See [Broadcaster extension](#broadcaster-extension).
 
 ### Container update notifications
 
@@ -482,8 +483,8 @@ The **Go live** modal shows the **server ZIP version** (from `manifest.json` in 
 
 **Version sync (read this if you self-host)**
 
-- Store publishing is **manual** today — there is no automated workflow yet to upload the extension from `main` on every release. The Web Store build can be **behind** your container (or ahead if you update Chrome before pulling a new image).
-- Even with automation later, expect roughly **20–40 minutes** plus **Chrome Web Store review** before a new store version is live for everyone.
+- **CI stages ZIP uploads** on `main` when `backend/broadcaster-extension/**` changes ([workflow](https://github.com/AlecMcCutcheon/collabfm-radio/blob/main/.github/workflows/stage-chrome-extension.yml)). Skips if a version is already **PENDING_REVIEW**. **Submit for review manually** in the Developer Dashboard when you are done iterating — intentional.
+- After you submit, expect **Chrome review** before the public listing updates; the Go live modal may show store version lag until Google approves.
 - Some releases change **both** the server and extension together (pairing, relay, content-policy handshakes). Keep those in sync when you can. Breaking paired changes should become less frequent as the project matures, but that is not guaranteed.
 - **Site-adapter-only** changes (new metadata, license, or media-control support for a site) are usually backward compatible: an older extension still works with a newer server; you only miss the new site until you update.
 - **Extension newer than server** (e.g. store auto-update while your image is old) can cause issues when both sides changed significantly — watch the repo, `manifest.json`, and the version labels in Go live.

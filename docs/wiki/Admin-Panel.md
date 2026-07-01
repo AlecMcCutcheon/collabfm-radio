@@ -148,6 +148,6 @@ See [Content Policy](./Content-Policy.md) for full detail.
 - **Notify when a newer build is available** — compares your revision to the matching GHCR tag only (no cross-channel false alerts).
 - **Check now** / **Save** — refresh the comparison or persist notification preferences.
 
-After upgrading: pull the new image, set `COLLABFM_SYNC_MODE=update` for one recreate, then update the extension if needed (ZIP from Go live or wait for the Chrome Web Store after a manual publish).
+After upgrading: pull the new image, set `COLLABFM_SYNC_MODE=update` for one recreate, then update the extension if needed (ZIP from Go live, or wait for the Chrome Web Store after you submit a staged build for review).
 
 **System info** — database path, runtime mode (read-only reference).
