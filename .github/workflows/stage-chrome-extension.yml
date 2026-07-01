@@ -1,0 +1,55 @@
+# Stage CollabFM Broadcaster on the Chrome Web Store (upload only — you submit for review manually).
+#
+# Runs when backend/broadcaster-extension/ changes on main, or via workflow_dispatch.
+#
+# Skips (success, no upload) when:
+#   - submittedItemRevisionStatus is PENDING_REVIEW
+#   - an async upload is still in progress
+#   - manifest version is already staged/published
+#
+# Required repository secrets (admin-only; values never shown after save):
+#   CHROME_WEBSTORE_CLIENT_ID
+#   CHROME_WEBSTORE_CLIENT_SECRET
+#   CHROME_WEBSTORE_REFRESH_TOKEN
+#   CHROME_WEBSTORE_PUBLISHER_ID
+#
+# Required repository variable:
+#   CHROME_EXTENSION_ID  (e.g. nnalcbfijmoobcgejgnbmdimnekedpba)
+
+name: Stage Chrome extension
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/broadcaster-extension/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps (archiver for ZIP build)
+        run: npm ci --prefix backend
+
+      - name: Stage extension ZIP on Chrome Web Store
+        env:
+          CHROME_WEBSTORE_CLIENT_ID: ${{ secrets.CHROME_WEBSTORE_CLIENT_ID }}
+          CHROME_WEBSTORE_CLIENT_SECRET: ${{ secrets.CHROME_WEBSTORE_CLIENT_SECRET }}
+          CHROME_WEBSTORE_REFRESH_TOKEN: ${{ secrets.CHROME_WEBSTORE_REFRESH_TOKEN }}
+          CHROME_WEBSTORE_PUBLISHER_ID: ${{ secrets.CHROME_WEBSTORE_PUBLISHER_ID }}
+          CHROME_EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
+        run: node scripts/stage-chrome-extension.mjs

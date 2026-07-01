@@ -68,7 +68,7 @@ Planned directions and ideas—not a schedule or promise of delivery:
 - ~~**Broadcaster extension — site adapters** — per-site folders under `backend/broadcaster-extension/sites/`; [wiki guide](./docs/wiki/Broadcaster-Extension.md) and [`sites/CONTRIBUTING.md`](./backend/broadcaster-extension/sites/CONTRIBUTING.md).~~ *(shipped)*
 - ~~**Jamendo support**~~ — extension metadata, license enrichment, stage media controls; `jamendo.com` in default content policy.~~ *(shipped)*
 - ~~**Chrome Web Store listing**~~ — [CollabFM Broadcaster](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba) for easier install and Chrome auto-updates; Go live modal shows server ZIP vs store version.~~ *(shipped)*
-- **Chrome Web Store publish automation** — CI workflow to upload the extension from `main` when `manifest.json` changes (manual publish today).
+- ~~**Chrome Web Store stage workflow**~~ — CI uploads extension ZIP on `main` (upload only, skips when in review); you submit for review manually.~~ *(shipped)*
 - **Hybrid users** — optional local password on SSO-linked accounts (and related account management).
 - **Gated registration** — access-request form, admin approve/deny queue, one-time enrollment tokens.
 

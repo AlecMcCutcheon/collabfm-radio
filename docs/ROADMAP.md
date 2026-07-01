@@ -20,6 +20,8 @@ Ideas under consideration—not commitments, and not in any fixed order. If some
 
 ~~**Chrome Web Store listing**~~ — **Shipped.** [CollabFM Broadcaster](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba) published for easier install and Chrome auto-updates. Go live modal offers **Download ZIP** and **Chrome Web Store** side by side with bundled vs store version comparison.
 
+~~**Chrome Web Store stage workflow**~~ — **Shipped.** [`.github/workflows/stage-chrome-extension.yml`](../.github/workflows/stage-chrome-extension.yml) uploads extension ZIP on `main` changes (upload only; skips when in review). Submit for review manually in the Developer Dashboard.
+
 ---
 
 ## Container & release workflow
@@ -37,9 +39,18 @@ Scripts: `./scripts/push-dev.sh`, `./scripts/promote-dev-to-main.sh` (see README
 
 ## Chrome Web Store publishing
 
-The extension is **live** on the [Chrome Web Store](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba). Uploads from `main` are **manual** today — there is no CI step yet to publish when `backend/broadcaster-extension/manifest.json` changes.
+The extension is **live** on the [Chrome Web Store](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba). Uploads from `main` are automated as **stage-only** — see [`.github/workflows/stage-chrome-extension.yml`](../.github/workflows/stage-chrome-extension.yml).
 
-**Future:** automated publish workflow (package ZIP from `main`, upload to the store on release). Even then, expect **~20–40 minutes** plus **Chrome review** before broadcasters receive the update. Operators should compare versions in the **Go live** modal (server ZIP vs store) and read [Install & version sync](./wiki/Broadcaster-Extension.md#install--version-sync).
+**How it works**
+
+- On push to `main` when `backend/broadcaster-extension/**` changes (or manual **Actions → Stage Chrome extension**), CI uploads a ZIP to the Developer Dashboard **without** submitting for review.
+- If a version is already **PENDING_REVIEW**, the workflow skips upload so back-to-back pushes do not fail.
+- Bump `manifest.json` before each staged build you want uploaded; same version is skipped.
+- You **submit for review manually** in the Developer Dashboard when you are done iterating.
+
+**Secrets** (repo admin only; values hidden): `CHROME_WEBSTORE_CLIENT_ID`, `CHROME_WEBSTORE_CLIENT_SECRET`, `CHROME_WEBSTORE_REFRESH_TOKEN`, `CHROME_WEBSTORE_PUBLISHER_ID`. **Variable:** `CHROME_EXTENSION_ID`.
+
+Even after staging, expect **Chrome review delay** before the public listing updates. Operators should compare versions in **Go live** (server ZIP vs store).
 
 **Direction for extension growth:** community **site adapters** (metadata, license retrieval, stage media controls) — usually backward compatible; older extensions keep working with newer servers but miss new sites until updated.
 
