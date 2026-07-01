@@ -7,6 +7,7 @@ Detailed guides beyond the [main README](https://github.com/AlecMcCutcheon/colla
 | Guide | What it covers |
 |-------|----------------|
 | [Navigating the UI](./Navigating-the-UI.md) | Chat, admin entry, mobile vs desktop, main radio screen |
+| [Account Security & Studio](./Account-Security-and-Studio.md) | Listener/Broadcaster Studio, hybrid SSO+password, 2FA, share links |
 | [Broadcasting & Stage](./Broadcasting-and-Stage.md) | Go live, extension pairing, promote a DJ, media controls |
 | [Broadcaster Extension](./Broadcaster-Extension.md) | Extension layout, site adapters, contributing new sources |
 | [Chat & Party Effects](./Chat-and-Party-Effects.md) | Live chat, GIFs, synced party effects, hearts, hotkeys |
@@ -27,11 +28,20 @@ Bottom-right **message icon** (Open chat) → **Live Chat** header → **gear ic
 **Admin settings (mobile)**  
 Bottom nav **Chat** → chat header **gear** → **Admin settings**
 
-**Broadcaster Studio (desktop)**  
-Top-right **profile icon** → Broadcaster Studio
+**Listener Studio (desktop)**  
+Top-right **profile icon** → Studio (all signed-in users)
 
-**Broadcaster Studio (mobile)**  
+**Listener Studio (mobile)**  
 Bottom nav **Studio**
+
+**Broadcaster Studio**  
+Same Studio page — broadcasters and admins also see extension pairing and go-live tools
+
+**Account security & 2FA**  
+Studio → **Account security** — see [Account Security & Studio](./Account-Security-and-Studio.md)
+
+**Admin Security tab (2FA policy, Turnstile, content policy)**  
+**Admin settings** → **Security** tab
 
 **Promote another DJ**  
 Open **Stage** → click a host **avatar** → **Promote to DJ**

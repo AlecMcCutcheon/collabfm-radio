@@ -156,6 +156,7 @@ export function AdminBtn({
   variant = "primary",
   children,
   className = "",
+  type = "button",
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "danger" | "success";
@@ -168,7 +169,7 @@ export function AdminBtn({
   }[variant];
   return (
     <button
-      type="button"
+      type={type}
       {...props}
       className={`${adminControlHeight} inline-flex items-center justify-center rounded-lg px-4 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${styles} ${className}`}
     >

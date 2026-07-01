@@ -35,7 +35,7 @@ export const ROLE_PERMISSIONS = {
     canToggleJoinDebug: false,
     canApproveRequests: false,
     canDenyRequests: false,
-    canCreateShareLinks: false,
+    canCreateShareLinks: true,
   },
 };
 

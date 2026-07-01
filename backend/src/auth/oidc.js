@@ -1,5 +1,7 @@
 import crypto from "crypto";
 import { verifyOidcIdToken } from "../security/jwtVerify.js";
+import { getUserById } from "../db/index.js";
+import { extractOidcProfileClaims } from "./oidcUser.js";
 
 const pendingStates = new Map();
 const discoveryCache = new Map();
@@ -24,8 +26,8 @@ async function fetchJson(url, options) {
   return r.json();
 }
 
-/** Resolve authorize/token URLs from OIDC discovery (Authentik uses shared /application/o/authorize/). */
-async function resolveOidcEndpoints(oidc) {
+/** Resolve authorize/token/userinfo URLs from OIDC discovery. */
+async function resolveOidcDiscovery(oidc) {
   const issuer = normalizeIssuer(oidc.issuer);
   if (!issuer) throw new Error("OIDC issuer not configured");
 
@@ -33,6 +35,7 @@ async function resolveOidcEndpoints(oidc) {
     return {
       authorizationEndpoint: oidc.authorizationEndpoint,
       tokenEndpoint: oidc.tokenEndpoint,
+      userinfoEndpoint: oidc.userinfoEndpoint || null,
     };
   }
 
@@ -43,6 +46,7 @@ async function resolveOidcEndpoints(oidc) {
   const endpoints = {
     authorizationEndpoint: doc.authorization_endpoint,
     tokenEndpoint: doc.token_endpoint,
+    userinfoEndpoint: doc.userinfo_endpoint || null,
   };
   if (!endpoints.authorizationEndpoint || !endpoints.tokenEndpoint) {
     throw new Error("OIDC discovery document missing authorization or token endpoint");
@@ -52,10 +56,48 @@ async function resolveOidcEndpoints(oidc) {
   return endpoints;
 }
 
+async function resolveOidcEndpoints(oidc) {
+  const discovery = await resolveOidcDiscovery(oidc);
+  return {
+    authorizationEndpoint: discovery.authorizationEndpoint,
+    tokenEndpoint: discovery.tokenEndpoint,
+  };
+}
+
+async function fetchOidcUserinfo(oidc, accessToken) {
+  if (!accessToken) return null;
+  const { userinfoEndpoint } = await resolveOidcDiscovery(oidc);
+  if (!userinfoEndpoint) return null;
+  try {
+    return await fetchJson(userinfoEndpoint, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch (e) {
+    console.warn("[oidc] userinfo fetch failed:", e.message);
+    return null;
+  }
+}
+
+export async function mergeOidcClaimsWithUserinfo(idTokenClaims, oidc, accessToken) {
+  let claims = { ...idTokenClaims };
+  if (!claims.email && accessToken) {
+    const userinfo = await fetchOidcUserinfo(oidc, accessToken);
+    if (userinfo && typeof userinfo === "object") {
+      claims = { ...claims, ...userinfo };
+    }
+  }
+  return claims;
+}
+
 export async function handleOidcLogin(req, res, oidc) {
   cleanupStates();
+  const url = new URL(req.url, "http://localhost");
+  const intent = url.searchParams.get("intent");
   const state = crypto.randomBytes(16).toString("hex");
-  pendingStates.set(state, { exp: Date.now() + 10 * 60 * 1000 });
+  pendingStates.set(state, {
+    exp: Date.now() + 10 * 60 * 1000,
+    intent: intent === "hybrid_verify" ? "hybrid_verify" : null,
+  });
   const params = new URLSearchParams({
     client_id: oidc.clientId,
     response_type: "code",
@@ -76,16 +118,18 @@ export async function handleOidcLogin(req, res, oidc) {
   }
 }
 
-export async function handleOidcCallback(req, res, oidc, createUserSession) {
+export async function handleOidcCallback(req, res, oidc, createUserSession, getAppSession) {
   const url = new URL(req.url, "http://localhost");
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  if (!code || !state || !pendingStates.has(state)) {
+  const pending = pendingStates.get(state);
+  if (!code || !state || !pending) {
     res.writeHead(302, { Location: "/?error=oidc_state" });
     res.end();
     return;
   }
   pendingStates.delete(state);
+  const intent = pending.intent;
 
   try {
     const { tokenEndpoint } = await resolveOidcEndpoints(oidc);
@@ -101,10 +145,41 @@ export async function handleOidcCallback(req, res, oidc, createUserSession) {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: tokenBody.toString(),
     });
-    const claims = await verifyOidcIdToken(tokens.id_token, oidc);
+    const idClaims = await verifyOidcIdToken(tokens.id_token, oidc);
+    const claims = await mergeOidcClaimsWithUserinfo(
+      { ...idClaims, groupClaim: oidc.groupClaim },
+      oidc,
+      tokens.access_token,
+    );
+
+    if (intent === "hybrid_verify") {
+      const session = getAppSession?.(req);
+      if (!session?.user?.id) {
+        res.writeHead(302, { Location: "/?error=oidc_session_required" });
+        res.end();
+        return;
+      }
+      const subject = String(claims.sub || "");
+      const sessionUser = getUserById(Number(session.user.id));
+      if (!sessionUser?.oidc_subject || sessionUser.oidc_subject !== subject) {
+        res.writeHead(302, { Location: "/broadcaster?error=oidc_subject_mismatch" });
+        res.end();
+        return;
+      }
+      const { syncOidcProfileOnLogin } = await import("./oidcUser.js");
+      syncOidcProfileOnLogin(sessionUser, claims);
+      const profile = extractOidcProfileClaims(claims);
+      const emailKnown = !!profile.email;
+      res.writeHead(302, {
+        Location: emailKnown ? "/broadcaster?hybrid=ready" : "/broadcaster?error=oidc_no_email",
+      });
+      res.end();
+      return;
+    }
+
     const { provisionOidcUser } = await import("./oidcUser.js");
-    const user = provisionOidcUser({ ...claims, groupClaim: oidc.groupClaim }, oidc);
-    createUserSession(req, res, user.id);
+    const user = provisionOidcUser(claims, oidc);
+    createUserSession(req, res, user.id, "oidc");
     res.writeHead(302, { Location: "/" });
     res.end();
   } catch (e) {

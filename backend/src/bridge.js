@@ -6,6 +6,7 @@ import { handleAdminRoutes, handlePublicDiscordRoutes } from "./http/admin.js";
 import { handleListenRoutes } from "./http/listen.js";
 import { handleExtensionRoutes } from "./http/extension.js";
 import { handleBroadcasterRoutes } from "./http/broadcaster.js";
+import { handleAccountRoutes } from "./http/account.js";
 import { handleGuestBroadcastRoutes } from "./http/guestBroadcast.js";
 import { handleUserShareLinkRoutes } from "./http/userShareLinks.js";
 import { handleBrandingRoutes } from "./http/branding.js";
@@ -35,6 +36,7 @@ import { ensureDefaultSettings } from "./settings/runtime.js";
 import { ensureOperationalSettings } from "./settings/operational.js";
 import { ensureIntegrationsSettings } from "./settings/integrations.js";
 import { ensureContentPolicySettings } from "./settings/contentPolicy.js";
+import { ensureSecuritySettings } from "./settings/security.js";
 import { maybeAutoStartManagedVoiceBot } from "./voice/voiceBotManager.js";
 import { pruneOrphanBroadcastDevices } from "./db/broadcastDevices.js";
 import { purgeExpiredShareLinks } from "./db/shareLinks.js";
@@ -49,6 +51,7 @@ export function initV2({ storageDir, config }) {
   ensureOperationalSettings(config || {});
   ensureIntegrationsSettings(config || {});
   ensureContentPolicySettings();
+  ensureSecuritySettings();
   pruneExpiredSessions();
   setInterval(() => pruneExpiredSessions(), 60 * 60 * 1000);
   v2Ready = true;
@@ -148,6 +151,9 @@ export async function tryHandleV2Request(req, res, pathname, method, configFile 
 
   const broadcasterResult = await handleBroadcasterRoutes(req, res, pathname, method, getAppSession);
   if (broadcasterResult !== false) return true;
+
+  const accountResult = await handleAccountRoutes(req, res, pathname, method);
+  if (accountResult !== false) return true;
 
   const guestBroadcastResult = await handleGuestBroadcastRoutes(req, res, pathname, method);
   if (guestBroadcastResult !== false) return true;

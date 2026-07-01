@@ -93,7 +93,7 @@ You cannot profile-react to yourself. Reactions appear on or between the two ava
 
 ### Effect hotkeys (broadcasters)
 
-In **Broadcaster Studio → Effect hotkeys** (logged-in broadcasters with a favorites scope):
+In **Studio → Effect hotkeys** (logged-in broadcasters with a favorites scope):
 
 1. Assign up to **8** favorite effects to keys **1–8**.
 2. On the **Radio** view, press **1**–**8** to spawn that effect at your **cursor position**.
@@ -136,6 +136,6 @@ Open chat (desktop)     → bottom-right message icon
 Send GIF                → GIF button → pick or search
 Party effect (spot)     → right-click radio background → Party time → Effects / Arrivals / Reactions
 React to a person       → right-click their avatar (stage or chat)
-Effect hotkey           → Broadcaster Studio → assign keys 1–8 → press on Radio view
+Effect hotkey           → Studio → assign keys 1–8 → press on Radio view
 Heart the DJ            → heart icon on now playing (when live)
 ```

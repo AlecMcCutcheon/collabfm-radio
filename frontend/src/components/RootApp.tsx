@@ -88,9 +88,15 @@ function AuthenticatedApp() {
 
 function RootAppInner() {
   const { path } = useAppNavigation();
+  const { status } = useAuthStatus();
   const [setupComplete, setSetupComplete] = useState<boolean | null>(null);
+  const canBroadcast = !!(status.canBroadcast || status.isHost);
 
-  useStationTitle(pageTitleSuffix(path, setupComplete));
+  useStationTitle(
+    pageTitleSuffix(path, setupComplete, {
+      canBroadcast: path === "/broadcaster" ? canBroadcast : undefined,
+    }),
+  );
 
   useEffect(() => {
     void api.setupStatus().then((s) => setSetupComplete(s.complete));

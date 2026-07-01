@@ -27,7 +27,7 @@ import { applyStationTitle } from "../utils/stationTitle";
 import { absolutePublicUrl } from "../utils/publicUrl";
 import { imageFallbackHandler, proceduralStationLogo, resolveBrandingImageUrl } from "../utils/brandingImage";
 
-type Tab = "users" | "discord" | "sharing" | "oidc" | "radio" | "system";
+type Tab = "users" | "discord" | "sharing" | "oidc" | "radio" | "security" | "system";
 
 const DEFAULT_LIMITS: LimitsSettings = { maxStageUsers: 7, logRetentionCount: 5 };
 const MAX_STAGE_USERS = 9;
@@ -110,6 +110,7 @@ export function AdminPage() {
     visualizerImageUrl: "/profile.webp",
     hasCustomVisualizer: false,
     hideDeveloperAboutMessage: false,
+    branded2fa: false,
   });
   const [visualizerPreview, setVisualizerPreview] = useState(() => apiUrl("/profile.webp"));
   const [visualizerDragOver, setVisualizerDragOver] = useState(false);
@@ -122,7 +123,8 @@ export function AdminPage() {
   const [integrationsBusy, setIntegrationsBusy] = useState(false);
   const [guestActionsGrantXp, setGuestActionsGrantXp] = useState(true);
   const [blockGuestXpMatchingStageIp, setBlockGuestXpMatchingStageIp] = useState(true);
-  const [extensionRequirePairing, setExtensionRequirePairing] = useState(true);
+  const [localLogin2faRequired, setLocalLogin2faRequired] = useState(false);
+  const [securityBusy, setSecurityBusy] = useState(false);
   const [limits, setLimits] = useState<LimitsSettings>(DEFAULT_LIMITS);
   const [audio, setAudio] = useState<AudioPipelineSettings>(DEFAULT_AUDIO);
   const [radioBusy, setRadioBusy] = useState(false);
@@ -181,7 +183,7 @@ export function AdminPage() {
       setIntegrations(settings.integrations);
       setGuestActionsGrantXp(settings.leveling?.guestActionsGrantXp !== false);
       setBlockGuestXpMatchingStageIp(settings.leveling?.blockGuestXpMatchingStageIp !== false);
-      setExtensionRequirePairing(settings.broadcast?.extensionRequirePairing !== false);
+      setLocalLogin2faRequired(settings.security?.localLogin2faRequired === true);
       setLimits(settings.limits ?? DEFAULT_LIMITS);
       setAudio(settings.audio ?? DEFAULT_AUDIO);
       setUpdatesNotify(settings.updates?.notifyOnBuildAvailable === true);
@@ -285,16 +287,30 @@ export function AdminPage() {
     try {
       const res = await api.saveAdminSettings({
         leveling: { guestActionsGrantXp, blockGuestXpMatchingStageIp },
-        broadcast: { extensionRequirePairing },
       });
       setGuestActionsGrantXp(res.leveling?.guestActionsGrantXp !== false);
       setBlockGuestXpMatchingStageIp(res.leveling?.blockGuestXpMatchingStageIp !== false);
-      setExtensionRequirePairing(res.broadcast?.extensionRequirePairing !== false);
       flash("Leveling settings saved");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {
       setLevelingBusy(false);
+    }
+  };
+
+  const saveSecurity = async () => {
+    setSecurityBusy(true);
+    setError(null);
+    try {
+      const res = await api.saveAdminSettings({
+        security: { localLogin2faRequired },
+      });
+      setLocalLogin2faRequired(res.security?.localLogin2faRequired === true);
+      flash("Security settings saved");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSecurityBusy(false);
     }
   };
 
@@ -306,6 +322,7 @@ export function AdminPage() {
         branding: {
           radioDisplayName: branding.radioDisplayName,
           hideDeveloperAboutMessage: branding.hideDeveloperAboutMessage === true,
+          branded2fa: branding.branded2fa === true,
         },
       });
       setBranding(res.branding);
@@ -347,10 +364,21 @@ export function AdminPage() {
       return;
     }
     try {
-      await api.updateAdminUser(userId, { password: passwordDraft });
+      const res = await api.updateAdminUser(userId, { password: passwordDraft });
       setPasswordEditId(null);
       setPasswordDraft("");
-      flash("Password updated");
+      await reload();
+      const user = res.user;
+      if (user?.username) {
+        const migrated = (res as { usernameMigrated?: boolean }).usernameMigrated === true;
+        flash(
+          migrated
+            ? `Password set. Username updated to ${user.username} for local login.`
+            : `Password updated for ${user.username}.`,
+        );
+      } else {
+        flash("Password updated");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update password");
     }
@@ -501,6 +529,7 @@ export function AdminPage() {
     { id: "sharing", label: "Share links" },
     { id: "oidc", label: "OIDC / SSO" },
     { id: "radio", label: "Radio" },
+    { id: "security", label: "Security" },
     { id: "system", label: "System" },
   ];
 
@@ -548,6 +577,8 @@ export function AdminPage() {
                   <AdminUserRow
                     key={u.id}
                     user={u}
+                    hybridUsersEnabled={!!oidc.hybridUsersEnabled}
+                    guestActionsGrantXp={guestActionsGrantXp}
                     isSelf={isSelf}
                     lockSelfAdmin={lockSelfAdmin}
                     editingPassword={editingPassword}
@@ -588,6 +619,22 @@ export function AdminPage() {
                         flash(`Reset XP for ${u.username}`);
                       } catch (err) {
                         setError(err instanceof Error ? err.message : "Failed to reset XP");
+                      }
+                    }}
+                    onResetTotp={async () => {
+                      if (
+                        !window.confirm(
+                          `Reset 2FA for ${u.username}? They will need to set it up again on next local login.`,
+                        )
+                      ) {
+                        return;
+                      }
+                      try {
+                        await api.resetAdminUserTotp(u.id);
+                        await reload();
+                        flash(`Reset 2FA for ${u.username}`);
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : "Failed to reset 2FA");
                       }
                     }}
                   />
@@ -875,8 +922,15 @@ export function AdminPage() {
                   <option value="sub">OIDC subject (sub / UUID)</option>
                   <option value="preferred_username">preferred_username</option>
                   <option value="name">name</option>
+                  <option value="email">email</option>
                 </AdminSelect>
               </AdminField>
+              <AdminCheckbox
+                checked={!!oidc.hybridUsersEnabled}
+                onChange={(checked) => setOidc({ ...oidc, hybridUsersEnabled: checked })}
+                label="Allow hybrid accounts (SSO + local password)"
+                hint="When enabled, SSO users can set a local password in Studio. Hybrid UI and self-service password APIs are hidden when off. Existing hybrid logins keep working."
+              />
               <AdminCheckbox
                 checked={!!oidc.linkByNameMatch}
                 onChange={(checked) => setOidc({ ...oidc, linkByNameMatch: checked })}
@@ -1119,6 +1173,63 @@ export function AdminPage() {
           </>
         )}
 
+        {tab === "security" && (
+          <>
+            <AdminSection
+              title="Local login 2FA"
+              description="Require authenticator-based two-factor authentication for username/password sign-in. SSO and recovery console login are not affected. Admin accounts are prompted at login but may skip setup for now."
+            >
+              <AdminCheckbox
+                checked={localLogin2faRequired}
+                onChange={setLocalLogin2faRequired}
+                label="Require 2FA for local login"
+                hint="When enabled, users with a password must set up 2FA before signing in locally. Admins see the same prompt but can skip and enroll later in Studio. Existing sessions are not revoked — enforcement applies on the next local login."
+              />
+              <AdminBtn disabled={securityBusy} onClick={() => void saveSecurity()}>
+                Save 2FA settings
+              </AdminBtn>
+            </AdminSection>
+
+            <AdminSection
+              title="Login bot protection (Cloudflare Turnstile)"
+              description="Optional challenge on the local username/password form. SSO is not affected. Both site key and secret key are required."
+            >
+              <AdminField
+                label="Turnstile site key"
+                hint="Public key from Cloudflare Turnstile — shown on the login form."
+              >
+                <AdminInput
+                  className="font-mono text-xs"
+                  value={integrations.turnstileSiteKey || ""}
+                  onChange={(e) =>
+                    setIntegrations({ ...integrations, turnstileSiteKey: e.target.value })
+                  }
+                  placeholder="0x4AAAAAAA…"
+                />
+              </AdminField>
+              <AdminField
+                label="Turnstile secret key"
+                hint="Private key used server-side to verify challenges."
+              >
+                <AdminInput
+                  type="password"
+                  className="font-mono text-xs"
+                  value={integrations.turnstileSecretKey || ""}
+                  onChange={(e) =>
+                    setIntegrations({ ...integrations, turnstileSecretKey: e.target.value })
+                  }
+                  placeholder={integrations.turnstileConfigured ? "********" : "Paste secret key"}
+                />
+              </AdminField>
+              <AdminBtn disabled={integrationsBusy} onClick={() => void saveIntegrations()}>
+                Save Turnstile keys
+              </AdminBtn>
+            </AdminSection>
+
+            <ContentPolicyAdminSection flash={flash} onError={setError} />
+          </>
+        )}
+
         {tab === "system" && (
           <>
             <AdminSection
@@ -1206,23 +1317,6 @@ export function AdminPage() {
             </AdminSection>
 
             <AdminSection
-              title="Extension broadcasting"
-              description="The browser extension and web Broadcaster Studio use separate auth paths. Extension guest links always work regardless of these settings."
-            >
-              <AdminCheckbox
-                checked={extensionRequirePairing}
-                onChange={setExtensionRequirePairing}
-                label="Require device pairing for the browser extension"
-                hint="When on, the extension must use a paired device token or a guest broadcaster link. It cannot reuse your website login session on legacy relay endpoints. The in-site Web UI broadcaster still uses normal login."
-              />
-              <AdminBtn disabled={levelingBusy} onClick={() => void saveLeveling()}>
-                Save broadcast settings
-              </AdminBtn>
-            </AdminSection>
-
-            <ContentPolicyAdminSection flash={flash} onError={setError} />
-
-            <AdminSection
               title="Integrations"
               description="API keys for song search/requests (Last.fm) and chat GIFs (Giphy). Keys are stored in the database, not in config files."
             >
@@ -1262,42 +1356,6 @@ export function AdminPage() {
               </AdminBtn>
             </AdminSection>
 
-            <AdminSection
-              title="Login security (Cloudflare Turnstile)"
-              description="Optional bot protection for local username/password login. SSO is not affected. Both site key and secret key are required."
-            >
-              <AdminField
-                label="Turnstile site key"
-                hint="Public key from Cloudflare Turnstile — shown on the login form."
-              >
-                <AdminInput
-                  className="font-mono text-xs"
-                  value={integrations.turnstileSiteKey || ""}
-                  onChange={(e) =>
-                    setIntegrations({ ...integrations, turnstileSiteKey: e.target.value })
-                  }
-                  placeholder="0x4AAAAAAA…"
-                />
-              </AdminField>
-              <AdminField
-                label="Turnstile secret key"
-                hint="Private key used server-side to verify challenges."
-              >
-                <AdminInput
-                  type="password"
-                  className="font-mono text-xs"
-                  value={integrations.turnstileSecretKey || ""}
-                  onChange={(e) =>
-                    setIntegrations({ ...integrations, turnstileSecretKey: e.target.value })
-                  }
-                  placeholder={integrations.turnstileConfigured ? "********" : "Paste secret key"}
-                />
-              </AdminField>
-              <AdminBtn disabled={integrationsBusy} onClick={() => void saveIntegrations()}>
-                Save Turnstile keys
-              </AdminBtn>
-            </AdminSection>
-
             <AdminSection title="Branding" description="Station name and visualizer logo. User profile images are separate — broadcasters set those in Broadcaster Studio for stage and chat only.">
               <AdminField label="Radio display name">
                 <div className={adminInlineRowClass}>
@@ -1311,6 +1369,13 @@ export function AdminPage() {
                   </AdminBtn>
                 </div>
               </AdminField>
+
+              <AdminCheckbox
+                checked={branding.branded2fa === true}
+                onChange={(checked) => setBranding({ ...branding, branded2fa: checked })}
+                label="Branded 2FA in authenticator apps"
+                hint={`When on, new 2FA entries show your radio display name instead of "CollabFM". Existing entries in users' apps keep their old label until re-enrolled.`}
+              />
 
               <AdminCheckbox
                 checked={branding.hideDeveloperAboutMessage === true}

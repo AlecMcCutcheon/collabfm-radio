@@ -34,20 +34,20 @@ Closing the modal does **not** stop an active broadcast.
 
 ---
 
-## Broadcaster Studio
+## Broadcaster Studio & Listener Studio
 
-Open Studio:
+Open **Studio** from the profile icon (desktop) or bottom nav **Studio** (mobile). All signed-in users get profile, share links, party favorites, and account security. **Broadcasters** and **admins** also see extension pairing and go-live tools.
 
-- **Desktop:** top-right **profile icon**.
-- **Mobile:** bottom nav **Studio**.
+See [Account Security & Studio](./Account-Security-and-Studio.md) for hybrid passwords, 2FA, and share-link expiry rules.
 
-Sections:
+### Studio sections
 
 1. **Your profile** — on-air nickname, avatar, status, genre tags.
-2. **DJ level** — XP rules.
-3. **Share links** — create guest listener or guest broadcaster links.
-4. **Party effect favorites** — if enabled for your account.
-5. **Browser extension** — device pairing.
+2. **Account security** — local password, hybrid set/reset, 2FA (when applicable).
+3. **DJ level** — XP rules.
+4. **Share links** — guest listener links (all roles); guest broadcaster links (broadcasters/admins).
+5. **Party effect favorites** — if enabled for your account.
+6. **Browser extension** — device pairing (broadcasters/admins only).
 
 ---
 
@@ -62,7 +62,7 @@ Sections:
 
 ### On the website
 
-1. Open **Broadcaster Studio** (profile icon or **Studio** tab).
+1. Open **Studio** (profile icon or **Studio** tab).
 2. Scroll to **Browser extension**.
 3. Paste the pairing code and enter a **Device name** (default: “Browser extension”).
 4. Click **Pair extension**.
@@ -70,7 +70,7 @@ Sections:
 
 To broadcast: select a **non-radio** browser tab in the extension and click **Start broadcasting**.
 
-**Admin option:** **Admin → System → Require device pairing for the browser extension** forces pairing instead of reusing your website login in the extension.
+The extension must **pair with your account** (or use a **guest broadcaster link**). It cannot reuse your website login cookie on relay endpoints.
 
 ---
 
@@ -78,11 +78,11 @@ To broadcast: select a **non-radio** browser tab in the extension and click **St
 
 ### Create the link
 
-**Broadcaster Studio → Share links:**
+**Studio → Share links:**
 
 1. Optional **Label**.
-2. **Guest type:** **Guest broadcaster**.
-3. **Expires after** (or Never).
+2. **Guest type:** **Guest broadcaster** (broadcasters/admins only).
+3. **Expires after** — guest broadcaster links cannot be permanent; options depend on your role (see [Account Security & Studio](./Account-Security-and-Studio.md)).
 4. **Create & copy link**.
 
 ### Guest flow
@@ -156,7 +156,7 @@ When track and license metadata are available, listeners see source and license 
 
 ## Share links (listeners vs broadcasters)
 
-**Broadcaster Studio → Share links**
+**Studio → Share links** — any signed-in user can create **guest listener** links; **broadcasters** and **admins** can also create **guest broadcaster** links. Expiry options depend on creator role (listeners get shorter maximum durations; guest broadcaster links never expire as “Never”).
 
 | Guest type | Guest gets |
 |------------|------------|
@@ -165,4 +165,4 @@ When track and license metadata are available, listeners see source and license 
 
 Each link can also expose a **stream URL** for OBS/VLC (**Copy stream link**).
 
-Admins can see all links under **Admin → Share links**.
+Admins can see all links under **Admin → Share links**. Full expiry tables: [Account Security & Studio](./Account-Security-and-Studio.md#share-links-studio).

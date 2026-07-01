@@ -111,6 +111,14 @@ Map Authentik groups to CollabFM roles:
 
 8. Click **Save OIDC settings**.
 
+### Hybrid accounts (SSO + local password)
+
+Enable **Allow hybrid accounts (SSO + local password)** on the same tab when you want SSO users to optionally add a local password in **Studio → Account security** (sign in with either method). On first password set, CollabFM may migrate the stored username to the user’s SSO email.
+
+Disable this if you want SSO-only access with no self-service password setup. Existing hybrid passwords keep working.
+
+See [Account Security & Studio](./Account-Security-and-Studio.md) for the full hybrid and 2FA flows.
+
 ---
 
 ## 4. Test login

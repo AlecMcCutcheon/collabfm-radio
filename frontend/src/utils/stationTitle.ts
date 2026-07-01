@@ -9,10 +9,16 @@ export function applyStationTitle(name: string, suffix?: string): void {
   document.title = formatStationTitle(name, suffix);
 }
 
-export function pageTitleSuffix(path: string, setupComplete: boolean | null): string | undefined {
+export function pageTitleSuffix(
+  path: string,
+  setupComplete: boolean | null,
+  options?: { canBroadcast?: boolean },
+): string | undefined {
   if (setupComplete === false) return "Setup";
   if (path === "/admin") return "Admin";
-  if (path === "/broadcaster") return "Broadcaster Studio";
+  if (path === "/broadcaster") {
+    return options?.canBroadcast === false ? "Listener Studio" : "Broadcaster Studio";
+  }
   if (/^\/listen\/[^/]+\/studio$/.test(path)) return "Guest Studio";
   if (path.startsWith("/listen/")) return "Listen";
   return undefined;

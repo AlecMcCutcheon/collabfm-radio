@@ -37,10 +37,11 @@ function AppContent() {
   const showStage = view === "stage";
   const showChat = view === "chat";
   const showStudio = view === "studio";
-  const showProfileFab =
-    showRadio &&
-    status.authenticated &&
-    !!(status.canBroadcast || status.isHost);
+  const isBroadcaster = !!(status.canBroadcast || status.isHost);
+  const showProfileFab = showRadio && status.authenticated;
+  const profileFabTitle = isBroadcaster
+    ? "Broadcaster studio & profile"
+    : "Listener studio & profile";
 
   const partyCanTrigger = canTriggerPartyEffects(status);
   const favoritesScope = partyFavoritesScopeForUser(status.user?.id);
@@ -110,7 +111,7 @@ function AppContent() {
               player={player}
               onOpenAbout={() => setAboutOpen(true)}
               onOpenBroadcast={() => setBroadcastOpen(true)}
-              showBroadcastButton={showProfileFab}
+              showBroadcastButton={showRadio && isBroadcaster}
               broadcastLive={isLive}
               onOpenSearch={() => setSearchOpen(true)}
               guest={null}
@@ -125,7 +126,7 @@ function AppContent() {
         othersTyping={othersTyping}
         onClick={() => setChatOpen(true)}
       />
-      <ProfileFab visible={showProfileFab} />
+      <ProfileFab visible={showProfileFab} title={profileFabTitle} />
       <ChatPanel
         auth={status}
         open={chatOpen}
@@ -135,7 +136,7 @@ function AppContent() {
       <MobileNav
         view={view}
         onChange={setView}
-        showStudio={!!(status.canBroadcast || status.isHost)}
+        showStudio={status.authenticated}
         chatUnreadCount={chatUnreadCount}
         othersTyping={othersTyping}
       />
@@ -143,7 +144,7 @@ function AppContent() {
         active={status.authenticated}
         selfUserId={selfUserId}
         chatVisible={chatVisible}
-        mobileChatAnchorX={status.canBroadcast || status.isHost ? 0.625 : 0.833}
+        mobileChatAnchorX={status.authenticated ? 0.625 : 0.833}
       />
       <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <BroadcastSourceModal

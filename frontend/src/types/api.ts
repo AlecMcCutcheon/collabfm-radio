@@ -22,6 +22,8 @@ export interface AuthUser {
   username: string;
   displayName?: string;
   avatar: string | null;
+  authSource?: string;
+  hasPassword?: boolean;
 }
 
 export interface LevelInfo {
@@ -42,13 +44,53 @@ export interface BroadcasterProfile {
   level?: LevelInfo | null;
 }
 
+export interface AccountSecurityStatus {
+  hybridEnabled: boolean;
+  authSource: string;
+  hasPassword: boolean;
+  canSetPassword: boolean;
+  canResetPassword: boolean;
+  emailKnown: boolean;
+  needsOidcVerification: boolean;
+  oidcVerifyUrl: string | null;
+  ssoNickname: string | null;
+  canManageTotp?: boolean;
+  totpEnabled?: boolean;
+  localLogin2faRequired?: boolean;
+  canDisableTotp?: boolean;
+  totpExempt?: boolean;
+}
+
+export interface SecuritySettings {
+  localLogin2faRequired: boolean;
+}
+
+export interface LocalLoginResult {
+  authenticated?: boolean;
+  requires2fa?: boolean;
+  requires2faSetup?: boolean;
+  optional2faSetup?: boolean;
+  pending2fa?: "verify" | "setup" | "setup_optional";
+  user?: { username: string; role: string };
+  permissions?: Record<string, boolean>;
+  backupCodes?: string[];
+  ok?: boolean;
+}
+
 export interface AuthStatus {
   authenticated: boolean;
+  pending2fa?: "verify" | "setup" | "setup_optional";
+  canSkip2faSetup?: boolean;
+  /** How this browser session was established */
+  sessionLoginMethod?: "local" | "oidc";
+  /** Set when sessionLoginMethod is oidc */
+  ssoNickname?: string | null;
   isHost?: boolean;
   canBroadcast?: boolean;
   roleInfo?: RoleInfo;
   user?: AuthUser;
   oidcAvailable?: boolean;
+  hybridUsersEnabled?: boolean;
 }
 
 export interface AdminUser {
@@ -63,6 +105,8 @@ export interface AdminUser {
   auth_source: string;
   role: string;
   enabled: number;
+  has_password?: boolean;
+  totp_enabled?: boolean;
   created_at?: string;
   last_login?: string | null;
   last_login_ip?: string | null;
@@ -74,10 +118,6 @@ export interface AdminUser {
 export interface LevelingSettings {
   guestActionsGrantXp: boolean;
   blockGuestXpMatchingStageIp: boolean;
-}
-
-export interface BroadcastSettings {
-  extensionRequirePairing: boolean;
 }
 
 export interface ContainerUpdateSettings {
@@ -249,10 +289,12 @@ export interface OidcConfig {
   redirectUri?: string;
   scopes?: string;
   groupClaim?: string;
-  /** Radio login username source: sub (default), preferred_username, or name */
-  usernameFrom?: "sub" | "preferred_username" | "name";
+  /** Radio login username source: sub (default), preferred_username, name, or email */
+  usernameFrom?: "sub" | "preferred_username" | "name" | "email";
   /** Link OIDC login to an existing local account when names match */
   linkByNameMatch?: boolean;
+  /** Allow SSO users to optionally set a local password on the same account */
+  hybridUsersEnabled?: boolean;
   /** Short name shown on the login SSO button, e.g. "Authentik" */
   providerNickname?: string;
   /** Provider end-session URL — OIDC users are redirected here after logout */
@@ -520,6 +562,7 @@ export interface BrandingSettings {
   visualizerImageUrl: string;
   hasCustomVisualizer?: boolean;
   hideDeveloperAboutMessage?: boolean;
+  branded2fa?: boolean;
   features?: {
     songSearch: boolean;
     chatGifs: boolean;

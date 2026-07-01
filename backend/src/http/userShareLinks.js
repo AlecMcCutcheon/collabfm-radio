@@ -1,14 +1,17 @@
 import { getAppSession } from "../auth/routes.js";
 import { permissionsForRole } from "../auth/permissions.js";
 import {
+  canCreateGuestBroadcasterLinks,
   countActiveShareLinksForUser,
   createShareLink,
+  defaultTtlFromOptions,
   enrichShareLink,
+  guestBroadcasterTtlOptionsForRole,
+  listenerLinkTtlOptionsForRole,
   listShareLinksForUser,
   MAX_ACTIVE_SHARE_LINKS_PER_USER,
+  resolveTtlForCreate,
   revokeShareLink,
-  LISTENER_TTL_OPTIONS,
-  GUEST_BROADCASTER_TTL_OPTIONS,
   userOwnsShareLink,
 } from "../db/shareLinks.js";
 import { resolvePublicBaseUrl } from "./publicBaseUrl.js";
@@ -24,11 +27,22 @@ async function readBody(req) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
 }
 
+function sessionRole(session) {
+  return session?.user?.role || "listener";
+}
+
 function canCreateShareLinks(session) {
   if (!session?.user) return false;
-  const role = session.user.role || "listener";
-  if (role === "listener") return false;
-  return permissionsForRole(role).canCreateShareLinks === true;
+  return permissionsForRole(sessionRole(session)).canCreateShareLinks === true;
+}
+
+function shareLinkOptionsPayload(role) {
+  return {
+    listenerTtlOptions: listenerLinkTtlOptionsForRole(role),
+    guestBroadcasterTtlOptions: guestBroadcasterTtlOptionsForRole(role),
+    canCreateGuestBroadcaster: canCreateGuestBroadcasterLinks(role),
+    maxLinks: MAX_ACTIVE_SHARE_LINKS_PER_USER,
+  };
 }
 
 export async function handleUserShareLinkRoutes(req, res, pathname, method) {
@@ -40,25 +54,23 @@ export async function handleUserShareLinkRoutes(req, res, pathname, method) {
   }
 
   const userId = Number(session.user.id);
+  const role = sessionRole(session);
   const base = resolvePublicBaseUrl(req);
 
   if (pathname === "/api/share-links" && method === "GET") {
     if (!canCreateShareLinks(session)) {
-      return json(res, 403, { error: "Share links are not available for listener accounts" });
+      return json(res, 403, { error: "Share links are not available for this account" });
     }
     const links = listShareLinksForUser(userId).map((row) => enrichShareLink(row, base));
     return json(res, 200, {
       links,
-      ttlOptions: LISTENER_TTL_OPTIONS,
-      listenerTtlOptions: LISTENER_TTL_OPTIONS,
-      guestBroadcasterTtlOptions: GUEST_BROADCASTER_TTL_OPTIONS,
-      maxLinks: MAX_ACTIVE_SHARE_LINKS_PER_USER,
+      ...shareLinkOptionsPayload(role),
     });
   }
 
   if (pathname === "/api/share-links" && method === "POST") {
     if (!canCreateShareLinks(session)) {
-      return json(res, 403, { error: "Share links are not available for listener accounts" });
+      return json(res, 403, { error: "Share links are not available for this account" });
     }
     try {
       const body = await readBody(req);
@@ -68,20 +80,17 @@ export async function handleUserShareLinkRoutes(req, res, pathname, method) {
         });
       }
       const guestMode = body.guestMode === "guest_broadcaster" ? "guest_broadcaster" : "listener";
-      const ttl =
-        guestMode === "guest_broadcaster"
-          ? GUEST_BROADCASTER_TTL_OPTIONS.includes(body.ttl)
-            ? body.ttl
-            : "24h"
-          : LISTENER_TTL_OPTIONS.includes(body.ttl)
-            ? body.ttl
-            : "never";
+      if (guestMode === "guest_broadcaster" && !canCreateGuestBroadcasterLinks(role)) {
+        return json(res, 403, { error: "Guest broadcaster links require broadcaster or admin role" });
+      }
+      const ttl = resolveTtlForCreate({ role, guestMode, ttl: body.ttl });
       const link = createShareLink({
         label: body.label ? String(body.label).trim() : null,
         linkKind: "ui",
         guestMode,
         ttl,
         createdBy: userId,
+        creatorRole: role,
       });
       return json(res, 201, { link: enrichShareLink(link, base) });
     } catch (e) {
@@ -92,7 +101,7 @@ export async function handleUserShareLinkRoutes(req, res, pathname, method) {
   const delMatch = pathname.match(/^\/api\/share-links\/(\d+)$/);
   if (delMatch && method === "DELETE") {
     if (!canCreateShareLinks(session)) {
-      return json(res, 403, { error: "Share links are not available for listener accounts" });
+      return json(res, 403, { error: "Share links are not available for this account" });
     }
     const linkId = Number(delMatch[1]);
     if (!userOwnsShareLink(userId, linkId)) {

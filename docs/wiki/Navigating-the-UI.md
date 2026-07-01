@@ -9,8 +9,12 @@ CollabFM is a single-page web app. Layout differs on **desktop** (wide screen) a
 1. Open your station URL (e.g. `https://radio.example.com` or `http://your-ip:4002`).
 2. Enter **Username** and **Password**, then click **Sign in**.
 3. If SSO is enabled, use **Login With …** (your provider nickname) instead.
+4. If you have **two-factor authentication** enabled, enter your authenticator code (or one backup code) on the next step.
+5. If the station **requires 2FA** and you have not set it up yet, complete the setup flow—or, for **admins**, choose **Skip for now**.
 
 First-time server setup uses `/setup` with the bootstrap token from container logs — see the [README](https://github.com/AlecMcCutcheon/collabfm-radio#2-first-time-setup).
+
+Account passwords, hybrid SSO+local login, and 2FA management live in **Studio → Account security** — see [Account Security & Studio](./Account-Security-and-Studio.md).
 
 ---
 
@@ -21,7 +25,7 @@ First-time server setup uses `/setup` with the bootstrap token from container lo
 | **Radio player** | Center | Listen Live, volume, now playing, search (if enabled) |
 | **Stage dock** | Left edge, vertical **STAGE** label | Who is on air; click to expand |
 | **Chat** | Bottom-right round **message** button | Opens **Live Chat** overlay |
-| **Broadcaster Studio** | Top-right round **profile** button | Opens `/broadcaster` (broadcasters and admins only) |
+| **Studio** | Top-right round **profile** button | Profile, share links, account security (all signed-in users); extension pairing for broadcasters/admins |
 
 ---
 
@@ -34,7 +38,7 @@ Bottom navigation bar:
 | **Radio** | Radio | Main player |
 | **Stage** | People | Who is on air |
 | **Chat** | Message | Live chat (full screen) |
-| **Studio** | Sliders | Broadcaster Studio (broadcasters/admins only) |
+| **Studio** | Sliders | Studio — profile, share links, security (all users); extension pairing for broadcasters/admins |
 
 There is no floating chat button on mobile — use the **Chat** tab.
 
@@ -72,7 +76,7 @@ You must be logged in with the **Admin** role. Other users do not see **Admin se
 ### Top-right
 
 - **Info icon** — About this radio.
-- **Profile icon** (broadcasters/admins) — Broadcaster Studio.
+- **Profile icon** (all signed-in users) — Studio.
 
 ### Center
 

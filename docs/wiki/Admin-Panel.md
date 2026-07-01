@@ -15,10 +15,11 @@ Manage local accounts (SSO users may also appear here after first login).
 **Per user:**
 
 - **Role** — Listener, Broadcaster, or Admin.
-- **Set password** / **Save password** — local accounts only.
+- **Set password** / **Save password** — local accounts; OIDC users when **hybrid accounts** are enabled.
 - **Delete** — remove account.
-- **Block guest-action XP** — hearts/approvals from guests on the same IP won’t grant XP to this user.
+- **Block guest-action XP** — shown only when **Allow guest hearts and request approvals to grant XP** is on (Admin → System → DJ leveling).
 - **Reset XP** — zero DJ level progress.
+- **Reset 2FA** — clear authenticator setup (users with a local password and 2FA enabled).
 
 **Add user** — username, password, role, **Add user**.
 
@@ -50,7 +51,7 @@ See [Discord Voice Bot Setup](./Discord-Voice-Bot-Setup.md) for creating the Dis
 
 ## Tab: Share links
 
-Site-wide list of guest links (broadcasters also create links in **Broadcaster Studio**).
+Site-wide list of guest links. Users also create their own links in **Studio → Share links** (listeners: guest-listener links only; broadcasters/admins: guest broadcaster links too). See [Account Security & Studio](./Account-Security-and-Studio.md) for expiry rules by role.
 
 - **Copy UI link** — guest web player.
 - **Copy stream link** — direct MP3 for OBS/VLC.
@@ -76,7 +77,8 @@ Single sign-on via OpenID Connect (Authentik and other providers).
 | **Groups claim name** | JWT field for groups (often `groups`) |
 | **Logout URL** | IdP end-session URL for full SSO logout |
 | **Radio username from** | `sub`, `preferred_username`, or `name` |
-| **Link to existing local account on name match** | Attach SSO login to matching local username |
+| **Link to existing local account on name match** | Attach SSO login to matching local username on first login |
+| **Allow hybrid accounts (SSO + local password)** | SSO users can set a local password in Studio; username may migrate to email on first set |
 | **SSO button nickname** | Shown as “Login With …” on the login page |
 
 **Group → role mapping** — map IdP group names to Listener / Broadcaster / Admin.
@@ -102,7 +104,18 @@ See [Authentik SSO Setup](./Authentik-SSO-Setup.md) for a step-by-step Authentik
 
 ---
 
-## Tab: System
+## Tab: Security
+
+Sign-in hardening and broadcast compliance.
+
+**Local login 2FA**
+
+- **Require 2FA for local login** — off by default. When enabled, users with a password must enroll before a full local session (non-admins mandatory; admins may skip at login). SSO and console recovery login are unaffected.
+- Users manage 2FA in **Studio → Account security**; admins use **Reset 2FA** on the Users tab.
+
+**Login bot protection (Cloudflare Turnstile)**
+
+- Site key + secret — optional challenge on the local login form (SSO unaffected).
 
 **Content policy** *(metadata-based best-effort filtering by default)*
 
@@ -115,27 +128,24 @@ CollabFM **does not host or provide audio content**—it relays broadcaster-supp
 
 See [Content Policy](./Content-Policy.md) for full detail.
 
+---
+
+## Tab: System
+
 **DJ leveling**
 
 - **Allow guest hearts and request approvals to grant XP**
 - **Block guest XP when IP matches someone on stage**
-
-**Extension broadcasting**
-
-- **Require device pairing for the browser extension**
 
 **Integrations**
 
 - **Last.fm API key** + default user — song search and metadata.
 - **Giphy API key** — GIF button in chat.
 
-**Login security (Cloudflare Turnstile)**
-
-- Site key + secret — bot protection for local login (SSO unaffected).
-
 **Branding**
 
 - **Radio display name** — station title in UI and stream metadata.
+- **Branded 2FA in authenticator apps** — new 2FA enrollments show your radio display name instead of “CollabFM”.
 - **Hide developer message & coffee button** — removes the original developer’s thank-you note and **Buy me a coffee** link from the About dialog (optional; for operators who prefer a cleaner About screen).
 - **Visualizer logo** — drag/drop or upload; **Reset visualizer to default**.
 

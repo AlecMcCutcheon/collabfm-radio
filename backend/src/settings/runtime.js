@@ -15,9 +15,6 @@ export function ensureDefaultSettings(configFile = {}) {
   if (getSetting("leveling.blockGuestXpMatchingStageIp") === null) {
     setSetting("leveling.blockGuestXpMatchingStageIp", true);
   }
-  if (getSetting("broadcast.extensionRequirePairing") === null) {
-    setSetting("broadcast.extensionRequirePairing", true);
-  }
   if (getSetting("updates.notifyOnBuildAvailable") === null) {
     setSetting("updates.notifyOnBuildAvailable", false);
   }

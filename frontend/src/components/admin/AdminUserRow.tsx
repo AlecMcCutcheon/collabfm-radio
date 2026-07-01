@@ -13,6 +13,8 @@ import {
 
 interface AdminUserRowProps {
   user: AdminUser;
+  hybridUsersEnabled?: boolean;
+  guestActionsGrantXp?: boolean;
   isSelf: boolean;
   lockSelfAdmin: boolean;
   editingPassword: boolean;
@@ -24,12 +26,21 @@ interface AdminUserRowProps {
   onDelete: () => void;
   onToggleBlockGuestXp: (checked: boolean) => void;
   onResetXp: () => void;
+  onResetTotp: () => void;
 }
 
 function authSourceLabel(source: string): string {
   if (source === "local") return "Local login";
   if (source === "oidc") return "OIDC / SSO";
   return source;
+}
+
+function looksLikeEmailUsername(username: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username.trim());
+}
+
+function formatAccountUsername(username: string): string {
+  return looksLikeEmailUsername(username) ? username.trim() : `@${username}`;
 }
 
 function formatLastLogin(iso: string | null | undefined): string | null {
@@ -47,6 +58,8 @@ function formatLastLogin(iso: string | null | undefined): string | null {
 
 export function AdminUserRow({
   user,
+  hybridUsersEnabled = false,
+  guestActionsGrantXp = true,
   isSelf,
   lockSelfAdmin,
   editingPassword,
@@ -58,8 +71,12 @@ export function AdminUserRow({
   onDelete,
   onToggleBlockGuestXp,
   onResetXp,
+  onResetTotp,
 }: AdminUserRowProps) {
   const isLocal = user.auth_source === "local";
+  const isHybridOidc = user.auth_source === "oidc" && !!user.has_password;
+  const canEditPassword = isLocal || (user.auth_source === "oidc" && hybridUsersEnabled);
+  const canResetTotp = !!user.has_password && !!user.totp_enabled;
   const nickname = user.nickname?.trim() || "";
   const hasNickname = nickname.length > 0 && nickname.toLowerCase() !== user.username.toLowerCase();
   const primaryLabel = hasNickname ? nickname : user.username;
@@ -95,7 +112,7 @@ export function AdminUserRow({
               </p>
               {hasNickname && (
                 <p className="text-sm text-gray-400 mt-0.5 truncate" title={user.username}>
-                  @{user.username}
+                  {formatAccountUsername(user.username)}
                 </p>
               )}
               {!hasNickname && user.auth_source === "oidc" && (
@@ -115,6 +132,16 @@ export function AdminUserRow({
               <span className="inline-flex items-center rounded-full border border-gray-600 bg-gray-900/80 px-2.5 py-0.5 text-[10px] uppercase tracking-wide text-gray-400">
                 {authSourceLabel(user.auth_source)}
               </span>
+              {isHybridOidc && (
+                <span className="inline-flex items-center rounded-full border border-indigo-500/30 bg-indigo-600/15 px-2.5 py-0.5 text-[10px] font-medium text-indigo-100">
+                  Hybrid
+                </span>
+              )}
+              {user.totp_enabled && (
+                <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-600/15 px-2.5 py-0.5 text-[10px] font-medium text-emerald-100">
+                  2FA
+                </span>
+              )}
               {isSelf && (
                 <span className="inline-flex items-center rounded-full border border-radio-accent/30 bg-radio-accent/10 px-2.5 py-0.5 text-[10px] font-medium text-radio-accent">
                   You
@@ -163,9 +190,9 @@ export function AdminUserRow({
           </AdminFieldInline>
 
           <div className="flex flex-wrap gap-2 items-end">
-            {isLocal && (
+            {canEditPassword && (
               <AdminBtn variant="secondary" className="w-full sm:w-auto" onClick={onTogglePasswordEdit}>
-                {editingPassword ? "Cancel password" : "Set password"}
+                {editingPassword ? "Cancel password" : user.has_password ? "Reset password" : "Set password"}
               </AdminBtn>
             )}
 
@@ -198,15 +225,22 @@ export function AdminUserRow({
         )}
 
         <div className="flex flex-col sm:flex-row gap-3 sm:items-end flex-wrap pt-1 border-t border-gray-700/70">
-          <AdminCheckbox
-            checked={!!user.block_guest_action_xp}
-            onChange={onToggleBlockGuestXp}
-            label="Block guest-action XP"
-            hint="Hearts and request approvals from guest sessions won't grant XP to this account."
-          />
+          {guestActionsGrantXp && (
+            <AdminCheckbox
+              checked={!!user.block_guest_action_xp}
+              onChange={onToggleBlockGuestXp}
+              label="Block guest-action XP"
+              hint="Hearts and request approvals from guest sessions won't grant XP to this account."
+            />
+          )}
           <AdminBtn variant="secondary" className="w-full sm:w-auto shrink-0" onClick={onResetXp}>
             Reset XP
           </AdminBtn>
+          {canResetTotp && (
+            <AdminBtn variant="secondary" className="w-full sm:w-auto shrink-0" onClick={onResetTotp}>
+              Reset 2FA
+            </AdminBtn>
+          )}
         </div>
       </div>
     </li>

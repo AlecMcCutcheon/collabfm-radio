@@ -132,10 +132,10 @@ See [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md) for `/join`,
 | **Main station** | Live MP3 stream, now-playing metadata, album art, **live chat** (GIFs when configured), **synced party effects**, request queue, hearts for DJs |
 | **Stage** | See who is on air, promote DJs, tune Discord bots per host, hearts / leveling |
 | **Broadcasters** | Chrome extension (tab audio), in-browser Web UI broadcaster, guest broadcaster links |
-| **Listeners** | Log in on the main site, or use **share links** for guest access without an account |
+| **Listeners** | Log in on the main site, **Studio** (profile, share links, security), or **share links** for guest access |
 | **Discord** | Voice bot relays audio into voice channels; `/join`, `/station`, `/leave`; per-channel now-playing embed with station picker |
-| **Auth** | Local accounts, optional OIDC (Authentik, etc.), device pairing for the extension |
-| **Admin** | Users, Discord bot, share links, SSO, audio tuning, branding, integrations, **content policy**, **container update notifications** |
+| **Auth** | Local accounts, optional OIDC, optional **2FA** for local login, device pairing for the extension |
+| **Admin** | Users, Discord bot, share links, SSO, **Security** (2FA policy, Turnstile, content policy), branding, integrations, container updates |
 
 ---
 
@@ -349,13 +349,14 @@ radio.example.com {
 
 ### Station listener (logged in)
 
-1. Open `/` and sign in (local password or OIDC if enabled).
+1. Open `/` and sign in (local password or OIDC if enabled). Complete **2FA** if your account or station policy requires it.
 2. Use the main player: volume, chat, stage view, party effects, song search (if enabled), request queue.
-3. Stream URL for this session: `/api/stream` (cookie auth).
+3. Open **Studio** (profile icon) for profile, share links, and account security.
+4. Stream URL for this session: `/api/stream` (cookie auth).
 
 ### Guest listener (share link)
 
-1. Admin or broadcaster creates a **share link** (see Admin below).
+1. A signed-in user (listener, broadcaster, or admin) creates a **share link** in **Studio**, or an admin uses **Admin → Share links**.
 2. Guest opens **`/listen/{token}`** — no account required.
 3. Guest gets the player, chat, stage, and party effects scoped to that link.
 4. For OBS/VLC/direct players, use a **stream** link or `/api/listen/{token}/stream`.
@@ -363,7 +364,7 @@ radio.example.com {
 ### Broadcaster (registered user)
 
 1. Sign in on the main site.
-2. Open **Broadcaster Studio** (`/broadcaster`).
+2. Open **Studio** (`/broadcaster`) from the profile icon or mobile **Studio** tab.
 3. Go on air via **Web UI broadcaster** (browser capture) or the **Chrome extension** (tab audio).
 4. Set on-air nickname, device label, and profile fields shown on stage.
 
@@ -371,7 +372,7 @@ radio.example.com {
 
 1. Install the extension from the **[Chrome Web Store](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba)** or download the **ZIP** from the **Go live** modal (mic icon) and load it unpacked in `chrome://extensions`.
 2. In the extension popup, set **Radio host** to your site (`https://radio.example.com` or `http://ip:4002`).
-3. In Broadcaster Studio on the site, pair the device and approve in the extension.
+3. In Studio on the site, pair the device and approve in the extension.
 4. Select a tab and start broadcasting.
 
 See [Broadcaster extension](#broadcaster-extension) for version sync between the store and your server image.
@@ -402,12 +403,15 @@ Details: [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md).
 
 | Tab | What it controls |
 |-----|------------------|
-| **Users** | Accounts, roles, passwords, broadcast permission, leveling blocks |
+| **Users** | Accounts, roles, passwords, **Reset 2FA**, leveling blocks, Reset XP |
 | **Discord** | Voice bot credentials, runtime status, **server whitelist** |
-| **Share links** | Site-wide link list (broadcasters also create links in Broadcaster Studio) |
-| **OIDC** | SSO provider, group → role mapping |
+| **Share links** | Site-wide link list (users also create links in **Studio**) |
+| **OIDC** | SSO provider, **hybrid accounts**, group → role mapping |
 | **Radio** | Max stage users (default 7, max 9), log retention, PCM/discord buffer tuning |
-| **System** | Guest XP rules, extension auth, **content policy**, Last.fm/Giphy, Turnstile, **branding**, container updates |
+| **Security** | **Require 2FA** (off by default), Turnstile, **content policy** |
+| **System** | Guest XP rules, Last.fm/Giphy, **branding** (incl. branded 2FA), container updates |
+
+Details: [Admin Panel wiki](docs/wiki/Admin-Panel.md), [Account Security & Studio](docs/wiki/Account-Security-and-Studio.md).
 
 **Share link types:**
 

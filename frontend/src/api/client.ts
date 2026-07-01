@@ -27,11 +27,13 @@ import type {
   PartyEffectType,
   ProfilePartyEffectType,
   BroadcasterProfile,
+  AccountSecurityStatus,
+  SecuritySettings,
+  LocalLoginResult,
   StreamInfo,
   NowPlayingSocial,
   PresenceRoster,
   LevelingSettings,
-  BroadcastSettings,
   BuildInfo,
   ContainerUpdateSettings,
   ContainerUpdateSettingsInput,
@@ -113,7 +115,7 @@ export const api = {
     }>(apiUrl("/auth/methods")),
 
   localLogin: (username: string, password: string, turnstileToken?: string) =>
-    json<AuthStatus>(apiUrl("/auth/local/login"), {
+    json<LocalLoginResult>(apiUrl("/auth/local/login"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -121,6 +123,37 @@ export const api = {
         password,
         ...(turnstileToken ? { turnstileToken } : {}),
       }),
+    }),
+
+  verifyLocal2fa: (body: { code?: string; backupCode?: string }) =>
+    json<LocalLoginResult>(apiUrl("/auth/local/2fa/verify"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+
+  beginLocal2faSetup: () =>
+    json<{ qrDataUrl: string; secret: string; uri: string }>(apiUrl("/auth/local/2fa/setup/begin")),
+
+  confirmLocal2faSetup: (code: string) =>
+    json<LocalLoginResult>(apiUrl("/auth/local/2fa/setup/confirm"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    }),
+
+  skipOptionalLocal2faSetup: () =>
+    json<LocalLoginResult>(apiUrl("/auth/local/2fa/setup/skip"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    }),
+
+  logout: () =>
+    json<{ ok: boolean }>(apiUrl("/auth/logout"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
     }),
 
   authStatus: () => json<AuthStatus>(apiUrl("/auth/status")),
@@ -184,9 +217,9 @@ export const api = {
   userShareLinks: () =>
     json<{
       links: ShareLink[];
-      ttlOptions: string[];
-      listenerTtlOptions?: string[];
-      guestBroadcasterTtlOptions?: string[];
+      listenerTtlOptions: string[];
+      guestBroadcasterTtlOptions: string[];
+      canCreateGuestBroadcaster?: boolean;
       maxLinks: number;
     }>(`${API}/share-links`),
 
@@ -449,6 +482,9 @@ export const api = {
   resetAdminUserXp: (id: number) =>
     json<{ ok: boolean; user: AdminUser }>(`${API}/admin/users/${id}/reset-xp`, { method: "POST" }),
 
+  resetAdminUserTotp: (id: number) =>
+    json<{ ok: boolean; user: AdminUser }>(`${API}/admin/users/${id}/reset-totp`, { method: "POST" }),
+
   nowPlayingSocial: (guest?: Pick<GuestContext, "shareToken" | "guestId" | "guestSession"> | null) => {
     const params = new URLSearchParams();
     if (guest?.shareToken) params.set("shareToken", guest.shareToken);
@@ -609,35 +645,35 @@ export const api = {
       branding: BrandingSettings;
       integrations: IntegrationsSettings;
       leveling?: LevelingSettings;
-      broadcast?: BroadcastSettings;
       updates?: ContainerUpdateSettings;
       build?: BuildInfo;
       limits?: LimitsSettings;
       audio?: AudioPipelineSettings;
+      security?: SecuritySettings;
     }>(`${API}/admin/settings`),
 
   adminContainerUpdates: () => json<ContainerUpdateStatus>(`${API}/admin/container-updates`),
 
   saveAdminSettings: (body: {
-    branding?: Pick<BrandingSettings, "radioDisplayName" | "hideDeveloperAboutMessage">;
+    branding?: Pick<BrandingSettings, "radioDisplayName" | "hideDeveloperAboutMessage" | "branded2fa">;
     resetBranding?: boolean;
     integrations?: IntegrationsSettings;
     leveling?: LevelingSettings;
-    broadcast?: BroadcastSettings;
     updates?: ContainerUpdateSettingsInput;
     limits?: LimitsSettings;
     audio?: AudioPipelineSettings;
+    security?: SecuritySettings;
   }) =>
     json<{
       ok: boolean;
       branding: BrandingSettings;
       integrations: IntegrationsSettings;
       leveling?: LevelingSettings;
-      broadcast?: BroadcastSettings;
       updates?: ContainerUpdateSettings;
       build?: BuildInfo;
       limits?: LimitsSettings;
       audio?: AudioPipelineSettings;
+      security?: SecuritySettings;
     }>(
       `${API}/admin/settings`,
       {
@@ -675,6 +711,54 @@ export const api = {
     }),
 
   broadcasterProfile: () => json<{ profile: BroadcasterProfile }>(`${API}/broadcaster/profile`),
+
+  accountSecurity: () => json<AccountSecurityStatus>(`${API}/account/security`),
+
+  setAccountPassword: (body: { password: string; confirmPassword: string }) =>
+    json<{ ok: boolean; security: AccountSecurityStatus; username?: string }>(
+      `${API}/account/password`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    ),
+
+  resetAccountPassword: (body: { password: string; confirmPassword: string }) =>
+    json<{ ok: boolean; security: AccountSecurityStatus }>(`${API}/account/password`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+
+  beginAccountTotpSetup: () =>
+    json<{ qrDataUrl: string; secret: string; uri: string }>(`${API}/account/totp/setup/begin`, {
+      method: "POST",
+    }),
+
+  confirmAccountTotp: (code: string) =>
+    json<{ ok: boolean; backupCodes: string[]; security: AccountSecurityStatus }>(
+      `${API}/account/totp/confirm`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      },
+    ),
+
+  disableAccountTotp: (body: { code?: string; backupCode?: string }) =>
+    json<{ ok: boolean; security: AccountSecurityStatus }>(`${API}/account/totp`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+
+  regenerateAccountTotpBackupCodes: (code: string) =>
+    json<{ ok: boolean; backupCodes: string[] }>(`${API}/account/totp/backup-codes/regenerate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    }),
 
   broadcasterWsToken: () =>
     json<{ token: string; expiresInMs: number; label: string }>(`${API}/broadcaster/ws-token`, {

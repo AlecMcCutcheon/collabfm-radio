@@ -7,6 +7,7 @@ import type { BroadcastDevice, BroadcasterProfile } from "../types/api";
 import { avatarSrc, hostAvatarSrc } from "../utils/avatar";
 import { sanitizeNickname } from "../utils/guestIdentity";
 import { ShareLinksPanel } from "../components/ShareLinksPanel";
+import { AccountSecurityPanel } from "../components/AccountSecurityPanel";
 import { PartyEffectFavoritesPanel } from "../components/PartyEffectFavoritesPanel";
 import { ProfileGenrePicker } from "../components/ProfileGenrePicker";
 import { LevelProgressBar } from "../components/LevelProgressBar";
@@ -27,6 +28,7 @@ function profileAvatarUrl(profile: BroadcasterProfile | null): string {
 
 export function BroadcasterPage({ embedded = false }: { embedded?: boolean }) {
   const { status, refresh: refreshAuth } = useAuthStatus();
+  const isBroadcaster = !!(status.canBroadcast || status.isHost);
   const [profile, setProfile] = useState<BroadcasterProfile | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
@@ -52,6 +54,10 @@ export function BroadcasterPage({ embedded = false }: { embedded?: boolean }) {
   }, []);
 
   const loadDevices = useCallback(async () => {
+    if (!isBroadcaster) {
+      setDevices([]);
+      return;
+    }
     try {
       const res = await api.extensionDevices();
       setDevices(res.devices);
@@ -61,7 +67,7 @@ export function BroadcasterPage({ embedded = false }: { embedded?: boolean }) {
     } catch {
       setDevices([]);
     }
-  }, []);
+  }, [isBroadcaster]);
 
   useEffect(() => {
     void loadProfile();
@@ -178,18 +184,16 @@ export function BroadcasterPage({ embedded = false }: { embedded?: boolean }) {
   if (!status.authenticated) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center text-gray-400">
-        Sign in to open the broadcaster studio.
+        Sign in to open your studio.
       </div>
     );
   }
 
-  if (!status.canBroadcast && !status.isHost) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center text-red-400 px-6 text-center">
-        Broadcaster access is required for this page.
-      </div>
-    );
-  }
+  const studioTitle = isBroadcaster ? "Broadcaster Studio" : "Listener Studio";
+  const embeddedTitle = isBroadcaster ? "Broadcaster Studio" : "Listener Studio";
+  const studioSubtitle = isBroadcaster
+    ? "On-air identity, profile image, and extension pairing"
+    : "Profile, share links, and account settings";
 
   return (
     <div
@@ -202,15 +206,15 @@ export function BroadcasterPage({ embedded = false }: { embedded?: boolean }) {
       <div className={embedded ? "px-4 py-4" : "max-w-3xl mx-auto px-4 py-8"}>
         {embedded ? (
           <div className="mb-6">
-            <h1 className="text-xl font-bold text-white">Studio</h1>
-            <p className="text-sm text-gray-400">Profile, share links, and extension pairing</p>
+            <h1 className="text-xl font-bold text-white">{embeddedTitle}</h1>
+            <p className="text-sm text-gray-400">{studioSubtitle}</p>
           </div>
         ) : (
           <div className="flex items-center gap-4 mb-8">
             <AdminBackButton />
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold text-white">Broadcaster Studio</h1>
-              <p className="text-sm text-gray-400">On-air identity, profile image, and extension pairing</p>
+              <h1 className="text-2xl font-bold text-white">{studioTitle}</h1>
+              <p className="text-sm text-gray-400">{studioSubtitle}</p>
             </div>
             <LogoutButton />
           </div>
@@ -292,9 +296,23 @@ export function BroadcasterPage({ embedded = false }: { embedded?: boolean }) {
                 Save profile
               </button>
               {profileMessage && <p className="text-sm text-green-400">{profileMessage}</p>}
+              {error && !isBroadcaster && <p className="text-sm text-red-400">{error}</p>}
             </div>
           </div>
         </section>
+
+        <AccountSecurityPanel
+          onMessage={(msg) => {
+            setProfileMessage(msg);
+            setError(null);
+          }}
+          onError={(msg) => {
+            setError(msg);
+            setProfileMessage(null);
+          }}
+          onAuthRefresh={() => void refreshAuth()}
+          onProfileRefresh={() => void loadProfile()}
+        />
 
         <section className="rounded-2xl border border-gray-700 bg-gray-900/70 p-6 mb-6">
           <h2 className="text-lg font-semibold text-white mb-1">DJ level</h2>
@@ -325,6 +343,7 @@ export function BroadcasterPage({ embedded = false }: { embedded?: boolean }) {
           <PartyEffectFavoritesPanel scope={partyFavoritesScopeForUser(status.user?.id)!} />
         )}
 
+        {isBroadcaster && (
         <section className="rounded-2xl border border-gray-700 bg-gray-900/70 p-6">
           <h2 className="text-lg font-semibold text-white mb-1">Browser extension</h2>
           <p className="text-sm text-gray-400 mb-5">
@@ -448,6 +467,7 @@ export function BroadcasterPage({ embedded = false }: { embedded?: boolean }) {
           {pairMessage && <p className="text-sm text-green-400 mt-2">{pairMessage}</p>}
           {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
         </section>
+        )}
       </div>
     </div>
   );

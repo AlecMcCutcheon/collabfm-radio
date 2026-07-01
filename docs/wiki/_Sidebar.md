@@ -2,6 +2,7 @@
 
 ### Guides
 - [Navigating the UI](./Navigating-the-UI.md)
+- [Account Security & Studio](./Account-Security-and-Studio.md)
 - [Broadcasting & Stage](./Broadcasting-and-Stage.md)
 - [Broadcaster Extension](./Broadcaster-Extension.md)
 - [Admin Panel](./Admin-Panel.md)

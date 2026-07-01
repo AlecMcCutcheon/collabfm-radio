@@ -33,12 +33,15 @@ Jamendo site adapter (metadata + license via API, track URL, stage media control
 ✅ ~~**Chrome Web Store stage workflow**~~  
 [`.github/workflows/stage-chrome-extension.yml`](../.github/workflows/stage-chrome-extension.yml) uploads extension ZIP on `main` when `backend/broadcaster-extension/**` changes (upload only; skips when a version is **PENDING_REVIEW**). **Submit for review manually** in the Developer Dashboard when you are done iterating — intentional, so you control when Chrome review starts.
 
+✅ ~~**Listener Studio & hybrid accounts**~~  
+All signed-in users get **Listener Studio** (profile, share links, party favorites, account security) or **Broadcaster Studio** (same plus extension pairing and go-live tools). Optional **hybrid SSO + local password** (Admin → OIDC → **Allow hybrid accounts**): email username migration on first password set, Studio set/reset password, OIDC re-verify when email is needed. **Listeners** can create guest-listener share links with shorter expiry options; broadcasters and admins get broader TTL choices.
+
+✅ ~~**Local login 2FA (TOTP)**~~  
+Authenticator-based two-factor authentication for **username/password** sign-in. Off by default; admins enable **Require 2FA for local login** under Admin → **Security**. Users with a password complete mandatory setup at login when required; **admins** see the same prompt but may skip and enroll later in Studio. Backup codes, Studio self-service, **Reset 2FA** per user (Admin → Users), console **recovery login** bypasses 2FA, SSO unaffected. Optional **Branded 2FA** (Admin → System → Branding) shows your station name in authenticator apps.
+
 ---
 
 ## Planned
-
-⏳ **Hybrid users & account management**  
-Support **hybrid accounts**—someone who normally signs in via SSO could **optionally set a local password** on the same account (and vice versa where it makes sense). That would make fallback login, extension use, and admin workflows easier when the IdP is down or a user prefers credentials for a specific client.
 
 ⏳ **Gated registration & access requests**  
 A **registration gate** instead of open signup: public request form, one-time enrollment token, admin approve/deny queue, approved applicants sign in with username + token and set a password on first login.

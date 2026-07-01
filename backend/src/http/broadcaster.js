@@ -42,12 +42,18 @@ function readBody(req) {
   });
 }
 
-async function requireBroadcasterSession(req, res) {
+async function requireAuthenticatedSession(req, res) {
   const session = getAppSession(req);
   if (!session?.user?.id) {
     json(res, 401, { error: "Unauthorized" });
     return null;
   }
+  return session;
+}
+
+async function requireBroadcasterSession(req, res) {
+  const session = await requireAuthenticatedSession(req, res);
+  if (!session) return null;
   const allowed = await canUserBroadcastV2(session.user.id);
   if (!allowed) {
     json(res, 403, { error: "Forbidden" });
@@ -55,7 +61,6 @@ async function requireBroadcasterSession(req, res) {
   }
   return session;
 }
-
 function publishBroadcasterProfileUpdate(userId, profile) {
   const user = getUserById(Number(userId));
   const role = user ? roleInfoForUser(user) : null;
@@ -114,7 +119,7 @@ export async function handleBroadcasterRoutes(req, res, pathname, method, getSes
   }
 
   if (pathname === "/api/broadcaster/profile" && method === "GET") {
-    const session = await requireBroadcasterSession(req, res);
+    const session = await requireAuthenticatedSession(req, res);
     if (!session) return true;
     const profile = getBroadcasterProfile(Number(session.user.id));
     json(res, 200, { profile });
@@ -122,7 +127,7 @@ export async function handleBroadcasterRoutes(req, res, pathname, method, getSes
   }
 
   if (pathname === "/api/broadcaster/profile" && method === "PUT") {
-    const session = await requireBroadcasterSession(req, res);
+    const session = await requireAuthenticatedSession(req, res);
     if (!session) return true;
     try {
       const body = await readBody(req);
@@ -141,7 +146,7 @@ export async function handleBroadcasterRoutes(req, res, pathname, method, getSes
   }
 
   if (pathname === "/api/broadcaster/profile/avatar" && method === "POST") {
-    const session = await requireBroadcasterSession(req, res);
+    const session = await requireAuthenticatedSession(req, res);
     if (!session) return true;
     try {
       const body = await readBody(req);

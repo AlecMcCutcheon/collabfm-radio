@@ -6,6 +6,7 @@ import {
   getSetting,
   getUserById,
   getUserByUsername,
+  promoteSessionToFull,
   setSetting,
 } from "../db/index.js";
 import {
@@ -17,6 +18,21 @@ import {
   setSessionCookieHeader,
   verifyPassword,
 } from "./session.js";
+import {
+  SESSION_SCOPE_FULL,
+  SESSION_SCOPE_TOTP_SETUP,
+  SESSION_SCOPE_TOTP_SETUP_OPTIONAL,
+  SESSION_SCOPE_TOTP_VERIFY,
+  TOTP_SETUP_TTL_MS,
+  TOTP_VERIFY_TTL_MS,
+  beginTotpSetupForUser,
+  confirmTotpSetupForUser,
+  userExemptFrom2faEnforcement,
+  userNeedsMandatoryTotpSetup,
+  userShouldPromptOptionalTotpSetup,
+  userNeedsTotpVerify,
+  verifyUserTotpLogin,
+} from "./totp.js";
 import { permissionsForRole, roleInfoForUser } from "./permissions.js";
 import { avatarUrlForUserId, publicDisplayName } from "../db/userProfile.js";
 import { touchUserVisit } from "../db/userActivity.js";
@@ -57,15 +73,11 @@ function readBody(req) {
   });
 }
 
-export function getAppSession(req) {
-  const cookies = parseCookies(req.headers.cookie);
-  const token = cookies.radio_session;
-  if (!token) return null;
-  const row = getSession(token);
-  if (!row) return null;
-  touchUserVisit(row.user_id, clientIp(req));
+function sessionFromRow(row, token) {
   return {
     token,
+    scope: row.scope || SESSION_SCOPE_FULL,
+    loginMethod: row.login_method === "oidc" ? "oidc" : "local",
     user: {
       id: String(row.user_id),
       username: row.username,
@@ -75,12 +87,61 @@ export function getAppSession(req) {
   };
 }
 
-function createUserSession(req, res, userId) {
+/** Any session scope (full or pending 2FA). */
+export function getAuthSession(req) {
+  const cookies = parseCookies(req.headers.cookie);
+  const token = cookies.radio_session;
+  if (!token) return null;
+  const row = getSession(token);
+  if (!row) return null;
+  if ((row.scope || SESSION_SCOPE_FULL) === SESSION_SCOPE_FULL) {
+    touchUserVisit(row.user_id, clientIp(req));
+  }
+  return sessionFromRow(row, token);
+}
+
+/** Full authenticated session only — used by most API routes. */
+export function getAppSession(req) {
+  const session = getAuthSession(req);
+  if (!session || session.scope !== SESSION_SCOPE_FULL) return null;
+  return session;
+}
+
+function createScopedSession(req, res, userId, scope, ttlMs, loginMethod = "local") {
   const token = generateSessionToken();
-  createSession(token, userId, Date.now() + SESSION_TTL_MS);
+  createSession(token, userId, Date.now() + ttlMs, scope, loginMethod);
   touchUserVisit(userId, clientIp(req), { force: true });
   res.setHeader("Set-Cookie", setSessionCookieHeader(token, isSecureRequest(req)));
   return getUserById(userId);
+}
+
+function createUserSession(req, res, userId, loginMethod = "local") {
+  return createScopedSession(
+    req,
+    res,
+    userId,
+    SESSION_SCOPE_FULL,
+    SESSION_TTL_MS,
+    loginMethod,
+  );
+}
+
+function loginSuccessPayload(user) {
+  const perms = permissionsForRole(user.role);
+  return {
+    authenticated: true,
+    user: { username: user.username, role: user.role },
+    permissions: perms,
+  };
+}
+
+function finishFullLogin(req, res, user) {
+  createUserSession(req, res, user.id);
+  return loginSuccessPayload(user);
+}
+
+function clearAuthCookie(res, req) {
+  res.setHeader("Set-Cookie", clearSessionCookie(isSecureRequest(req)));
 }
 
 export function authStatusPayload(session) {
@@ -93,17 +154,49 @@ export function authStatusPayload(session) {
       oidcAvailable: oidc.enabled === true,
     };
   }
+
+  const userRow = getUserById(Number(session.user.id));
+  if (session.scope !== SESSION_SCOPE_FULL) {
+    const pending2fa =
+      session.scope === SESSION_SCOPE_TOTP_SETUP
+        ? "setup"
+        : session.scope === SESSION_SCOPE_TOTP_SETUP_OPTIONAL
+          ? "setup_optional"
+          : "verify";
+    return {
+      authenticated: false,
+      pending2fa,
+      canSkip2faSetup: session.scope === SESSION_SCOPE_TOTP_SETUP_OPTIONAL,
+      user: {
+        id: session.user.id,
+        username: userRow?.username ?? session.user.username,
+        displayName: publicDisplayName(userRow) || session.user.username,
+      },
+      permissions: {},
+      oidcAvailable: oidc.enabled === true,
+    };
+  }
+
   const roleInfo = roleInfoForUser({ role: session.user.role });
   const perms = roleInfo.permissions;
-  const userRow = getUserById(Number(session.user.id));
+  const oidcCfg = normalizeOidcConfig(getSetting("oidc", { enabled: false }));
+  const sessionLoginMethod = session.loginMethod === "oidc" ? "oidc" : "local";
   return {
     authenticated: true,
+    sessionLoginMethod,
+    ssoNickname:
+      sessionLoginMethod === "oidc" && oidcCfg.providerNickname
+        ? oidcCfg.providerNickname
+        : null,
     user: {
       id: session.user.id,
-      username: session.user.username,
+      username: userRow?.username ?? session.user.username,
       displayName: publicDisplayName(userRow) || session.user.username,
       avatar: avatarUrlForUserId(session.user.id),
+      authSource: userRow?.auth_source ?? session.user.authSource,
+      hasPassword: !!(userRow?.password_hash && String(userRow.password_hash).trim()),
     },
+    hybridUsersEnabled: oidcCfg.hybridUsersEnabled === true,
     canBroadcast: perms.canBroadcast === true,
     isHost: perms.canBroadcast === true || session.user.role === "admin",
     roleInfo: {
@@ -134,7 +227,7 @@ export async function handleAuthRoutes(req, res, pathname, method) {
   }
 
   if (pathname === "/auth/status" && method === "GET") {
-    const session = getAppSession(req);
+    const session = getAuthSession(req);
     return json(res, 200, authStatusPayload(session));
   }
 
@@ -166,27 +259,148 @@ export async function handleAuthRoutes(req, res, pathname, method) {
         const admin = getFirstAdminUser();
         if (!admin) return json(res, 503, { error: "No admin account found" });
         clearRecoveryMode();
-        createUserSession(req, res, admin.id);
-        const perms = permissionsForRole(admin.role);
-        return json(res, 200, {
-          authenticated: true,
-          user: { username: admin.username, role: admin.role },
-          permissions: perms,
-          recoveryLogin: true,
-        });
+        const payload = finishFullLogin(req, res, admin);
+        return json(res, 200, { ...payload, recoveryLogin: true });
       }
 
       const user = getUserByUsername(username);
       if (!user || !user.enabled) return json(res, 401, { error: "Invalid credentials" });
-      if (user.auth_source !== "local") return json(res, 401, { error: "Use SSO for this account" });
+      if (user.auth_source === "oidc" && !user.password_hash) {
+        return json(res, 401, { error: "Use SSO for this account" });
+      }
+      if (user.auth_source !== "local" && user.auth_source !== "oidc") {
+        return json(res, 401, { error: "Use SSO for this account" });
+      }
+      if (!user.password_hash) return json(res, 401, { error: "Invalid credentials" });
       const ok = await verifyPassword(password, user.password_hash);
       if (!ok) return json(res, 401, { error: "Invalid credentials" });
-      createUserSession(req, res, user.id);
-      const perms = permissionsForRole(user.role);
+
+      if (userNeedsTotpVerify(user)) {
+        createScopedSession(req, res, user.id, SESSION_SCOPE_TOTP_VERIFY, TOTP_VERIFY_TTL_MS);
+        return json(res, 200, {
+          requires2fa: true,
+          pending2fa: "verify",
+          user: { username: user.username, role: user.role },
+        });
+      }
+      if (userNeedsMandatoryTotpSetup(user)) {
+        createScopedSession(req, res, user.id, SESSION_SCOPE_TOTP_SETUP, TOTP_SETUP_TTL_MS);
+        return json(res, 200, {
+          requires2faSetup: true,
+          pending2fa: "setup",
+          user: { username: user.username, role: user.role },
+        });
+      }
+      if (userShouldPromptOptionalTotpSetup(user)) {
+        createScopedSession(
+          req,
+          res,
+          user.id,
+          SESSION_SCOPE_TOTP_SETUP_OPTIONAL,
+          TOTP_SETUP_TTL_MS,
+        );
+        return json(res, 200, {
+          requires2faSetup: true,
+          optional2faSetup: true,
+          pending2fa: "setup_optional",
+          user: { username: user.username, role: user.role },
+        });
+      }
+
+      return json(res, 200, finishFullLogin(req, res, user));
+    } catch {
+      return json(res, 400, { error: "Invalid JSON" });
+    }
+  }
+
+  if (pathname === "/auth/local/2fa/verify" && method === "POST") {
+    try {
+      const rl = consumeRateLimit(`2fa:${clientIp(req)}`, { windowMs: 15 * 60 * 1000, max: 20 });
+      if (!rl.allowed) {
+        return json(res, 429, { error: "Too many attempts", retryAfterMs: rl.retryAfterMs });
+      }
+      const session = getAuthSession(req);
+      if (!session || session.scope !== SESSION_SCOPE_TOTP_VERIFY) {
+        return json(res, 401, { error: "Unauthorized" });
+      }
+      const user = getUserById(Number(session.user.id));
+      if (!user) return json(res, 401, { error: "Unauthorized" });
+      const body = await readBody(req);
+      const result = await verifyUserTotpLogin(user, {
+        code: body.code,
+        backupCode: body.backupCode,
+      });
+      if (result && typeof result === "object" && result.error) {
+        return json(res, 400, { error: result.error });
+      }
+      if (!result) return json(res, 401, { error: "Invalid authentication code" });
+      promoteSessionToFull(session.token);
+      return json(res, 200, loginSuccessPayload(user));
+    } catch {
+      return json(res, 400, { error: "Invalid JSON" });
+    }
+  }
+
+  if (pathname === "/auth/local/2fa/setup/skip" && method === "POST") {
+    const session = getAuthSession(req);
+    if (!session || session.scope !== SESSION_SCOPE_TOTP_SETUP_OPTIONAL) {
+      return json(res, 401, { error: "Unauthorized" });
+    }
+    const user = getUserById(Number(session.user.id));
+    if (!user || !userExemptFrom2faEnforcement(user)) {
+      return json(res, 403, { error: "Forbidden" });
+    }
+    promoteSessionToFull(session.token);
+    return json(res, 200, loginSuccessPayload(user));
+  }
+
+  if (pathname === "/auth/local/2fa/setup/begin" && method === "GET") {
+    const session = getAuthSession(req);
+    if (
+      !session ||
+      (session.scope !== SESSION_SCOPE_TOTP_SETUP &&
+        session.scope !== SESSION_SCOPE_TOTP_SETUP_OPTIONAL &&
+        session.scope !== SESSION_SCOPE_FULL)
+    ) {
+      return json(res, 401, { error: "Unauthorized" });
+    }
+    const user = getUserById(Number(session.user.id));
+    if (!user) return json(res, 401, { error: "Unauthorized" });
+    const setup = await beginTotpSetupForUser(user);
+    return json(res, 200, {
+      qrDataUrl: setup.qrDataUrl,
+      secret: setup.secret,
+      uri: setup.uri,
+    });
+  }
+
+  if (pathname === "/auth/local/2fa/setup/confirm" && method === "POST") {
+    try {
+      const rl = consumeRateLimit(`2fa:${clientIp(req)}`, { windowMs: 15 * 60 * 1000, max: 20 });
+      if (!rl.allowed) {
+        return json(res, 429, { error: "Too many attempts", retryAfterMs: rl.retryAfterMs });
+      }
+      const session = getAuthSession(req);
+      if (
+        !session ||
+        (session.scope !== SESSION_SCOPE_TOTP_SETUP &&
+          session.scope !== SESSION_SCOPE_TOTP_SETUP_OPTIONAL &&
+          session.scope !== SESSION_SCOPE_FULL)
+      ) {
+        return json(res, 401, { error: "Unauthorized" });
+      }
+      const user = getUserById(Number(session.user.id));
+      if (!user) return json(res, 401, { error: "Unauthorized" });
+      const body = await readBody(req);
+      const result = await confirmTotpSetupForUser(user, body.code);
+      if (result.error) return json(res, result.status, { error: result.error });
+      const wasPending = session.scope !== SESSION_SCOPE_FULL;
+      if (wasPending) {
+        promoteSessionToFull(session.token);
+      }
       return json(res, 200, {
-        authenticated: true,
-        user: { username: user.username, role: user.role },
-        permissions: perms,
+        ...(wasPending ? loginSuccessPayload(result.user) : { ok: true }),
+        backupCodes: result.backupCodes,
       });
     } catch {
       return json(res, 400, { error: "Invalid JSON" });
@@ -194,23 +408,24 @@ export async function handleAuthRoutes(req, res, pathname, method) {
   }
 
   if (pathname === "/auth/logout" && (method === "POST" || method === "GET")) {
-    const session = getAppSession(req);
+    const session = getAuthSession(req);
     let redirectTarget = "/";
 
-    if (session?.user?.id) {
-      const user = getUserById(Number(session.user.id));
-      if (user?.auth_source === "oidc") {
-        const normalized = normalizeOidcConfig(getSetting("oidc", { enabled: false }));
-        if (normalized.logoutUrl) {
-          redirectTarget = normalized.logoutUrl;
-        }
+    if (session?.loginMethod === "oidc") {
+      const normalized = normalizeOidcConfig(getSetting("oidc", { enabled: false }));
+      if (normalized.logoutUrl) {
+        redirectTarget = normalized.logoutUrl;
       }
     }
 
     if (session?.token) deleteSession(session.token);
-    res.setHeader("Set-Cookie", clearSessionCookie(isSecureRequest(req)));
+    clearAuthCookie(res, req);
     if (method === "GET") return redirect(res, redirectTarget);
-    return json(res, 200, { ok: true, redirect: redirectTarget === "/" ? null : redirectTarget });
+    return json(res, 200, {
+      ok: true,
+      redirect: redirectTarget === "/" ? null : redirectTarget,
+      sessionLoginMethod: session?.loginMethod === "oidc" ? "oidc" : "local",
+    });
   }
 
   if (pathname === "/auth/oidc/login" && method === "GET") {
@@ -222,7 +437,7 @@ export async function handleAuthRoutes(req, res, pathname, method) {
   if (pathname === "/auth/oidc/callback" && method === "GET") {
     if (!oidc.enabled) return json(res, 404, { error: "OIDC not enabled" });
     const { handleOidcCallback } = await import("./oidc.js");
-    return handleOidcCallback(req, res, oidc, createUserSession);
+    return handleOidcCallback(req, res, oidc, createUserSession, getAppSession);
   }
 
   return false;

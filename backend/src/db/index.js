@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
+import { SESSION_TTL_MS } from "../auth/session.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -98,7 +99,8 @@ export function listUsers() {
     .prepare(
       `SELECT id, username, auth_source, role, enabled, created_at, last_login, last_login_ip,
               experience_points, block_guest_action_xp,
-              display_name, avatar_filename, bio, genres
+              display_name, avatar_filename, bio, genres,
+              password_hash, totp_enabled
        FROM users ORDER BY username`
     )
     .all();
@@ -135,6 +137,8 @@ export function updateUser(id, fields) {
     "last_login",
     "last_login_ip",
     "oidc_subject",
+    "oidc_profile_json",
+    "oidc_username_from",
     "block_guest_action_xp",
     "experience_points",
   ];
@@ -164,18 +168,29 @@ export function deleteUser(id) {
   db.prepare("DELETE FROM users WHERE id = ?").run(id);
 }
 
-export function createSession(token, userId, expiresAt) {
-  getDb().prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)").run(
-    token,
-    userId,
-    expiresAt
-  );
+export function createSession(token, userId, expiresAt, scope = "full", loginMethod = "local") {
+  const method = loginMethod === "oidc" ? "oidc" : "local";
+  getDb()
+    .prepare(
+      "INSERT INTO sessions (token, user_id, expires_at, scope, login_method) VALUES (?, ?, ?, ?, ?)",
+    )
+    .run(token, userId, expiresAt, scope, method);
+}
+
+export function promoteSessionToFull(token) {
+  getDb()
+    .prepare(
+      `UPDATE sessions SET scope = 'full', expires_at = ?
+       WHERE token = ?`,
+    )
+    .run(Date.now() + SESSION_TTL_MS, token);
 }
 
 export function getSession(token) {
   const row = getDb()
     .prepare(
-      `SELECT s.token, s.user_id, s.expires_at, u.username, u.role, u.enabled, u.auth_source
+      `SELECT s.token, s.user_id, s.expires_at, s.scope, s.login_method,
+              u.username, u.role, u.enabled, u.auth_source
        FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?`
     )
     .get(token);
@@ -185,6 +200,8 @@ export function getSession(token) {
     return null;
   }
   if (!row.enabled) return null;
+  if (!row.scope) row.scope = "full";
+  if (!row.login_method) row.login_method = "local";
   return row;
 }
 

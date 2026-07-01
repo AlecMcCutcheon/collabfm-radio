@@ -12,9 +12,18 @@ export const SHARE_TTL_OPTIONS = {
   never: null,
 };
 
-export const LISTENER_TTL_OPTIONS = ["never", "24h", "72h", "7d", "30d", "1y"];
+/** Guest-listener links — scoped by who creates them. */
+export const LISTENER_ACCOUNT_LISTENER_LINK_TTL = ["24h", "72h", "7d"];
+export const BROADCASTER_LISTENER_LINK_TTL = ["never", "24h", "72h", "7d", "30d"];
+export const ADMIN_LISTENER_LINK_TTL = ["never", "24h", "72h", "7d", "30d", "1y"];
 
-export const GUEST_BROADCASTER_TTL_OPTIONS = ["1h", "6h", "24h"];
+/** Guest-broadcaster links — never permanent; admins get slightly longer options. */
+export const BROADCASTER_GUEST_BROADCASTER_TTL = ["1h", "6h", "24h"];
+export const ADMIN_GUEST_BROADCASTER_TTL = ["1h", "6h", "24h", "72h", "7d"];
+
+/** @deprecated Use role-scoped helpers; kept for admin site-wide listing labels. */
+export const LISTENER_TTL_OPTIONS = ADMIN_LISTENER_LINK_TTL;
+export const GUEST_BROADCASTER_TTL_OPTIONS = ADMIN_GUEST_BROADCASTER_TTL;
 
 export const MAX_ACTIVE_SHARE_LINKS_PER_USER = 3;
 
@@ -27,9 +36,38 @@ export function ttlToExpiresAt(ttlKey) {
   return Date.now() + ms;
 }
 
-export function ttlOptionsForGuestMode(guestMode) {
-  if (guestMode === "guest_broadcaster") return GUEST_BROADCASTER_TTL_OPTIONS;
-  return LISTENER_TTL_OPTIONS;
+export function listenerLinkTtlOptionsForRole(role) {
+  if (role === "admin") return ADMIN_LISTENER_LINK_TTL;
+  if (role === "broadcaster") return BROADCASTER_LISTENER_LINK_TTL;
+  return LISTENER_ACCOUNT_LISTENER_LINK_TTL;
+}
+
+export function guestBroadcasterTtlOptionsForRole(role) {
+  if (role === "admin") return ADMIN_GUEST_BROADCASTER_TTL;
+  return BROADCASTER_GUEST_BROADCASTER_TTL;
+}
+
+export function ttlOptionsForCreate({ role, guestMode }) {
+  const mode = guestMode === "guest_broadcaster" ? "guest_broadcaster" : "listener";
+  if (mode === "guest_broadcaster") return guestBroadcasterTtlOptionsForRole(role);
+  return listenerLinkTtlOptionsForRole(role);
+}
+
+export function defaultTtlFromOptions(options) {
+  if (!options?.length) return "24h";
+  if (options.includes("never")) return "never";
+  if (options.includes("72h")) return "72h";
+  return options[0];
+}
+
+export function resolveTtlForCreate({ role, guestMode, ttl }) {
+  const allowed = ttlOptionsForCreate({ role, guestMode });
+  if (ttl && allowed.includes(ttl)) return ttl;
+  return defaultTtlFromOptions(allowed);
+}
+
+export function canCreateGuestBroadcasterLinks(role) {
+  return role === "admin" || role === "broadcaster";
 }
 
 export function generateShareToken() {
@@ -65,16 +103,20 @@ export function isShareLinkActive(row) {
 
 const ACTIVE_SHARE_LINK_SQL = `revoked = 0 AND (expires_at IS NULL OR expires_at >= ?)`;
 
-export function createShareLink({ label, linkKind, guestMode, ttl, createdBy }) {
+export function createShareLink({ label, linkKind, guestMode, ttl, createdBy, creatorRole = "listener" }) {
   const mode = GUEST_MODES.includes(guestMode) ? guestMode : "listener";
   const kind = linkKind === "stream" ? "stream" : "ui";
-  const allowedTtls = ttlOptionsForGuestMode(mode);
-  if (!ttl || !allowedTtls.includes(ttl)) {
+  if (mode === "guest_broadcaster" && !canCreateGuestBroadcasterLinks(creatorRole)) {
+    throw new Error("Guest broadcaster links require broadcaster or admin role");
+  }
+  const resolvedTtl = resolveTtlForCreate({ role: creatorRole, guestMode: mode, ttl });
+  const allowedTtls = ttlOptionsForCreate({ role: creatorRole, guestMode: mode });
+  if (!allowedTtls.includes(resolvedTtl)) {
     throw new Error("Invalid TTL for guest mode");
   }
   purgeExpiredShareLinks();
   const token = generateShareToken();
-  const expiresAt = ttlToExpiresAt(ttl);
+  const expiresAt = ttlToExpiresAt(resolvedTtl);
   const result = getDb()
     .prepare(
       `INSERT INTO stream_share_links (token, label, link_kind, guest_mode, expires_at, created_by)

@@ -20,7 +20,7 @@ const TTL_LABELS: Record<string, string> = {
   "1y": "1 year",
 };
 
-const LISTENER_TTL_FALLBACK = ["never", "24h", "72h", "7d", "30d", "1y"];
+const LISTENER_LINK_TTL_FALLBACK = ["24h", "72h", "7d"];
 const GUEST_BROADCASTER_TTL_FALLBACK = ["1h", "6h", "24h"];
 
 function formatExpiry(link: ShareLink) {
@@ -34,6 +34,12 @@ function guestModeLabel(mode: ShareLink["guest_mode"]) {
   return mode === "guest_broadcaster" ? "Guest broadcaster" : "Guest listener";
 }
 
+function defaultTtlForOptions(options: string[]) {
+  if (options.includes("never")) return "never";
+  if (options.includes("72h")) return "72h";
+  return options[0] ?? "24h";
+}
+
 interface ShareLinksPanelProps {
   onFlash?: (msg: string) => void;
 }
@@ -41,9 +47,10 @@ interface ShareLinksPanelProps {
 export function ShareLinksPanel({ onFlash }: ShareLinksPanelProps) {
   const { status } = useAuthStatus();
   const canCreateGuestBroadcaster =
-    status.roleInfo?.roleType === "admin" || status.roleInfo?.roleType === "broadcaster";
+    status.roleInfo?.permissions?.canCreateShareLinks !== false &&
+    (status.roleInfo?.roleType === "admin" || status.roleInfo?.roleType === "broadcaster");
   const [links, setLinks] = useState<ShareLink[]>([]);
-  const [listenerTtlOptions, setListenerTtlOptions] = useState<string[]>(LISTENER_TTL_FALLBACK);
+  const [listenerTtlOptions, setListenerTtlOptions] = useState<string[]>(LISTENER_LINK_TTL_FALLBACK);
   const [guestBroadcasterTtlOptions, setGuestBroadcasterTtlOptions] = useState<string[]>(
     GUEST_BROADCASTER_TTL_FALLBACK,
   );
@@ -53,7 +60,7 @@ export function ShareLinksPanel({ onFlash }: ShareLinksPanelProps) {
   const [newLink, setNewLink] = useState({
     label: "",
     guestMode: "listener" as "listener" | "guest_broadcaster",
-    ttl: "never",
+    ttl: defaultTtlForOptions(LISTENER_LINK_TTL_FALLBACK),
   });
 
   const flash = (msg: string) => onFlash?.(msg);
@@ -64,13 +71,29 @@ export function ShareLinksPanel({ onFlash }: ShareLinksPanelProps) {
   const reload = useCallback(async () => {
     try {
       const res = await api.userShareLinks();
+      const listenerOpts = res.listenerTtlOptions ?? LISTENER_LINK_TTL_FALLBACK;
+      const guestBroadcasterOpts =
+        res.guestBroadcasterTtlOptions ?? GUEST_BROADCASTER_TTL_FALLBACK;
       setLinks(res.links);
-      setListenerTtlOptions(res.listenerTtlOptions ?? res.ttlOptions ?? LISTENER_TTL_FALLBACK);
-      setGuestBroadcasterTtlOptions(
-        res.guestBroadcasterTtlOptions ?? GUEST_BROADCASTER_TTL_FALLBACK,
-      );
+      setListenerTtlOptions(listenerOpts);
+      setGuestBroadcasterTtlOptions(guestBroadcasterOpts);
       setMaxLinks(res.maxLinks);
       setError(null);
+      setNewLink((prev) => {
+        const opts =
+          prev.guestMode === "guest_broadcaster" ? guestBroadcasterOpts : listenerOpts;
+        const ttl = opts.includes(prev.ttl) ? prev.ttl : defaultTtlForOptions(opts);
+        const guestMode =
+          prev.guestMode === "guest_broadcaster" && res.canCreateGuestBroadcaster === false
+            ? "listener"
+            : prev.guestMode;
+        const nextOpts = guestMode === "guest_broadcaster" ? guestBroadcasterOpts : listenerOpts;
+        return {
+          ...prev,
+          guestMode,
+          ttl: nextOpts.includes(ttl) ? ttl : defaultTtlForOptions(nextOpts),
+        };
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load share links");
     }
@@ -97,7 +120,7 @@ export function ShareLinksPanel({ onFlash }: ShareLinksPanelProps) {
       setNewLink({
         label: "",
         guestMode: "listener",
-        ttl: "never",
+        ttl: defaultTtlForOptions(listenerTtlOptions),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Create failed");
@@ -126,6 +149,11 @@ export function ShareLinksPanel({ onFlash }: ShareLinksPanelProps) {
       <p className="text-sm text-gray-400 mb-5">
         Each link includes the guest web player and a direct stream URL. Up to {maxLinks} active links
         — expired links are removed automatically.
+        {!canCreateGuestBroadcaster && (
+          <span className="block mt-1 text-gray-500">
+            Listener accounts can create guest-listener links only (shorter expiry options).
+          </span>
+        )}
       </p>
 
       {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
@@ -148,11 +176,15 @@ export function ShareLinksPanel({ onFlash }: ShareLinksPanelProps) {
               value={newLink.guestMode}
               onChange={(e) => {
                 const guestMode = e.target.value as "listener" | "guest_broadcaster";
-                const nextTtl =
+                const opts =
                   guestMode === "guest_broadcaster"
-                    ? guestBroadcasterTtlOptions[0] ?? "24h"
-                    : "never";
-                setNewLink({ ...newLink, guestMode, ttl: nextTtl });
+                    ? guestBroadcasterTtlOptions
+                    : listenerTtlOptions;
+                setNewLink({
+                  ...newLink,
+                  guestMode,
+                  ttl: defaultTtlForOptions(opts),
+                });
               }}
             >
               <option value="listener">Guest listener</option>

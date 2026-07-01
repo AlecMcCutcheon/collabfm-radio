@@ -28,6 +28,10 @@ import {
   saveOperationalSettings,
 } from "../settings/operational.js";
 import {
+  saveSecuritySettings,
+  securitySettingsAdminPayload,
+} from "../settings/security.js";
+import {
   checkForContainerUpdate,
   getContainerUpdateSettings,
   saveContainerUpdateSettings,
@@ -38,8 +42,9 @@ import {
   enrichShareLink,
   listShareLinks,
   revokeShareLink,
-  LISTENER_TTL_OPTIONS,
-  GUEST_BROADCASTER_TTL_OPTIONS,
+  ADMIN_LISTENER_LINK_TTL,
+  ADMIN_GUEST_BROADCASTER_TTL,
+  resolveTtlForCreate,
 } from "../db/shareLinks.js";
 import { resolvePublicBaseUrl } from "./publicBaseUrl.js";
 import {
@@ -146,6 +151,8 @@ export async function handleAdminRoutes(req, res, pathname, method) {
         return {
           ...u,
           block_guest_action_xp: !!u.block_guest_action_xp,
+          has_password: !!(u.password_hash && String(u.password_hash).trim()),
+          totp_enabled: Number(u.totp_enabled) === 1,
           level: publicLevelInfo(u),
           nickname: String(u.display_name || "").trim() || null,
           displayName: presentation?.displayName ?? u.username,
@@ -216,12 +223,80 @@ export async function handleAdminRoutes(req, res, pathname, method) {
         if (typeof body.enabled === "boolean") fields.enabled = body.enabled ? 1 : 0;
         if (body.username) fields.username = String(body.username).trim();
         if (body.password) {
-          if (existing.auth_source !== "local") {
-            return writeAdminJsonError(res, 400, "Cannot set password for OIDC users");
-          }
+          const { normalizeOidcConfig } = await import("../auth/oidcUser.js");
+          const { applyHybridOidcPassword, hasPasswordHash } = await import(
+            "../auth/hybridPassword.js"
+          );
+          const oidcCfg = normalizeOidcConfig(getSetting("oidc", { enabled: false }));
           const password = String(body.password);
           if (password.length < 8) {
             return writeAdminJsonError(res, 400, "Password must be at least 8 characters");
+          }
+
+          if (existing.auth_source === "oidc") {
+            if (oidcCfg.hybridUsersEnabled !== true) {
+              return writeAdminJsonError(res, 400, "Cannot set password for OIDC users");
+            }
+            const isFirstPassword = !hasPasswordHash(existing);
+            const hybridResult = await applyHybridOidcPassword(existing, password, {
+              requireEmailMigration: isFirstPassword,
+              migrateIfNeeded: true,
+            });
+            if (hybridResult.error) {
+              return writeAdminJsonError(res, hybridResult.status, hybridResult.error);
+            }
+            const user = hybridResult.user;
+            const { publicLevelInfo } = await import("../db/userLevel.js");
+            const presentation = publicUserPresentation(user);
+            const roleInfo = roleInfoForUser(user);
+            updateSitePresenceActorProfile(String(user.id), {
+              displayName: presentation.displayName || user.username,
+              avatar: presentation.avatar,
+              roleColor: roleInfo.roleColor,
+              roleType: user.role,
+              level: presentation.level?.level,
+            });
+            publishPresenceRoster(listSitePresenceRoster());
+            publishProfileChanged({
+              userId: String(user.id),
+              isGuest: false,
+              profile: {
+                userId: String(user.id),
+                username: user.username,
+                displayName: presentation.displayName || user.username,
+                avatarUrl: presentation.avatar,
+                bio: presentation.bio,
+                genres: presentation.genres,
+                level: presentation.level,
+                roleColor: roleInfo.roleColor,
+                roleType: user.role,
+                enabled: !!user.enabled,
+              },
+            });
+            refreshChatTypingForActor(String(user.id), {
+              displayName: presentation.displayName || user.username,
+              avatar: presentation.avatar,
+              roleType: user.role,
+              isGuest: false,
+            });
+            return json(res, 200, {
+              user: {
+                id: user.id,
+                username: user.username,
+                role: user.role,
+                auth_source: user.auth_source,
+                enabled: !!user.enabled,
+                has_password: true,
+                experience_points: user.experience_points ?? 0,
+                block_guest_action_xp: !!user.block_guest_action_xp,
+                level: publicLevelInfo(user),
+              },
+              usernameMigrated: hybridResult.migrated === true,
+            });
+          }
+
+          if (existing.auth_source !== "local") {
+            return writeAdminJsonError(res, 400, "Cannot set password for this account type");
           }
           fields.password_hash = await hashPassword(password);
         }
@@ -295,6 +370,34 @@ export async function handleAdminRoutes(req, res, pathname, method) {
       deleteUser(id);
       return json(res, 200, { ok: true });
     }
+  }
+
+  const resetTotpMatch = pathname.match(/^\/api\/admin\/users\/(\d+)\/reset-totp$/);
+  if (resetTotpMatch && method === "POST") {
+    const id = Number(resetTotpMatch[1]);
+    const existing = getUserById(id);
+    if (!existing) return writeAdminJsonError(res, 404, "Not found");
+    const { adminResetUserTotp } = await import("../auth/totp.js");
+    const { deleteUserSessions } = await import("../db/index.js");
+    adminResetUserTotp(id);
+    deleteUserSessions(id);
+    const user = getUserById(id);
+    const { publicLevelInfo } = await import("../db/userLevel.js");
+    return json(res, 200, {
+      ok: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        auth_source: user.auth_source,
+        enabled: !!user.enabled,
+        has_password: !!(user.password_hash && String(user.password_hash).trim()),
+        totp_enabled: false,
+        experience_points: user.experience_points ?? 0,
+        block_guest_action_xp: !!user.block_guest_action_xp,
+        level: publicLevelInfo(user),
+      },
+    });
   }
 
   const resetXpMatch = pathname.match(/^\/api\/admin\/users\/(\d+)\/reset-xp$/);
@@ -386,12 +489,9 @@ export async function handleAdminRoutes(req, res, pathname, method) {
         blockGuestXpMatchingStageIp:
           getSetting("leveling.blockGuestXpMatchingStageIp", true) !== false,
       },
-      broadcast: {
-        extensionRequirePairing:
-          getSetting("broadcast.extensionRequirePairing", true) !== false,
-      },
       updates: getContainerUpdateSettings(),
       build: getBuildInfo(),
+      security: securitySettingsAdminPayload(),
       ...operationalSettingsAdminPayload(),
     });
   }
@@ -545,9 +645,9 @@ export async function handleAdminRoutes(req, res, pathname, method) {
     });
     return json(res, 200, {
       links,
-      ttlOptions: LISTENER_TTL_OPTIONS,
-      listenerTtlOptions: LISTENER_TTL_OPTIONS,
-      guestBroadcasterTtlOptions: GUEST_BROADCASTER_TTL_OPTIONS,
+      ttlOptions: ADMIN_LISTENER_LINK_TTL,
+      listenerTtlOptions: ADMIN_LISTENER_LINK_TTL,
+      guestBroadcasterTtlOptions: ADMIN_GUEST_BROADCASTER_TTL,
     });
   }
 
@@ -556,20 +656,15 @@ export async function handleAdminRoutes(req, res, pathname, method) {
       const body = await readBody(req);
       const session = getAppSession(req);
       const guestMode = body.guestMode === "guest_broadcaster" ? "guest_broadcaster" : "listener";
-      const ttl =
-        guestMode === "guest_broadcaster"
-          ? GUEST_BROADCASTER_TTL_OPTIONS.includes(body.ttl)
-            ? body.ttl
-            : "24h"
-          : LISTENER_TTL_OPTIONS.includes(body.ttl)
-            ? body.ttl
-            : "never";
+      const creatorRole = session?.user?.role === "admin" ? "admin" : "broadcaster";
+      const ttl = resolveTtlForCreate({ role: creatorRole, guestMode, ttl: body.ttl });
       const link = createShareLink({
         label: body.label ? String(body.label).trim() : null,
         linkKind: "ui",
         guestMode,
         ttl,
         createdBy: session?.user?.id ? Number(session.user.id) : null,
+        creatorRole,
       });
       const base = resolvePublicBaseUrl(req);
       return json(res, 201, { link: enrichShareLink(link, base) });
@@ -618,6 +713,9 @@ export async function handleAdminRoutes(req, res, pathname, method) {
           body.branding.hideDeveloperAboutMessage,
         );
       }
+      if (body.branding && typeof body.branding.branded2fa === "boolean") {
+        setSetting("branding.branded2fa", body.branding.branded2fa);
+      }
       if (body.resetBranding) {
         resetBrandingSettings();
       }
@@ -630,8 +728,11 @@ export async function handleAdminRoutes(req, res, pathname, method) {
       if (body.leveling && typeof body.leveling.blockGuestXpMatchingStageIp === "boolean") {
         setSetting("leveling.blockGuestXpMatchingStageIp", body.leveling.blockGuestXpMatchingStageIp);
       }
-      if (body.broadcast && typeof body.broadcast.extensionRequirePairing === "boolean") {
-        setSetting("broadcast.extensionRequirePairing", body.broadcast.extensionRequirePairing);
+      let security = securitySettingsAdminPayload();
+      if (body.security && typeof body.security.localLogin2faRequired === "boolean") {
+        security = saveSecuritySettings({
+          localLogin2faRequired: body.security.localLogin2faRequired,
+        });
       }
       let updates = getContainerUpdateSettings();
       if (body.updates) {
@@ -650,12 +751,9 @@ export async function handleAdminRoutes(req, res, pathname, method) {
           blockGuestXpMatchingStageIp:
             getSetting("leveling.blockGuestXpMatchingStageIp", true) !== false,
         },
-        broadcast: {
-          extensionRequirePairing:
-            getSetting("broadcast.extensionRequirePairing", true) !== false,
-        },
         updates,
         build: getBuildInfo(),
+        security,
         ...operational,
       });
     } catch (e) {

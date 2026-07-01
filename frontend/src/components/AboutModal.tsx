@@ -17,19 +17,133 @@ interface AboutModalProps {
 
 interface AboutSection {
   title: string;
-  body: string;
+  body?: string;
+  blocks?: Array<
+    | { kind: "paragraph"; text: string }
+    | { kind: "subheading"; text: string }
+    | { kind: "list"; items: string[] }
+  >;
   links?: { href: string; label: string }[];
+}
+
+function AboutSectionBody({ section }: { section: AboutSection }) {
+  if (section.blocks?.length) {
+    return (
+      <div className="space-y-3">
+        {section.blocks.map((block, index) => {
+          if (block.kind === "subheading") {
+            return (
+              <h5 key={index} className="text-xs font-semibold uppercase tracking-wide text-gray-400 pt-1">
+                {block.text}
+              </h5>
+            );
+          }
+          if (block.kind === "list") {
+            return (
+              <ul key={index} className="list-disc pl-5 space-y-1.5 text-gray-300">
+                {block.items.map((item, itemIndex) => (
+                  <li key={itemIndex} className="leading-relaxed">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            );
+          }
+          return (
+            <p key={index} className="leading-relaxed">
+              {block.text}
+            </p>
+          );
+        })}
+        {section.links && section.links.length > 0 ? (
+          <ul className="space-y-2 pt-1">
+            {section.links.map((link) => (
+              <li key={link.href}>
+                <a
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-radio-accent hover:underline"
+                >
+                  {link.label}
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-80" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <p className="leading-relaxed">{section.body}</p>
+      {section.links && section.links.length > 0 ? (
+        <ul className="mt-3 space-y-2">
+          {section.links.map((link) => (
+            <li key={link.href}>
+              <a
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-radio-accent hover:underline"
+              >
+                {link.label}
+                <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-80" />
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </>
+  );
 }
 
 function buildSections(): AboutSection[] {
   return [
     {
       title: "Collaborative social radio",
-      body: "CollabFM is a collaborative, self-hosted social radio platform where multiple people can broadcast from their browser or the Chrome extension. Listeners tune in through the web interface, direct stream URLs, or an optional Discord voice bot.",
+      body: "CollabFM is a shared, community-run radio station. People take turns broadcasting from their browser, and everyone else can listen along on the web or in Discord and chat together in real time.",
     },
     {
       title: "Music & copyright",
-      body: "CollabFM does not host, store, or provide any audio content—it relays audio that broadcasters supply from their own browser tabs or sources. By default, CollabFM implements best-effort filtering based on metadata through a configurable content policy. The policy engine applies source, artist, and license allowlists to metadata reported by the browser extension—it is not a copyright detector, does not analyze or fingerprint audio, and does not verify licensing legally. New installs default to Free Music Archive and Jamendo. Those sources are included because they provide machine-readable license metadata that can assist with compliance checks. Inclusion does not guarantee legal compliance in all contexts. CC works can still require attribution, impose share-alike terms, or carry platform restrictions; reported metadata can be wrong or incomplete. You and your admins must verify compliance for your use case. On Jamendo, license terms are read per track when you play; FMA offers a CC-filtered browse link. Default allowed licenses are standard Creative Commons terms suited to non-commercial community radio (CC BY, CC BY-SA, CC BY-NC, CC BY-NC-SA, CC BY-ND, CC BY-NC-ND, and CC0), which aligns with CollabFM’s own CC BY-NC 4.0 software license. The extension can capture audio from many tab sources, but only hostnames on your allowlist are permitted. Admins may configure additional sources at their own discretion and responsibility; you are responsible for securing appropriate rights for anything you broadcast.",
+      blocks: [
+        {
+          kind: "paragraph",
+          text: "CollabFM does not host, store, or provide any audio content—it relays audio that broadcasters supply from their own browser tabs or sources.",
+        },
+        { kind: "subheading", text: "How filtering works" },
+        {
+          kind: "paragraph",
+          text: "Stations can turn on a content policy that does best-effort filtering using the track details a source reports—things like the track title, artist, source site, and the license label attached to it.",
+        },
+        {
+          kind: "list",
+          items: [
+            "It checks that reported info against allowlists the station sets up.",
+            "It reads the license label a source provides—it does not listen to, fingerprint, or legally verify the audio.",
+            "It is a filtering aid, not a copyright checker.",
+          ],
+        },
+        { kind: "subheading", text: "Where the music comes from" },
+        {
+          kind: "paragraph",
+          text: "New stations start with Free Music Archive and Jamendo because those sites publish clear, machine-readable license labels that make filtering easier.",
+        },
+        {
+          kind: "list",
+          items: [
+            "A Creative Commons label doesn't remove every requirement—some still need credit or have other terms.",
+            "Reported details can be missing or wrong, so nothing here is a guarantee.",
+          ],
+        },
+        { kind: "subheading", text: "The bottom line" },
+        {
+          kind: "paragraph",
+          text: "The station's admins choose which sources are allowed and are responsible for having the rights to what gets broadcast. If you host your own station, that responsibility is yours.",
+        },
+      ],
       links: [
         { href: FMA_CC_SEARCH_URL, label: "Free Music Archive — CC search" },
         { href: JAMENDO_EXPLORE_URL, label: "Jamendo — explore music" },
@@ -37,31 +151,35 @@ function buildSections(): AboutSection[] {
     },
     {
       title: "When we're live",
-      body: "There is no fixed schedule. The stream goes live when someone starts broadcasting. Watch the LIVE indicator and now-playing info to see if audio is on air.",
+      body: "There's no fixed schedule—the station goes live when someone starts broadcasting. Watch for the LIVE badge and the now-playing line to see if anyone's on air.",
     },
     {
-      title: "Sign in & roles",
-      body: "Hosts sign in with a local account or SSO when enabled. Broadcasters can go live, manage their on-air profile, pair the browser extension, and create guest listen links. Admins configure the station, users, content policy, and Discord voice bot.",
+      title: "Signing in",
+      body: "Most stations let you sign in with a username and password, or a single sign-on button if your host set that up. After that, open Studio from your profile to customize how you appear on stage and in chat.",
     },
     {
       title: "Stage, chat & requests",
-      body: "The stage shows who is connected while a broadcast is active. Live chat runs in the web app. When enabled, listeners can search and request songs during a live show.",
+      body: "During a show, the stage shows who's on air and connected. Chat is in the player, and when the station allows it you can search for a track and send a request for the DJ to approve.",
     },
     {
-      title: "Discord voice mirror",
-      body: "An optional Discord bot can join whitelisted servers with /join to play the same audio in a voice channel — handy for friends who prefer Discord.",
+      title: "Hearts & DJ levels",
+      body: "Tap the heart on a track you like—it can help the DJ earn level progress when the station allows it. Approving someone else's request can help them level up too.",
     },
     {
-      title: "Guest listening",
-      body: "Broadcasters can share time-limited listen links for the web player or a direct stream URL (OBS, VLC, etc.) without a full account.",
+      title: "Listen on Discord",
+      body: "Some stations mirror the live stream into a Discord voice channel through a bot. Ask your host for the server invite if you'd rather listen there.",
     },
     {
-      title: "Upgrades & new builds",
-      body: "Station operators on Docker can enable container update notifications in Admin → System → Container updates. The GHCR tag to watch (latest or develop) follows the channel baked into your running image; when a newer build is published on that tag, a banner appears at the top of Admin settings with pull and upgrade steps.",
+      title: "Share a listen link",
+      body: "Signed-in users can create a link so friends tune in without an account. You get a web-player link and a direct stream URL, and links can expire after a set time.",
     },
     {
-      title: "A note on persistence",
-      body: "Chat messages and song requests are kept in memory and may reset when the server restarts or updates.",
+      title: "Your account",
+      body: "Your login and profile live on this station's server—not a central CollabFM account shared across sites. Studio is where you update your password, avatar, and optional two-factor sign-in.",
+    },
+    {
+      title: "Chat history",
+      body: "Messages and requests stay in memory while the station is running. They can disappear after a restart or update, so don't count on them as a permanent log.",
     },
     {
       title: DEVELOPER_ABOUT_SECTION_TITLE,
@@ -135,24 +253,7 @@ export function AboutModal({ open, onClose }: AboutModalProps) {
               }
             >
               <h4 className="font-semibold text-white mb-2">{section.title}</h4>
-              <p className="leading-relaxed">{section.body}</p>
-              {section.links && section.links.length > 0 ? (
-                <ul className="mt-3 space-y-2">
-                  {section.links.map((link) => (
-                    <li key={link.href}>
-                      <a
-                        href={link.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-radio-accent hover:underline"
-                      >
-                        {link.label}
-                        <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-80" />
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+              <AboutSectionBody section={section} />
             </div>
             );
           })}

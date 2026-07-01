@@ -20,6 +20,7 @@ export function getBrandingSettings() {
     hasCustomVisualizer: custom,
     hideDeveloperAboutMessage:
       getSetting("branding.hideDeveloperAboutMessage", false) === true,
+    branded2fa: getSetting("branding.branded2fa", false) === true,
     features: {
       songSearch: !!integrations.lastfmApiKey,
       chatGifs: !!integrations.giphyApiKey,
@@ -29,6 +30,8 @@ export function getBrandingSettings() {
 
 export function resetBrandingSettings() {
   setSetting("radioDisplayName", DEFAULT_RADIO_DISPLAY_NAME);
+  setSetting("branding.hideDeveloperAboutMessage", false);
+  setSetting("branding.branded2fa", false);
   clearCustomVisualizer();
   return getBrandingSettings();
 }
