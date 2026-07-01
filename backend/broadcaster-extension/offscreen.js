@@ -313,13 +313,12 @@ function startMetadataResync() {
   if (metadataResyncTimer) clearInterval(metadataResyncTimer);
   metadataResyncTimer = setInterval(() => {
     if (broadcastStatus !== "connected") return;
-    if (currentMetadata?.title && currentMetadata?.artist) {
-      void sendMetadataToBackend(currentMetadata);
-      return;
-    }
-    if (currentTabId) {
-      void syncCurrentMetadataToBackend({ reason: "resync-empty", attempts: 1, delayMs: 0 });
-    }
+    if (!currentTabId) return;
+    // Always pull fresh from the tab — never re-POST cached offscreen metadata.
+    // If the in-content cadence missed a track change (e.g. enrichment abort
+    // race, background tab throttling, or metadatachange never firing), this
+    // catches the next change and the backend dedupes unchanged posts.
+    void syncCurrentMetadataToBackend({ reason: "resync-fresh", attempts: 1, delayMs: 0 });
   }, 30000);
 }
 

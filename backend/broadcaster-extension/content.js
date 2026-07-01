@@ -117,7 +117,12 @@ if (window.radioBroadcasterContentScriptLoaded) {
     let currentMetadata = await getCurrentMetadata();
 
     if (currentMetadata) {
-      currentMetadata = await sites()?.enrichMetadata?.(currentMetadata);
+      // enrichment (e.g. FMA / Jamendo license lookup) can be aborted when the
+      // previous check races the next one. If enrichMetadata returns null on
+      // its own, fall back to the raw DOM snapshot so we still emit a track
+      // change instead of dropping it on the floor.
+      const enriched = await sites()?.enrichMetadata?.(currentMetadata);
+      if (enriched) currentMetadata = enriched;
       currentMetadata = withSourceLabel(currentMetadata);
     }
 
