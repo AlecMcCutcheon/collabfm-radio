@@ -9,6 +9,18 @@ import {
 import { formatPairedAuthStatus, syncPairedDeviceDisplayName, checkStoredPairing } from "./pair-auth.js";
 import { extensionLog } from "./extension-log.js";
 import { friendlySourceLabel } from "./source-label.js";
+import {
+  migrateLegacyStorageIfNeeded,
+  captureFlatIntoActiveProfile,
+  persistConnectionPatch,
+  switchActiveProfile,
+  activateOrCreateBlankProfile,
+  deleteActiveProfile,
+  getActiveProfile,
+  listProfiles,
+  profileLabelFromHost,
+  isUnusedProfile,
+} from "./profile-storage.js";
 
 const STREAM_VOLUME = 1;
 const GUEST_FORM_DRAFT_KEY = "guestFormDraft";
@@ -49,15 +61,13 @@ let hasBroadcasterRole = false;
 let pairPollTimer = null;
 let currentPairing = null;
 let authMode = "pair";
+let profileMenuOpen = false;
 
-window.addEventListener("DOMContentLoaded", async () => {
-  const manifest = chrome.runtime.getManifest();
-  const versionEl = document.getElementById("extensionVersion");
-  if (versionEl && manifest?.version) {
-    versionEl.textContent = `v${manifest.version}`;
-    versionEl.title = `Extension version ${manifest.version}`;
-  }
+async function syncActiveProfileFromFlat(extra = {}) {
+  await captureFlatIntoActiveProfile(extra);
+}
 
+async function loadConnectionFromStorage() {
   const settings = await chrome.storage.local.get([
     "radioHost",
     "relayUrl",
@@ -71,6 +81,262 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   const defaultHost = settings.radioHost || DEFAULT_RADIO_HOST;
   document.getElementById("radioHost").value = defaultHost;
+}
+
+function closeProfileMenu() {
+  profileMenuOpen = false;
+  const menu = document.getElementById("profileMenu");
+  const btn = document.getElementById("profileMenuBtn");
+  if (menu) menu.hidden = true;
+  if (btn) btn.setAttribute("aria-expanded", "false");
+}
+
+function openProfileMenu() {
+  profileMenuOpen = true;
+  const menu = document.getElementById("profileMenu");
+  const btn = document.getElementById("profileMenuBtn");
+  if (menu) menu.hidden = false;
+  if (btn) btn.setAttribute("aria-expanded", "true");
+  void renderProfileMenu();
+}
+
+function toggleProfileMenu() {
+  if (profileMenuOpen) closeProfileMenu();
+  else openProfileMenu();
+}
+
+async function renderProfileMenu() {
+  const listEl = document.getElementById("profileMenuList");
+  const deleteBtn = document.getElementById("profileDeleteBtn");
+  if (!listEl) return;
+
+  const profiles = await listProfiles();
+  listEl.innerHTML = "";
+
+  for (const profile of profiles) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `profile-menu-item${profile.isActive ? " active" : ""}`;
+    btn.dataset.profileId = profile.id;
+
+    const label = document.createElement("span");
+    label.className = "profile-menu-item-label";
+    label.textContent = profile.label || profileLabelFromHost(profile.radioHost);
+
+    btn.appendChild(label);
+    if (profile.isActive) {
+      const check = document.createElement("i");
+      check.className = "fa-solid fa-check";
+      check.setAttribute("aria-hidden", "true");
+      btn.appendChild(check);
+    }
+
+    btn.addEventListener("click", () => void requestProfileSwitch(profile.id));
+    listEl.appendChild(btn);
+  }
+
+  if (deleteBtn) {
+    deleteBtn.disabled = profiles.length <= 1;
+    deleteBtn.title = profiles.length <= 1 ? "At least one server must remain saved" : "";
+  }
+}
+
+function openExtensionModal({ title, body, actions = [] }) {
+  const modal = document.getElementById("extensionModal");
+  const titleEl = document.getElementById("extensionModalTitle");
+  const bodyEl = document.getElementById("extensionModalBody");
+  const actionsEl = document.getElementById("extensionModalActions");
+  if (!modal || !titleEl || !bodyEl || !actionsEl) return;
+
+  titleEl.textContent = title;
+  bodyEl.textContent = body;
+  actionsEl.innerHTML = "";
+
+  for (const action of actions) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = action.label;
+    btn.className = action.className || "btn-secondary";
+    btn.addEventListener("click", () => void action.onClick?.());
+    actionsEl.appendChild(btn);
+  }
+
+  modal.hidden = false;
+}
+
+function closeExtensionModal() {
+  const modal = document.getElementById("extensionModal");
+  if (modal) modal.hidden = true;
+}
+
+function showBroadcastBlockModal(continueAfterStop) {
+  openExtensionModal({
+    title: "Stop broadcasting first",
+    body: "You need to stop the current broadcast before switching to another saved server.",
+    actions: [
+      {
+        label: "Cancel",
+        className: "btn-secondary",
+        onClick: closeExtensionModal,
+      },
+      {
+        label: "Stop broadcasting",
+        className: "btn-primary",
+        onClick: async () => {
+          closeExtensionModal();
+          await stopBroadcast();
+          if (continueAfterStop) await continueAfterStop();
+        },
+      },
+    ],
+  });
+}
+
+async function applyProfileToConnectionUi() {
+  await loadConnectionFromStorage();
+  stopPairPolling();
+  isAuthenticated = false;
+  hasBroadcasterRole = false;
+  await refreshAuthState();
+  await refreshTabs();
+  await updateBroadcastButton();
+}
+
+async function requestProfileSwitch(profileId) {
+  closeProfileMenu();
+  const active = await getActiveProfile();
+  if (active?.id === profileId) return;
+
+  if (isBroadcasting) {
+    showBroadcastBlockModal(async () => requestProfileSwitch(profileId));
+    return;
+  }
+
+  stopPairPolling();
+  await switchActiveProfile(profileId);
+  selectedTabId = null;
+  userPickedTab = false;
+
+  const stored = await chrome.storage.local.get(["rememberedTabId"]);
+  if (stored.rememberedTabId) {
+    selectedTabId = stored.rememberedTabId;
+    userPickedTab = true;
+  }
+
+  await applyProfileToConnectionUi();
+  await renderProfileMenu();
+}
+
+async function addNewProfile() {
+  closeProfileMenu();
+  if (isBroadcasting) {
+    showBroadcastBlockModal(() => addNewProfile());
+    return;
+  }
+
+  stopPairPolling();
+  await activateOrCreateBlankProfile();
+  selectedTabId = null;
+  userPickedTab = false;
+  await applyProfileToConnectionUi();
+  await renderProfileMenu();
+}
+
+async function performProfileDelete() {
+  stopPairPolling();
+  try {
+    await deleteActiveProfile();
+    selectedTabId = null;
+    userPickedTab = false;
+    const stored = await chrome.storage.local.get(["rememberedTabId"]);
+    if (stored.rememberedTabId) {
+      selectedTabId = stored.rememberedTabId;
+      userPickedTab = true;
+    }
+    await applyProfileToConnectionUi();
+    await renderProfileMenu();
+  } catch (error) {
+    updateAuthStatus(error.message || "Could not delete server", "error");
+  }
+}
+
+async function deleteCurrentProfile() {
+  closeProfileMenu();
+  if (isBroadcasting) {
+    showBroadcastBlockModal(() => deleteCurrentProfile());
+    return;
+  }
+
+  const profiles = await listProfiles();
+  if (profiles.length <= 1) {
+    openExtensionModal({
+      title: "Cannot delete server",
+      body: "At least one saved server needs to remain. Add another server first if you want to replace this one.",
+      actions: [{ label: "OK", className: "btn-primary", onClick: closeExtensionModal }],
+    });
+    return;
+  }
+
+  const active = await getActiveProfile();
+  if (isUnusedProfile(active)) {
+    await performProfileDelete();
+    return;
+  }
+
+  const label = active?.label || profileLabelFromHost(active?.radioHost);
+
+  openExtensionModal({
+    title: "Delete server?",
+    body: `Remove "${label}" from your saved servers? Its pairing and guest link will be cleared from the extension.`,
+    actions: [
+      { label: "Cancel", className: "btn-secondary", onClick: closeExtensionModal },
+      {
+        label: "Delete",
+        className: "btn-broadcast-stop",
+        onClick: async () => {
+          closeExtensionModal();
+          await performProfileDelete();
+        },
+      },
+    ],
+  });
+}
+
+function initProfileMenuUi() {
+  document.getElementById("profileMenuBtn")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleProfileMenu();
+  });
+  document.getElementById("profileAddBtn")?.addEventListener("click", () => void addNewProfile());
+  document.getElementById("profileDeleteBtn")?.addEventListener("click", () => void deleteCurrentProfile());
+
+  document.addEventListener("click", (event) => {
+    if (!profileMenuOpen) return;
+    const menu = document.getElementById("profileMenu");
+    const btn = document.getElementById("profileMenuBtn");
+    if (menu?.contains(event.target) || btn?.contains(event.target)) return;
+    closeProfileMenu();
+  });
+
+  document.getElementById("extensionModal")?.addEventListener("click", (event) => {
+    if (event.target?.dataset?.modalDismiss === "true") {
+      closeExtensionModal();
+    }
+  });
+}
+
+window.addEventListener("DOMContentLoaded", async () => {
+  const manifest = chrome.runtime.getManifest();
+  const versionEl = document.getElementById("extensionVersion");
+  if (versionEl && manifest?.version) {
+    versionEl.textContent = `v${manifest.version}`;
+    versionEl.title = `Extension version ${manifest.version}`;
+  }
+
+  await migrateLegacyStorageIfNeeded();
+  initProfileMenuUi();
+  await loadConnectionFromStorage();
+  await renderProfileMenu();
 
   try {
     const response = await chrome.runtime.sendMessage({ type: "GET_BROADCAST_STATUS" });
@@ -145,6 +411,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       return;
     }
     await chrome.storage.local.remove(["pairedDevice", "pendingPair"]);
+    await syncActiveProfileFromFlat();
     await startNewPairing();
   });
 
@@ -183,6 +450,7 @@ window.addEventListener("beforeunload", () => {
   if (guestDraftTimer) clearTimeout(guestDraftTimer);
   void autosave();
   void saveGuestFormDraft();
+  void syncActiveProfileFromFlat();
 });
 
 document.addEventListener("visibilitychange", () => {
@@ -198,6 +466,7 @@ function getEndpoints() {
 
 async function clearStoredPairing() {
   await chrome.storage.local.remove(["pairedDevice", "pendingPair"]);
+  await syncActiveProfileFromFlat();
   isAuthenticated = false;
   hasBroadcasterRole = false;
 }
@@ -207,6 +476,7 @@ async function clearGuestAuth(showForm = false) {
     await stopBroadcast();
   }
   await chrome.storage.local.remove(["guestAuth"]);
+  await syncActiveProfileFromFlat();
   isAuthenticated = false;
   hasBroadcasterRole = false;
   setGuestFormVisible(showForm);
@@ -270,16 +540,12 @@ async function switchAuthMode(mode) {
   if (authMode === next) return;
   stopPairPolling();
   authMode = next;
-  await chrome.storage.local.set({ authMode: next });
+  await persistConnectionPatch({ authMode: next });
   setAuthModeUi(next);
-  isAuthenticated = false;
-  hasBroadcasterRole = false;
   if (next === "guest") {
-    await chrome.storage.local.remove(["pairedDevice", "pendingPair"]);
     setPairingVisible(false);
     await refreshGuestAuthState();
   } else {
-    await chrome.storage.local.remove(["guestAuth"]);
     await refreshPairingState();
   }
   updateBroadcastButton();
@@ -309,15 +575,17 @@ async function saveGuestFormDraft() {
   const guestId = document.getElementById("guestGuestId")?.value || "";
   if (!shareLink.trim() && !guestId.trim()) {
     await chrome.storage.local.remove(GUEST_FORM_DRAFT_KEY);
+    await syncActiveProfileFromFlat();
     return;
   }
-  await chrome.storage.local.set({
+  await persistConnectionPatch({
     [GUEST_FORM_DRAFT_KEY]: { radioHost, shareLink, guestId },
   });
 }
 
 async function clearGuestFormDraft() {
   await chrome.storage.local.remove(GUEST_FORM_DRAFT_KEY);
+  await syncActiveProfileFromFlat();
 }
 
 async function prefillGuestLinkFromActiveTab() {
@@ -331,6 +599,14 @@ async function prefillGuestLinkFromActiveTab() {
 }
 
 async function refreshGuestAuthState() {
+  const radioHostInput = document.getElementById("radioHost").value.trim();
+  if (!radioHostInput) {
+    setGuestFormVisible(true);
+    updateAuthStatus("Add a server address to get started", "info");
+    updateBroadcastButton();
+    return;
+  }
+
   const { apiOrigin } = getEndpoints();
   const normalizedOrigin = normalizeApiOrigin(apiOrigin);
   const stored = await chrome.storage.local.get(["guestAuth"]);
@@ -348,7 +624,7 @@ async function refreshGuestAuthState() {
     const result = await checkStoredGuestAuth(guestAuth, normalizedOrigin);
     if (result.status === "valid") {
       const synced = await syncGuestAuthDisplayName(result.guestAuth, normalizedOrigin);
-      await chrome.storage.local.set({ guestAuth: synced });
+      await persistConnectionPatch({ guestAuth: synced });
       isAuthenticated = true;
       hasBroadcasterRole = true;
       setGuestFormVisible(false);
@@ -370,6 +646,7 @@ async function refreshGuestAuthState() {
       await stopBroadcast();
     }
     await chrome.storage.local.remove(["guestAuth"]);
+    await syncActiveProfileFromFlat();
     isAuthenticated = false;
     hasBroadcasterRole = false;
     setGuestFormVisible(true);
@@ -419,13 +696,15 @@ async function connectGuestLink() {
       expiresAt: data.expiresAt || null,
     };
     guestAuth = await syncGuestAuthDisplayName(guestAuth, normalizedOrigin);
-    await chrome.storage.local.set({
+    await persistConnectionPatch({
       guestAuth,
       authMode: "guest",
       radioHost: document.getElementById("radioHost").value.trim(),
       pendingPair: null,
       pairedDevice: null,
     });
+    await chrome.storage.local.remove(["pendingPair", "pairedDevice"]);
+    await syncActiveProfileFromFlat();
     await clearGuestFormDraft();
     isAuthenticated = true;
     hasBroadcasterRole = true;
@@ -450,6 +729,15 @@ async function refreshAuthState() {
 async function refreshPairingState() {
   if (authMode !== "pair") return;
 
+  const radioHostInput = document.getElementById("radioHost").value.trim();
+  if (!radioHostInput) {
+    setPairingVisible(true);
+    updatePairingUi(null, "Enter a radio address above");
+    updateAuthStatus("Add a server address to get started", "info");
+    updateBroadcastButton();
+    return;
+  }
+
   const { apiOrigin } = getEndpoints();
   const normalizedOrigin = normalizeApiOrigin(apiOrigin);
   const stored = await chrome.storage.local.get(["pairedDevice", "pendingPair"]);
@@ -458,7 +746,7 @@ async function refreshPairingState() {
   if (paired?.deviceToken && normalizeApiOrigin(paired.apiOrigin) === normalizedOrigin) {
     const result = await checkStoredPairing(paired, normalizedOrigin);
     if (result.status === "valid") {
-      await chrome.storage.local.set({ pairedDevice: result.paired });
+      await persistConnectionPatch({ pairedDevice: result.paired });
       isAuthenticated = true;
       hasBroadcasterRole = true;
       setPairingVisible(false);
@@ -512,6 +800,13 @@ async function startNewPairing() {
   updateBroadcastButton();
   setPairingVisible(true);
 
+  const radioHostInput = document.getElementById("radioHost").value.trim();
+  if (!radioHostInput) {
+    updatePairingUi(null, "Enter a radio address above");
+    updateAuthStatus("Add a server address to get started", "info");
+    return;
+  }
+
   const { apiOrigin } = getEndpoints();
   const normalizedOrigin = normalizeApiOrigin(apiOrigin);
   try {
@@ -539,7 +834,7 @@ async function startNewPairing() {
       expiresAt: Date.now() + (data.expiresIn || 600000),
     };
     currentPairing = pendingPair;
-    await chrome.storage.local.set({ pendingPair });
+    await persistConnectionPatch({ pendingPair });
     updatePairingUi(data.userCode, "Enter this code in Broadcaster Studio on the radio site");
     updateAuthStatus("Waiting for approval on the radio site", "info");
     startPairPolling(data.deviceId, normalizedOrigin, true);
@@ -576,13 +871,15 @@ async function completePairing(data, deviceId, apiOrigin) {
     displayName: data.displayName || null,
     label: data.label || null,
   };
-  await chrome.storage.local.set({
+  await persistConnectionPatch({
     pairedDevice,
     authMode: "pair",
     radioHost: document.getElementById("radioHost").value.trim(),
     pendingPair: null,
     guestAuth: null,
   });
+  await chrome.storage.local.remove(["pendingPair", "guestAuth"]);
+  await syncActiveProfileFromFlat();
   try {
     await fetch(`${apiOrigin}/api/extension/pair/ack`, {
       method: "POST",
@@ -606,6 +903,7 @@ function startPairPolling(deviceId, apiOrigin, pollImmediately = false) {
       if (data.status === "expired" || data.status === "revoked") {
         stopPairPolling();
         await chrome.storage.local.remove("pendingPair");
+        await syncActiveProfileFromFlat();
         if (data.status === "revoked") {
           await clearStoredPairing();
           updateAuthStatus("Pairing was revoked — pair again on the radio site", "error");
@@ -917,7 +1215,7 @@ async function startBroadcast() {
   const guestAuth = authMode === "guest" ? stored.guestAuth : null;
 
   try {
-    await chrome.storage.local.set({
+    await persistConnectionPatch({
       radioHost: document.getElementById("radioHost").value.trim(),
       relayUrl: wsUrl,
       apiOrigin,
@@ -1032,8 +1330,14 @@ async function updateBroadcastButton() {
 
 async function autosave() {
   const radioHost = document.getElementById("radioHost").value.trim();
+  if (!radioHost) {
+    await persistConnectionPatch({ radioHost: "", relayUrl: "", apiOrigin: "" });
+    void renderProfileMenu();
+    return;
+  }
   const { wsUrl, apiOrigin } = resolveRadioEndpoints(radioHost);
-  await chrome.storage.local.set({ radioHost, relayUrl: wsUrl, apiOrigin });
+  await persistConnectionPatch({ radioHost, relayUrl: wsUrl, apiOrigin });
+  void renderProfileMenu();
 }
 
 let autosaveTimer = null;
@@ -1211,7 +1515,11 @@ chrome.runtime.onMessage.addListener(async (message) => {
       broadcastingTabId = null;
       hideMetadataDisplay();
       await updateBroadcastButton();
-      updateStatus("Connection lost", "error");
+      if (message.reason === "tab_closed") {
+        updateStatus("Broadcast stopped — source tab was closed", "error");
+      } else {
+        updateStatus("Connection lost", "error");
+      }
     } else if (message.status === "connected" && message.tabSwitched) {
       broadcastingTabId = message.tabId;
       selectedTabId = message.tabId;

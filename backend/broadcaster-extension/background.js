@@ -1,6 +1,7 @@
 // Background service worker - manages offscreen document for broadcasting
 import { extensionLog } from "./extension-log.js";
 import { applyLocalGuestProfile } from "./guest-auth.js";
+import { captureFlatIntoActiveProfile } from "./profile-storage.js";
 import { CONTENT_SCRIPT_FILES } from "./sites/content-script-files.js";
 
 let offscreenDocumentReady = false;
@@ -20,6 +21,7 @@ function pushExtensionLog(payload) {
 // Track pending broadcast requests
 let pendingBroadcast = null;
 let tabActivationListener = null;
+let activeBroadcastTabId = null;
 
 // Create offscreen document when needed
 async function setupOffscreenDocument() {
@@ -145,6 +147,42 @@ async function forwardToOffscreen(message) {
   return chrome.runtime.sendMessage({ ...message, _offscreenTarget: true });
 }
 
+async function stopBroadcastForClosedTab(tabId) {
+  extensionLog("background", "Broadcast tab closed — stopping broadcast", { tabId });
+  activeBroadcastTabId = null;
+  try {
+    await setupOffscreenDocument();
+    await forwardToOffscreen({ type: "STOP_BROADCAST", reason: "tab_closed" });
+  } catch (error) {
+    extensionLog("background", "Failed to stop broadcast after tab close", {
+      tabId,
+      error: error?.message || String(error),
+    }, "warn");
+  }
+}
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (activeBroadcastTabId == null || tabId !== activeBroadcastTabId) return;
+  void stopBroadcastForClosedTab(tabId);
+});
+
+async function restoreBroadcastTabFromOffscreen() {
+  try {
+    const existingContexts = await chrome.runtime.getContexts({
+      contextTypes: ["OFFSCREEN_DOCUMENT"],
+    });
+    if (!existingContexts.length) return;
+    const response = await forwardToOffscreen({ type: "GET_BROADCAST_STATUS" });
+    if (response?.status === "connected" && typeof response.tabId === "number") {
+      activeBroadcastTabId = response.tabId;
+      chrome.action.setBadgeText({ text: "ON" });
+      chrome.action.setBadgeBackgroundColor({ color: "#f44336" });
+    }
+  } catch {}
+}
+
+void restoreBroadcastTabFromOffscreen();
+
 // Single message listener to handle all messages
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message._offscreenTarget) {
@@ -170,11 +208,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Handle status updates from offscreen (no async needed)
   if (message.type === 'BROADCAST_STATUS_UPDATE') {
-    // Badge updates
     if (message.status === 'connected') {
+      if (typeof message.tabId === 'number') {
+        activeBroadcastTabId = message.tabId;
+      }
       chrome.action.setBadgeText({ text: "ON" });
       chrome.action.setBadgeBackgroundColor({ color: '#f44336' });
     } else {
+      activeBroadcastTabId = null;
       chrome.action.setBadgeText({ text: '' });
     }
     // Don't return true - no response needed
@@ -193,7 +234,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'SYNC_GUEST_PROFILE_FROM_PAGE') {
     if (!isExtensionSender || !sender.tab) return false;
-    void applyLocalGuestProfile(message).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    void applyLocalGuestProfile(message)
+      .then(() => captureFlatIntoActiveProfile())
+      .then(() => sendResponse({ ok: true }))
+      .catch(() => sendResponse({ ok: false }));
     return true;
   }
 
@@ -284,9 +328,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true });
       } 
       else if (message.type === 'STOP_BROADCAST') {
-        // Forward to offscreen document
+        activeBroadcastTabId = null;
         const response = await forwardToOffscreen({
-          type: 'STOP_BROADCAST'
+          type: 'STOP_BROADCAST',
+          reason: message.reason || null,
         });
         sendResponse(response || { success: true });
       }

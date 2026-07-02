@@ -28,6 +28,159 @@
     .content { padding: 16px; }
     .card { margin-bottom: 16px; padding: 14px; border-radius: 16px; border: 1px solid #374151; background: rgba(17, 24, 39, 0.7); }
     .section-title { font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      position: relative;
+    }
+    .section-title-row .section-title { margin-bottom: 0; }
+    .profile-menu-btn {
+      width: auto;
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: #9ca3af;
+      font-size: 12px;
+      line-height: 1;
+      box-shadow: none;
+      transform: none;
+    }
+    .profile-menu-btn:hover:not(:disabled) {
+      color: #87CEFA;
+      transform: none;
+      box-shadow: none;
+    }
+    .profile-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      z-index: 30;
+      min-width: 220px;
+      max-width: 280px;
+      padding: 6px;
+      border-radius: 12px;
+      border: 1px solid #4b5563;
+      background: #1f2937;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    }
+    .profile-menu-section-label {
+      padding: 6px 10px 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #6b7280;
+    }
+    .profile-menu-item {
+      width: 100%;
+      margin: 0;
+      padding: 8px 10px;
+      text-align: left;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: #e5e7eb;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      box-shadow: none;
+      transform: none;
+    }
+    .profile-menu-item:hover:not(:disabled) {
+      background: #374151;
+      transform: none;
+      box-shadow: none;
+    }
+    .profile-menu-item.active {
+      background: rgba(135, 206, 250, 0.12);
+      color: #87CEFA;
+    }
+    .profile-menu-item-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .profile-menu-divider {
+      height: 1px;
+      margin: 6px 4px;
+      background: #374151;
+    }
+    .profile-menu-action {
+      width: 100%;
+      margin: 0;
+      padding: 8px 10px;
+      text-align: left;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: #e5e7eb;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: none;
+      transform: none;
+    }
+    .profile-menu-action:hover:not(:disabled) {
+      background: #374151;
+      transform: none;
+      box-shadow: none;
+    }
+    .profile-menu-action.danger { color: #fca5a5; }
+    .profile-menu-action.danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.12); }
+    .extension-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .extension-modal[hidden] { display: none; }
+    .extension-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+    }
+    .extension-modal-panel {
+      position: relative;
+      width: 100%;
+      max-width: 320px;
+      padding: 16px;
+      border-radius: 16px;
+      border: 1px solid #4b5563;
+      background: #1f2937;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    }
+    .extension-modal-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f3f4f6;
+      margin-bottom: 8px;
+    }
+    .extension-modal-body {
+      font-size: 13px;
+      line-height: 1.45;
+      color: #d1d5db;
+      margin-bottom: 14px;
+    }
+    .extension-modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .extension-modal-actions button {
+      width: auto;
+      margin: 0;
+      padding: 8px 14px;
+      font-size: 13px;
+    }
     input, button { 
       width: 100%; 
       padding: 10px; 
@@ -371,7 +524,19 @@
     </div>
 
     <div id="connectionAuthSection" class="card">
-      <div class="section-title">Connection</div>
+      <div class="section-title-row">
+        <div class="section-title">Connection</div>
+        <button id="profileMenuBtn" type="button" class="profile-menu-btn" title="Saved servers" aria-haspopup="true" aria-expanded="false">
+          <i class="fa-solid fa-bars" aria-hidden="true"></i>
+        </button>
+        <div id="profileMenu" class="profile-menu" hidden>
+          <div class="profile-menu-section-label">Servers</div>
+          <div id="profileMenuList"></div>
+          <div class="profile-menu-divider"></div>
+          <button id="profileAddBtn" type="button" class="profile-menu-action">Add server</button>
+          <button id="profileDeleteBtn" type="button" class="profile-menu-action danger">Delete server</button>
+        </div>
+      </div>
       <div class="connection-row">
         <input id="radioHost" type="text" placeholder="https://radio.example.com">
         <button id="openRadioBtn" type="button" class="connection-open-btn" title="Open radio site">
@@ -438,6 +603,16 @@
       </button>
     </div>
   </div>
+
+  <div id="extensionModal" class="extension-modal" hidden>
+    <div class="extension-modal-backdrop" data-modal-dismiss="true"></div>
+    <div class="extension-modal-panel" role="dialog" aria-modal="true">
+      <div id="extensionModalTitle" class="extension-modal-title"></div>
+      <div id="extensionModalBody" class="extension-modal-body"></div>
+      <div id="extensionModalActions" class="extension-modal-actions"></div>
+    </div>
+  </div>
+
   <script type="module" src="popup.js"></script>
 </body>
 </html>

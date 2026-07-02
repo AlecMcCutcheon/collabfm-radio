@@ -302,6 +302,25 @@ function rememberTabCapabilities(capabilities) {
   };
 }
 
+function attachTabStreamLifecycleHandlers(tabId, stream) {
+  if (!stream?.getTracks) return;
+  for (const track of stream.getTracks()) {
+    track.addEventListener("ended", () => {
+      if (
+        tabId !== currentTabId ||
+        (broadcastStatus !== "connected" && broadcastStatus !== "connecting")
+      ) {
+        return;
+      }
+      extensionLog("offscreen", "Broadcast tab stream ended — stopping broadcast", {
+        tabId,
+        trackKind: track.kind,
+      });
+      void stopBroadcastAsync({ reason: "tab_closed" });
+    });
+  }
+}
+
 async function publishTabCapabilities(capabilities = lastTabCapabilities) {
   if (!capabilities) return;
   rememberTabCapabilities(capabilities);
@@ -927,7 +946,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse(result);
       } 
       else if (message.type === 'STOP_BROADCAST') {
-        await stopBroadcastAsync();
+        await stopBroadcastAsync({ reason: message.reason || null });
         sendResponse({ success: true, status: 'disconnected' });
       }
       else if (message.type === 'SWITCH_TAB') {
@@ -1044,6 +1063,7 @@ async function startBroadcast(tabId, streamId, relayUrl, volume, apiOriginOpt, d
     }
 
     console.log('Successfully captured tab audio');
+    attachTabStreamLifecycleHandlers(tabId, tabStream);
 
     // Setup audio context and processing
     audioCtx = new AudioContext();
@@ -1210,6 +1230,7 @@ async function startBroadcast(tabId, streamId, relayUrl, volume, apiOriginOpt, d
           }
           const tracks = tabStream?.getTracks?.() ?? [];
           if (tracks.length > 0 && tracks.every((track) => track.readyState === "ended")) {
+            void stopBroadcastAsync({ reason: "tab_closed" });
             return;
           }
           void event.data
@@ -1283,7 +1304,7 @@ async function startBroadcast(tabId, streamId, relayUrl, volume, apiOriginOpt, d
 }
 
 // Async version of stopBroadcast for thorough cleanup
-async function stopBroadcastAsync() {
+async function stopBroadcastAsync({ reason = null } = {}) {
   // Prevent overlapping cleanup calls
   if (isCleaningUp) {
     console.log('Cleanup already in progress, skipping...');
@@ -1386,7 +1407,8 @@ async function stopBroadcastAsync() {
   try {
     chrome.runtime.sendMessage({
       type: 'BROADCAST_STATUS_UPDATE',
-      status: 'disconnected'
+      status: 'disconnected',
+      reason: reason || undefined,
     });
   } catch (error) {
     // Ignore - listener might not exist
@@ -1478,6 +1500,7 @@ async function switchTab(newTabId, newStreamId, volume = 1) {
 
       // Update stream reference
       tabStream = newTabStream;
+      attachTabStreamLifecycleHandlers(newTabId, newTabStream);
       console.log('Successfully switched to new tab audio source');
     } else if (audioCaptureFailed) {
       console.log('Audio capture failed - keeping existing audio stream');
