@@ -87,11 +87,25 @@ function revisionState(revision) {
 }
 
 function revisionVersion(revision) {
+  if (!revision || typeof revision !== "object") return "";
+  const direct = String(revision.version || "").trim();
+  if (direct) return direct;
   for (const channel of revision?.distributionChannels || []) {
     const version = String(channel?.target?.version || channel?.version || "").trim();
     if (version) return version;
   }
   return "";
+}
+
+function versionsFromStatus(status) {
+  const staged = revisionVersion(status.submittedItemRevisionStatus);
+  const published = revisionVersion(status.publishedItemRevisionStatus);
+  const candidates = new Set([staged, published].filter(Boolean));
+  for (const item of status.distributionChannelItems || []) {
+    const version = revisionVersion(item);
+    if (version) candidates.add(version);
+  }
+  return { staged, published, candidates };
 }
 
 async function uploadPackage(accessToken, publisherId, extensionId, zipBuffer) {
@@ -114,7 +128,9 @@ async function uploadPackage(accessToken, publisherId, extensionId, zipBuffer) {
   }
   if (!res.ok) {
     const message = json?.error?.message || text.slice(0, 500);
-    if (/version|already|duplicate/i.test(message)) {
+    if (
+      /version|already|duplicate|greater than|higher than|must be increased/i.test(message)
+    ) {
       skip(`upload not needed (${message})`);
     }
     throw new Error(`upload failed (${res.status}): ${message}`);
@@ -160,11 +176,13 @@ async function main() {
     skip(`async upload is ${uploadState}. Try again shortly.`);
   }
 
-  const stagedVersion = revisionVersion(status.submittedItemRevisionStatus);
-  const publishedVersion = revisionVersion(status.publishedItemRevisionStatus);
-  if (stagedVersion === manifestVersion || publishedVersion === manifestVersion) {
+  const { staged, published, candidates } = versionsFromStatus(status);
+
+  const stagedVersion = staged;
+  const publishedVersion = published;
+  if (candidates.has(manifestVersion)) {
     skip(
-      `manifest version ${manifestVersion} is already staged or published. Bump manifest.json to upload a new build.`,
+      `manifest version ${manifestVersion} is already staged or published (staged=${stagedVersion || "—"}, published=${publishedVersion || "—"}). Bump manifest.json to upload a new build.`,
     );
   }
 

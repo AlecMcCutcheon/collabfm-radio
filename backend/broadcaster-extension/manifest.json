@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CollabFM Broadcaster",
-  "version": "2.2.4",
+  "version": "2.2.5",
   "description": "Broadcast your tab audio to CollabFM with a modern UI.",
   "permissions": [
     "storage",

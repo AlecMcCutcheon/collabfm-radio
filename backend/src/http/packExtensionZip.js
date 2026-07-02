@@ -4,11 +4,18 @@ import { PassThrough } from "stream";
 import archiver from "archiver";
 
 const SKIP_NAMES = new Set([".DS_Store", "Thumbs.db"]);
+const SKIP_REL_PATHS = new Set([
+  "README.md",
+  "test-websocket.html",
+  "create_icons.html",
+  "sites/CONTRIBUTING.md",
+]);
 
 function shouldInclude(relPath) {
   const base = path.basename(relPath);
   if (SKIP_NAMES.has(base)) return false;
   if (base.startsWith(".")) return false;
+  if (SKIP_REL_PATHS.has(relPath.replace(/\\/g, "/"))) return false;
   return true;
 }
 
