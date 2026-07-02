@@ -325,6 +325,11 @@ export function AdminUserRow({
                 {editingPassword ? "Cancel password" : user.has_password ? "Reset password" : "Set password"}
               </AdminBtn>
             )}
+            {canResetTotp && (
+              <AdminBtn variant="secondary" className="w-full sm:w-auto" onClick={onResetTotp}>
+                Reset 2FA
+              </AdminBtn>
+            )}
 
             {!isSelf && (
               <AdminBtn variant="danger" className="w-full sm:w-auto" onClick={onDelete}>
@@ -414,21 +419,14 @@ export function AdminUserRow({
           </div>
         )}
 
-        {(guestActionsGrantXp || canResetTotp) && (
-          <div className="flex flex-col sm:flex-row gap-3 sm:items-end flex-wrap pt-1 border-t border-gray-700/70">
-            {guestActionsGrantXp && (
-              <AdminCheckbox
-                checked={!!user.block_guest_action_xp}
-                onChange={onToggleBlockGuestXp}
-                label="Block guest-action XP"
-                hint="Hearts and request approvals from guest sessions won't grant XP to this account."
-              />
-            )}
-            {canResetTotp && (
-              <AdminBtn variant="secondary" className="w-full sm:w-auto shrink-0" onClick={onResetTotp}>
-                Reset 2FA
-              </AdminBtn>
-            )}
+        {guestActionsGrantXp && (
+          <div className="pt-1 border-t border-gray-700/70">
+            <AdminCheckbox
+              checked={!!user.block_guest_action_xp}
+              onChange={onToggleBlockGuestXp}
+              label="Block guest-action XP"
+              hint="Hearts and request approvals from guest sessions won't grant XP to this account."
+            />
           </div>
         )}
       </div>
