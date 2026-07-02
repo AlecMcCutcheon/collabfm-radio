@@ -558,9 +558,9 @@ export async function handleAdminRoutes(req, res, pathname, method) {
   }
 
   if (pathname === "/api/admin/oidc/refresh-legacy-emails" && method === "POST") {
-    const { normalizeOidcConfig } = await import("../auth/oidcUser.js");
+    const { oidcConfigForRuntime } = await import("../auth/oidcUser.js");
     const { refreshAllLegacyOidcEmails } = await import("../auth/oidcEmailRefresh.js");
-    const oidc = normalizeOidcConfig(getSetting("oidc", { enabled: false }));
+    const oidc = oidcConfigForRuntime(getSetting("oidc", { enabled: false }));
     if (oidc.enabled !== true) {
       return writeAdminJsonError(res, 400, "OIDC must be enabled to refresh SSO emails");
     }
@@ -574,6 +574,13 @@ export async function handleAdminRoutes(req, res, pathname, method) {
       const { mergeOidcConfigUpdate, normalizeOidcConfig } = await import("../auth/oidcUser.js");
       const current = normalizeOidcConfig(getSetting("oidc", { enabled: false }));
       const next = mergeOidcConfigUpdate(current, body.oidc ?? {});
+      if (next.enabled === true && !String(next.clientSecret || "").trim()) {
+        return writeAdminJsonError(
+          res,
+          400,
+          "Client secret is required when OIDC is enabled. Paste it from your identity provider and save again.",
+        );
+      }
       setSetting("oidc", next);
       if (Array.isArray(body.mappings)) {
         replaceOidcGroupMappings(body.mappings);

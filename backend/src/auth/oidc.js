@@ -133,6 +133,11 @@ export async function handleOidcCallback(req, res, oidc, createUserSession, getA
 
   try {
     const { tokenEndpoint } = await resolveOidcEndpoints(oidc);
+    if (!oidc.clientId || !oidc.clientSecret) {
+      throw new Error(
+        "OIDC client ID or client secret missing — re-enter the client secret in Admin → OIDC and save",
+      );
+    }
     const tokenBody = new URLSearchParams({
       grant_type: "authorization_code",
       code,

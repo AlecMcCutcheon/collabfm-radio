@@ -39,7 +39,7 @@ import { avatarUrlForUserId, publicDisplayName } from "../db/userProfile.js";
 import { touchUserVisit } from "../db/userActivity.js";
 import { consumeRateLimit, clientIp } from "../security/rateLimit.js";
 import { verifyTurnstileToken, publicTurnstileSiteKey } from "../security/turnstile.js";
-import { normalizeOidcConfig } from "./oidcUser.js";
+import { normalizeOidcConfig, oidcConfigForRuntime } from "./oidcUser.js";
 import { getRegistrationSettings } from "../settings/registration.js";
 import { clearBootstrapToken, clearRecoveryMode, BOOTSTRAP_USERNAME, getFirstAdminUser, isRecoveryActive, verifyRecoveryToken } from "../setup/bootstrapToken.js";
 import { isSetupComplete } from "../db/index.js";
@@ -213,7 +213,7 @@ export function authStatusPayload(session) {
 }
 
 export async function handleAuthRoutes(req, res, pathname, method) {
-  const oidc = getSetting("oidc", { enabled: false });
+  const oidc = oidcConfigForRuntime(getSetting("oidc", { enabled: false }));
 
   if (pathname === "/auth/methods" && method === "GET") {
     const normalized = normalizeOidcConfig(oidc);

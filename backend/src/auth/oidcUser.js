@@ -65,6 +65,14 @@ const OIDC_CONFIG_PERSIST_KEYS = [
   "jwksUri",
 ];
 
+function preserveMaskedOidcSecret(incomingValue, currentValue) {
+  const incoming = String(incomingValue ?? "").trim();
+  const current = String(currentValue ?? "").trim();
+  if (incoming && incoming !== "********") return incoming;
+  if (current && current !== "********") return current;
+  return "";
+}
+
 /** When OIDC is disabled, keep stored provider settings unless explicitly replaced. */
 export function mergeOidcConfigUpdate(current = {}, incoming = {}) {
   const next = normalizeOidcConfig({
@@ -72,6 +80,13 @@ export function mergeOidcConfigUpdate(current = {}, incoming = {}) {
     ...incoming,
     enabled: incoming.enabled === true,
   });
+
+  next.clientSecret = preserveMaskedOidcSecret(incoming.clientSecret, current.clientSecret);
+  next.providerAdminToken = preserveMaskedOidcSecret(
+    incoming.providerAdminToken,
+    current.providerAdminToken,
+  );
+
   if (next.enabled === true) return next;
 
   for (const key of OIDC_CONFIG_PERSIST_KEYS) {
@@ -82,28 +97,21 @@ export function mergeOidcConfigUpdate(current = {}, incoming = {}) {
       hadExplicitEmpty &&
       current[key] != null &&
       current[key] !== "" &&
-      key !== "clientSecret"
+      key !== "clientSecret" &&
+      key !== "providerAdminToken"
     ) {
       next[key] = current[key];
     }
   }
-  if (
-    (incoming.clientSecret === "********" ||
-      incoming.clientSecret === "" ||
-      incoming.clientSecret == null) &&
-    current.clientSecret
-  ) {
-    next.clientSecret = current.clientSecret;
-  }
-  if (
-    (incoming.providerAdminToken === "********" ||
-      incoming.providerAdminToken === "" ||
-      incoming.providerAdminToken == null) &&
-    current.providerAdminToken
-  ) {
-    next.providerAdminToken = current.providerAdminToken;
-  }
   return next;
+}
+
+/** Runtime OIDC config with masked placeholder secrets stripped. */
+export function oidcConfigForRuntime(stored = {}) {
+  const oidc = normalizeOidcConfig(stored);
+  if (oidc.clientSecret === "********") oidc.clientSecret = "";
+  if (oidc.providerAdminToken === "********") oidc.providerAdminToken = "";
+  return oidc;
 }
 
 function sanitizeUsername(raw) {
