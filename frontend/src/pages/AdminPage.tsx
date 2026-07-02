@@ -120,6 +120,12 @@ export function AdminPage() {
   const [tempPasswords, setTempPasswords] = useState<Record<number, string>>({});
   const [resetXpUserId, setResetXpUserId] = useState<number | null>(null);
   const [resetXpBusy, setResetXpBusy] = useState(false);
+  const [resetTotpUserId, setResetTotpUserId] = useState<number | null>(null);
+  const [resetTotpBusy, setResetTotpBusy] = useState(false);
+  const [deleteUserTarget, setDeleteUserTarget] = useState<AdminUser | null>(null);
+  const [deleteUserBusy, setDeleteUserBusy] = useState(false);
+  const [oidcDisableConfirmOpen, setOidcDisableConfirmOpen] = useState(false);
+  const [oidcSaveBusy, setOidcSaveBusy] = useState(false);
   const [newGuildId, setNewGuildId] = useState("");
   const [newGuildLabel, setNewGuildLabel] = useState("");
   const [branding, setBranding] = useState<BrandingSettings>({
@@ -491,18 +497,53 @@ export function AdminPage() {
     }
   };
 
-  const deleteUser = async (user: AdminUser) => {
-    if (!window.confirm(`Delete user "${user.username}"? This cannot be undone.`)) return;
+  const confirmDeleteUser = async () => {
+    if (!deleteUserTarget) return;
+    setDeleteUserBusy(true);
     try {
-      await api.deleteAdminUser(user.id);
-      if (passwordEditId === user.id) {
+      await api.deleteAdminUser(deleteUserTarget.id);
+      if (passwordEditId === deleteUserTarget.id) {
         setPasswordEditId(null);
         setPasswordDraft("");
       }
       await reload();
       flash("User deleted");
+      setDeleteUserTarget(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete user");
+    } finally {
+      setDeleteUserBusy(false);
+    }
+  };
+
+  const confirmResetTotp = async () => {
+    if (resetTotpUserId == null) return;
+    const target = users.find((u) => u.id === resetTotpUserId);
+    if (!target) return;
+    setResetTotpBusy(true);
+    try {
+      await api.resetAdminUserTotp(resetTotpUserId);
+      await reload();
+      flash(`Reset 2FA for ${target.username}`);
+      setResetTotpUserId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reset 2FA");
+    } finally {
+      setResetTotpBusy(false);
+    }
+  };
+
+  const performOidcSave = async () => {
+    setOidcSaveBusy(true);
+    try {
+      await api.saveAdminOidc({ oidc, mappings });
+      await reload();
+      flash("OIDC settings saved");
+      setOidcDisableConfirmOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save OIDC settings");
+    } finally {
+      setOidcSaveBusy(false);
     }
   };
 
@@ -524,15 +565,10 @@ export function AdminPage() {
   const saveOidc = async () => {
     const disabling = !oidc.enabled && savedOidcEnabledRef.current;
     if (disabling && oidcOnlyUserCount > 0) {
-      const noun = oidcOnlyUserCount === 1 ? "user" : "users";
-      const confirmed = window.confirm(
-        `Disable OIDC login?\n\n${oidcOnlyUserCount} SSO-only ${noun} will no longer be able to sign in. Existing sessions stay active until they expire.\n\nYour provider settings and group mappings will be kept so you can turn OIDC back on later.`,
-      );
-      if (!confirmed) return;
+      setOidcDisableConfirmOpen(true);
+      return;
     }
-    await api.saveAdminOidc({ oidc, mappings });
-    await reload();
-    flash("OIDC settings saved");
+    await performOidcSave();
   };
 
   const addMapping = () => {
@@ -642,6 +678,9 @@ export function AdminPage() {
 
   const resetXpTarget =
     resetXpUserId != null ? users.find((u) => u.id === resetXpUserId) ?? null : null;
+  const resetTotpTarget =
+    resetTotpUserId != null ? users.find((u) => u.id === resetTotpUserId) ?? null : null;
+  const oidcOnlyUserNoun = oidcOnlyUserCount === 1 ? "user" : "users";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-100">
@@ -807,7 +846,7 @@ export function AdminPage() {
                         setError(err instanceof Error ? err.message : "Failed to update user");
                       }
                     }}
-                    onDelete={() => void deleteUser(u)}
+                    onDelete={() => setDeleteUserTarget(u)}
                     onToggleBlockGuestXp={async (checked) => {
                       try {
                         await api.updateAdminUser(u.id, { blockGuestActionXp: checked });
@@ -817,22 +856,7 @@ export function AdminPage() {
                       }
                     }}
                     onResetXp={() => setResetXpUserId(u.id)}
-                    onResetTotp={async () => {
-                      if (
-                        !window.confirm(
-                          `Reset 2FA for ${u.username}? They will need to set it up again on next local login.`,
-                        )
-                      ) {
-                        return;
-                      }
-                      try {
-                        await api.resetAdminUserTotp(u.id);
-                        await reload();
-                        flash(`Reset 2FA for ${u.username}`);
-                      } catch (err) {
-                        setError(err instanceof Error ? err.message : "Failed to reset 2FA");
-                      }
-                    }}
+                    onResetTotp={() => setResetTotpUserId(u.id)}
                     reconcileBusy={reconcileBusyId === u.id}
                     onReconcileOidcUsername={async () => {
                       setReconcileBusyId(u.id);
@@ -1717,6 +1741,69 @@ export function AdminPage() {
             <p>Their level returns to 1 and total XP goes to zero. This cannot be undone.</p>
           </>
         )}
+      </AdminConfirmDialog>
+
+      <AdminConfirmDialog
+        open={resetTotpUserId != null}
+        onClose={() => setResetTotpUserId(null)}
+        onConfirm={() => void confirmResetTotp()}
+        title="Reset 2FA?"
+        confirmLabel={resetTotpBusy ? "Resetting…" : "Reset 2FA"}
+        confirmVariant="danger"
+        busy={resetTotpBusy}
+      >
+        {resetTotpTarget && (
+          <>
+            <p>
+              Clear two-factor authentication for{" "}
+              <span className="text-white font-medium">
+                {resetTotpTarget.displayName || resetTotpTarget.username}
+              </span>
+              ?
+            </p>
+            <p>They will need to set up 2FA again on their next local login.</p>
+          </>
+        )}
+      </AdminConfirmDialog>
+
+      <AdminConfirmDialog
+        open={deleteUserTarget != null}
+        onClose={() => setDeleteUserTarget(null)}
+        onConfirm={() => void confirmDeleteUser()}
+        title="Delete user?"
+        confirmLabel={deleteUserBusy ? "Deleting…" : "Delete user"}
+        confirmVariant="danger"
+        busy={deleteUserBusy}
+      >
+        {deleteUserTarget && (
+          <>
+            <p>
+              Permanently delete{" "}
+              <span className="text-white font-medium">
+                {deleteUserTarget.displayName || deleteUserTarget.username}
+              </span>
+              ?
+            </p>
+            <p>This removes their account and cannot be undone.</p>
+          </>
+        )}
+      </AdminConfirmDialog>
+
+      <AdminConfirmDialog
+        open={oidcDisableConfirmOpen}
+        onClose={() => setOidcDisableConfirmOpen(false)}
+        onConfirm={() => void performOidcSave()}
+        title="Disable OIDC login?"
+        confirmLabel={oidcSaveBusy ? "Saving…" : "Disable OIDC"}
+        confirmVariant="danger"
+        busy={oidcSaveBusy}
+      >
+        <p>
+          <span className="text-white font-medium">{oidcOnlyUserCount}</span> SSO-only{" "}
+          {oidcOnlyUserNoun} will no longer be able to sign in. Existing sessions stay active until they
+          expire.
+        </p>
+        <p>Your provider settings and group mappings will be kept so you can turn OIDC back on later.</p>
       </AdminConfirmDialog>
     </div>
   );

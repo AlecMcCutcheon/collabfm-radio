@@ -37,6 +37,7 @@ export function ExtensionInstallButtons({
 }: ExtensionInstallButtonsProps) {
   const [info, setInfo] = useState<ExtensionInstallInfo | null>(null);
   const [zipBusy, setZipBusy] = useState(false);
+  const [zipError, setZipError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -58,13 +59,14 @@ export function ExtensionInstallButtons({
   const downloadZip = () => {
     if (zipBusy) return;
     setZipBusy(true);
+    setZipError(null);
     const download = publicExtensionDownload
       ? api.downloadExtensionZipPublic()
       : api.downloadExtensionZip();
     void download
       .then(() => onZipDownloaded?.())
       .catch(() => {
-        window.alert("Extension download failed. Try again or ask the host for the ZIP.");
+        setZipError("Extension download failed. Try again or ask the host for the ZIP.");
       })
       .finally(() => setZipBusy(false));
   };
@@ -102,6 +104,12 @@ export function ExtensionInstallButtons({
           </span>
         </a>
       </div>
+
+      {zipError ? (
+        <p className="text-[11px] leading-snug text-red-300/90" role="alert">
+          {zipError}
+        </p>
+      ) : null}
 
       {hint ? (
         <p
