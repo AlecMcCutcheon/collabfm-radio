@@ -173,6 +173,32 @@ export const api = {
       }),
     }),
 
+  tempPasswordStatus: () =>
+    json<{
+      user: { username: string; displayName?: string; loginEmail?: string | null };
+      notice?: string;
+    }>(apiUrl("/auth/local/temp-password/status")),
+
+  verifyTempPassword: (password: string) =>
+    json<LocalLoginResult>(apiUrl("/auth/local/temp-password/verify"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    }),
+
+  passwordChangeStatus: () =>
+    json<{
+      pendingPasswordChange: "setup" | "change";
+      user: { username: string; displayName?: string; loginEmail?: string | null };
+    }>(apiUrl("/auth/local/password-change/status")),
+
+  completePasswordChange: (body: { newPassword: string; confirmPassword: string }) =>
+    json<LocalLoginResult>(apiUrl("/auth/local/password-change/complete"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+
   verifyLocal2fa: (body: { code?: string; backupCode?: string }) =>
     json<LocalLoginResult>(apiUrl("/auth/local/2fa/verify"), {
       method: "POST",
@@ -510,7 +536,12 @@ export const api = {
 
   adminUsers: () => json<{ users: AdminUser[] }>(`${API}/admin/users`),
 
-  createAdminUser: (body: { username: string; password: string; role: string }) =>
+  createAdminUser: (body: {
+    username: string;
+    password: string;
+    role: string;
+    requirePasswordChange?: boolean;
+  }) =>
     json(`${API}/admin/users`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -530,6 +561,9 @@ export const api = {
 
   deleteAdminUser: (id: number) =>
     json<{ ok: boolean }>(`${API}/admin/users/${id}`, { method: "DELETE" }),
+
+  revealAdminUserTempPassword: (id: number) =>
+    json<{ password: string }>(`${API}/admin/users/${id}/temp-password`),
 
   resetAdminUserXp: (id: number) =>
     json<{ ok: boolean; user: AdminUser }>(`${API}/admin/users/${id}/reset-xp`, { method: "POST" }),

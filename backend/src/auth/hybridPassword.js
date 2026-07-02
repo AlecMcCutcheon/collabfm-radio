@@ -6,6 +6,7 @@ import {
   resolveEmailFromOidcProfile,
 } from "./oidcUser.js";
 import { getSetting } from "../db/index.js";
+import { validatePasswordPolicy } from "./passwordPolicy.js";
 
 export function hasPasswordHash(user) {
   return !!(user?.password_hash && String(user.password_hash).trim());
@@ -40,8 +41,9 @@ export async function applyHybridOidcPassword(
   if (user.auth_source !== "oidc" || !user.oidc_subject) {
     return { error: "Password can only be set on SSO-linked accounts", status: 400 };
   }
-  if (password.length < 8) {
-    return { error: "Password must be at least 8 characters", status: 400 };
+  const policy = validatePasswordPolicy(password);
+  if (!policy.ok) {
+    return { error: policy.error, status: 400, errors: policy.errors };
   }
 
   const email = resolveEmailFromOidcProfile(user);
@@ -55,6 +57,8 @@ export async function applyHybridOidcPassword(
 
   const fields = {
     password_hash: await hashPassword(password),
+    must_change_password: 0,
+    temp_password_encrypted: null,
   };
   let loginEmailAssigned = false;
 

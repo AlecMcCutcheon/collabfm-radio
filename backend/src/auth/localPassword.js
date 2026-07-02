@@ -1,6 +1,7 @@
 import { hashPassword, verifyPassword } from "./session.js";
 import { updateUser } from "../db/index.js";
 import { hasPasswordHash } from "./hybridPassword.js";
+import { validatePasswordPolicy } from "./passwordPolicy.js";
 
 export async function resetLocalAccountPassword(user, currentPassword, newPassword) {
   if (user.auth_source !== "local") {
@@ -12,8 +13,9 @@ export async function resetLocalAccountPassword(user, currentPassword, newPasswo
   if (!String(currentPassword || "").trim()) {
     return { error: "Current password required", status: 400 };
   }
-  if (newPassword.length < 8) {
-    return { error: "Password must be at least 8 characters", status: 400 };
+  const policy = validatePasswordPolicy(newPassword);
+  if (!policy.ok) {
+    return { error: policy.error, status: 400, errors: policy.errors };
   }
 
   const ok = await verifyPassword(currentPassword, user.password_hash);
@@ -23,6 +25,8 @@ export async function resetLocalAccountPassword(user, currentPassword, newPasswo
 
   const updated = updateUser(user.id, {
     password_hash: await hashPassword(newPassword),
+    must_change_password: 0,
+    temp_password_encrypted: null,
   });
   return { user: updated };
 }

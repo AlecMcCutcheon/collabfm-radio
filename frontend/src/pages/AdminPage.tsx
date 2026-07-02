@@ -6,6 +6,7 @@ import { apiUrl } from "../config";
 import { notifyStationFeaturesChanged } from "../context/BrandingFeaturesContext";
 import { useAuthStatus } from "../hooks/useAuthStatus";
 import { AdminBackButton } from "../components/admin/AdminNavButton";
+import { AdminConfirmDialog } from "../components/admin/AdminConfirmDialog";
 import { AdminUserRow } from "../components/admin/AdminUserRow";
 import { ContentPolicyAdminSection } from "../components/admin/ContentPolicyAdminSection";
 import {
@@ -29,6 +30,7 @@ import { applyStationTitle } from "../utils/stationTitle";
 import { absolutePublicUrl } from "../utils/publicUrl";
 import { registrationPendingCountBadgeClass } from "../utils/registrationStatus";
 import { imageFallbackHandler, proceduralStationLogo, resolveBrandingImageUrl } from "../utils/brandingImage";
+import { generateCompliantPassword, validatePasswordPolicy } from "../utils/passwordPolicy";
 
 type Tab = "users" | "discord" | "sharing" | "oidc" | "radio" | "security" | "system";
 
@@ -108,10 +110,16 @@ export function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [newUser, setNewUser] = useState({ username: "", password: "", role: "listener" });
+  const [newUserRequirePasswordChange, setNewUserRequirePasswordChange] = useState(true);
+  const [newUserPasswordRevealed, setNewUserPasswordRevealed] = useState(false);
   const [passwordEditId, setPasswordEditId] = useState<number | null>(null);
   const [reconcileBusyId, setReconcileBusyId] = useState<number | null>(null);
   const [refreshEmailsBusy, setRefreshEmailsBusy] = useState(false);
   const [passwordDraft, setPasswordDraft] = useState("");
+  const [passwordRequireChangeDraft, setPasswordRequireChangeDraft] = useState(false);
+  const [tempPasswords, setTempPasswords] = useState<Record<number, string>>({});
+  const [resetXpUserId, setResetXpUserId] = useState<number | null>(null);
+  const [resetXpBusy, setResetXpBusy] = useState(false);
   const [newGuildId, setNewGuildId] = useState("");
   const [newGuildLabel, setNewGuildLabel] = useState("");
   const [branding, setBranding] = useState<BrandingSettings>({
@@ -133,6 +141,7 @@ export function AdminPage() {
   const [guestActionsGrantXp, setGuestActionsGrantXp] = useState(true);
   const [blockGuestXpMatchingStageIp, setBlockGuestXpMatchingStageIp] = useState(true);
   const [localLogin2faRequired, setLocalLogin2faRequired] = useState(false);
+  const [requireLocalPasswordForOidcUsers, setRequireLocalPasswordForOidcUsers] = useState(false);
   const [securityBusy, setSecurityBusy] = useState(false);
   const [limits, setLimits] = useState<LimitsSettings>(DEFAULT_LIMITS);
   const [audio, setAudio] = useState<AudioPipelineSettings>(DEFAULT_AUDIO);
@@ -198,6 +207,9 @@ export function AdminPage() {
       setGuestActionsGrantXp(settings.leveling?.guestActionsGrantXp !== false);
       setBlockGuestXpMatchingStageIp(settings.leveling?.blockGuestXpMatchingStageIp !== false);
       setLocalLogin2faRequired(settings.security?.localLogin2faRequired === true);
+      setRequireLocalPasswordForOidcUsers(
+        settings.security?.requireLocalPasswordForOidcUsers === true,
+      );
       setLimits(settings.limits ?? DEFAULT_LIMITS);
       setAudio(settings.audio ?? DEFAULT_AUDIO);
       setUpdatesNotify(settings.updates?.notifyOnBuildAvailable === true);
@@ -338,9 +350,12 @@ export function AdminPage() {
     setError(null);
     try {
       const res = await api.saveAdminSettings({
-        security: { localLogin2faRequired },
+        security: { localLogin2faRequired, requireLocalPasswordForOidcUsers },
       });
       setLocalLogin2faRequired(res.security?.localLogin2faRequired === true);
+      setRequireLocalPasswordForOidcUsers(
+        res.security?.requireLocalPasswordForOidcUsers === true,
+      );
       flash("Security settings saved");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -387,21 +402,41 @@ export function AdminPage() {
   };
 
   const createUser = async () => {
-    await api.createAdminUser(newUser);
+    const policy = validatePasswordPolicy(newUser.password);
+    if (!policy.ok) {
+      setError(policy.errors[0] || "Password does not meet policy");
+      return;
+    }
+    await api.createAdminUser({
+      ...newUser,
+      requirePasswordChange: newUserRequirePasswordChange,
+    });
     setNewUser({ username: "", password: "", role: "listener" });
+    setNewUserRequirePasswordChange(true);
+    setNewUserPasswordRevealed(false);
     await reload();
     flash("User created");
   };
 
   const saveUserPassword = async (userId: number) => {
-    if (passwordDraft.length < 8) {
-      setError("Password must be at least 8 characters");
+    const policy = validatePasswordPolicy(passwordDraft);
+    if (!policy.ok) {
+      setError(policy.errors[0] || "Password does not meet policy");
       return;
     }
     try {
-      const res = await api.updateAdminUser(userId, { password: passwordDraft });
+      const res = await api.updateAdminUser(userId, {
+        password: passwordDraft,
+        requirePasswordChange: passwordRequireChangeDraft,
+      });
       setPasswordEditId(null);
       setPasswordDraft("");
+      setPasswordRequireChangeDraft(false);
+      setTempPasswords((prev) => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
       await reload();
       const user = res.user;
       if (user?.username) {
@@ -415,6 +450,44 @@ export function AdminPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update password");
+    }
+  };
+
+  const revealTempPassword = async (userId: number) => {
+    try {
+      const res = await api.revealAdminUserTempPassword(userId);
+      setTempPasswords((prev) => ({ ...prev, [userId]: res.password }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not reveal temporary password");
+    }
+  };
+
+  const regenerateTempPassword = async (userId: number) => {
+    try {
+      await api.updateAdminUser(userId, { regenerateTempPassword: true });
+      const res = await api.revealAdminUserTempPassword(userId);
+      setTempPasswords((prev) => ({ ...prev, [userId]: res.password }));
+      await reload();
+      flash("Temporary password regenerated");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not regenerate temporary password");
+    }
+  };
+
+  const confirmResetXp = async () => {
+    if (resetXpUserId == null) return;
+    const target = users.find((u) => u.id === resetXpUserId);
+    if (!target) return;
+    setResetXpBusy(true);
+    try {
+      await api.resetAdminUserXp(resetXpUserId);
+      await reload();
+      flash(`Reset XP for ${target.username}`);
+      setResetXpUserId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reset XP");
+    } finally {
+      setResetXpBusy(false);
     }
   };
 
@@ -567,6 +640,9 @@ export function AdminPage() {
     { id: "system", label: "System" },
   ];
 
+  const resetXpTarget =
+    resetXpUserId != null ? users.find((u) => u.id === resetXpUserId) ?? null : null;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-100">
       <div className="max-w-3xl mx-auto px-4 py-8">
@@ -700,14 +776,26 @@ export function AdminPage() {
                     lockSelfAdmin={lockSelfAdmin}
                     editingPassword={editingPassword}
                     passwordDraft={passwordDraft}
+                    requirePasswordChangeDraft={passwordRequireChangeDraft}
+                    tempPassword={tempPasswords[u.id] || ""}
                     onPasswordDraftChange={setPasswordDraft}
+                    onRequirePasswordChangeDraft={setPasswordRequireChangeDraft}
+                    onGeneratePassword={() => {
+                      setPasswordDraft(generateCompliantPassword());
+                      setPasswordRequireChangeDraft(true);
+                    }}
+                    onRevealTempPassword={() => void revealTempPassword(u.id)}
+                    onRegenerateTempPassword={() => void regenerateTempPassword(u.id)}
+                    onCopyTempPassword={() => copyText(tempPasswords[u.id] || "", flash)}
                     onTogglePasswordEdit={() => {
                       if (editingPassword) {
                         setPasswordEditId(null);
                         setPasswordDraft("");
+                        setPasswordRequireChangeDraft(false);
                       } else {
                         setPasswordEditId(u.id);
                         setPasswordDraft("");
+                        setPasswordRequireChangeDraft(false);
                       }
                     }}
                     onSavePassword={() => void saveUserPassword(u.id)}
@@ -728,16 +816,7 @@ export function AdminPage() {
                         setError(err instanceof Error ? err.message : "Failed to update user");
                       }
                     }}
-                    onResetXp={async () => {
-                      if (!window.confirm(`Reset all XP for ${u.username}?`)) return;
-                      try {
-                        await api.resetAdminUserXp(u.id);
-                        await reload();
-                        flash(`Reset XP for ${u.username}`);
-                      } catch (err) {
-                        setError(err instanceof Error ? err.message : "Failed to reset XP");
-                      }
-                    }}
+                    onResetXp={() => setResetXpUserId(u.id)}
                     onResetTotp={async () => {
                       if (
                         !window.confirm(
@@ -797,20 +876,35 @@ export function AdminPage() {
               </div>
               <div className={`${adminInlineRowClass} flex-wrap`}>
                 <AdminInput
-                  className="mt-0 sm:flex-1"
+                  inline
+                  className="sm:flex-1"
                   placeholder="Username"
                   value={newUser.username}
                   onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
                 />
-                <AdminInput
-                  className="mt-0 sm:flex-1"
-                  type="password"
+                <AdminSecretInput
+                  containerClassName="sm:flex-1 min-w-0"
                   placeholder="Password"
                   value={newUser.password}
+                  revealed={newUserPasswordRevealed}
+                  onRevealedChange={setNewUserPasswordRevealed}
                   onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  autoComplete="new-password"
                 />
+                <AdminBtn
+                  variant="secondary"
+                  className="w-full sm:w-auto shrink-0"
+                  onClick={() => {
+                    setNewUser({ ...newUser, password: generateCompliantPassword() });
+                    setNewUserRequirePasswordChange(true);
+                    setNewUserPasswordRevealed(true);
+                  }}
+                >
+                  Generate
+                </AdminBtn>
                 <AdminSelect
-                  className="mt-0 w-full sm:w-40 shrink-0"
+                  inline
+                  className="w-full sm:w-40 shrink-0"
                   value={newUser.role}
                   onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
                 >
@@ -822,6 +916,12 @@ export function AdminPage() {
                   Add user
                 </AdminBtn>
               </div>
+              <AdminCheckbox
+                checked={newUserRequirePasswordChange}
+                onChange={setNewUserRequirePasswordChange}
+                label="Require password change on first login"
+                hint="Stores this as a temporary password that admins can reveal until the user changes it."
+              />
             </div>
           </AdminSection>
         )}
@@ -1328,8 +1428,14 @@ export function AdminPage() {
                 label="Require 2FA for local login"
                 hint="When enabled, users with a password must set up 2FA before signing in locally. Admins see the same prompt but can skip and enroll later in Studio. Existing sessions are not revoked — enforcement applies on the next local login."
               />
+              <AdminCheckbox
+                checked={requireLocalPasswordForOidcUsers}
+                onChange={setRequireLocalPasswordForOidcUsers}
+                label="Require local password setup for SSO users"
+                hint="When enabled, SSO users who do not have a local password are prompted to set one after their next SSO login. If local 2FA is also required, that setup still runs afterward."
+              />
               <AdminBtn disabled={securityBusy} onClick={() => void saveSecurity()}>
-                Save 2FA settings
+                Save security settings
               </AdminBtn>
             </AdminSection>
 
@@ -1590,6 +1696,28 @@ export function AdminPage() {
           </>
         )}
       </div>
+
+      <AdminConfirmDialog
+        open={resetXpUserId != null}
+        onClose={() => setResetXpUserId(null)}
+        onConfirm={() => void confirmResetXp()}
+        title="Reset XP?"
+        confirmLabel={resetXpBusy ? "Resetting…" : "Reset XP"}
+        busy={resetXpBusy}
+      >
+        {resetXpTarget && (
+          <>
+            <p>
+              Reset all DJ level progress for{" "}
+              <span className="text-white font-medium">
+                {resetXpTarget.displayName || resetXpTarget.username}
+              </span>
+              ?
+            </p>
+            <p>Their level returns to 1 and total XP goes to zero. This cannot be undone.</p>
+          </>
+        )}
+      </AdminConfirmDialog>
     </div>
   );
 }

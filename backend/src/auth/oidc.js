@@ -118,7 +118,14 @@ export async function handleOidcLogin(req, res, oidc) {
   }
 }
 
-export async function handleOidcCallback(req, res, oidc, createUserSession, getAppSession) {
+export async function handleOidcCallback(
+  req,
+  res,
+  oidc,
+  beginPostCredentialAuth,
+  getAppSession,
+  createSsoTempRecoverySession,
+) {
   const url = new URL(req.url, "http://localhost");
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
@@ -184,7 +191,13 @@ export async function handleOidcCallback(req, res, oidc, createUserSession, getA
 
     const { provisionOidcUser } = await import("./oidcUser.js");
     const user = await provisionOidcUser(claims, oidc);
-    createUserSession(req, res, user.id, "oidc");
+    if (user.auth_source === "oidc" && user.password_hash && Number(user.must_change_password) === 1) {
+      createSsoTempRecoverySession(req, res, user);
+      res.writeHead(302, { Location: "/login/temp-password" });
+      res.end();
+      return;
+    }
+    beginPostCredentialAuth(req, res, user, "oidc");
     res.writeHead(302, { Location: "/" });
     res.end();
   } catch (e) {

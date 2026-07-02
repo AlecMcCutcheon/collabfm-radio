@@ -45,11 +45,32 @@ When an admin enables **Allow hybrid accounts (SSO + local password)** under **A
 
 When hybrid accounts are **disabled**, hybrid users who already have a password keep working; new password setup is hidden.
 
+If Admin → Security enables **Require local password setup for SSO users**, SSO users without a local password are prompted after SSO to create one before they receive a full session. If a hybrid user has an admin temporary password, SSO proves identity but does not bypass the temporary-password check; they are sent to a focused temporary-password screen, then choose a new password and continue through any local 2FA requirement.
+
 ---
 
 ## Local account password (Studio)
 
 Users who sign in with **username and password** (registration-activated or admin-created accounts) can open **Studio → Account security** and click **Reset password**. They must enter their **current password** plus the new password twice. This is self-service only — admins can still reset any account from **Admin → Users** without the current password.
+
+Passwords must meet the station policy: at least 12 characters with uppercase, lowercase, number, and special character. Admin-created temporary passwords use the same policy. When an admin marks a password as temporary, the user must change it at next login before 2FA or full station access.
+
+---
+
+## Forced password change at login
+
+Some accounts must finish a **password gate** before receiving a full session (same idea as the 2FA gate — scoped login, no API access until complete).
+
+| Trigger | What the user sees |
+|---------|-------------------|
+| Admin created the account with **Require password change on first login** | Login with username/email + temporary password → choose a new password |
+| Admin reset a password with **require change** or **Regenerate** temporary password | Same on next login |
+| Admin enabled **Require local password setup for SSO users** | After SSO, set a local password (then 2FA if required) |
+| Hybrid user with admin temporary password signs in via **SSO** | `/login/temp-password` — email shown, enter temporary password only → choose new password |
+
+**Login order** when multiple requirements apply: password setup/change first, then 2FA (if enabled), then full access.
+
+On the main login page, use **Back to login** during a password gate only if you intend to abandon the in-progress sign-in (same as the 2FA gate).
 
 ---
 

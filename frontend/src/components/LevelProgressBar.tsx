@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { LevelInfo } from "../types/api";
 import { formatLevelLabel } from "../utils/leveling";
 
@@ -5,17 +6,26 @@ interface LevelProgressBarProps {
   level?: LevelInfo | null;
   compact?: boolean;
   showTotalXp?: boolean;
+  trailing?: ReactNode;
 }
 
-export function LevelProgressBar({ level, compact = false, showTotalXp = false }: LevelProgressBarProps) {
+export function LevelProgressBar({
+  level,
+  compact = false,
+  showTotalXp = false,
+  trailing,
+}: LevelProgressBarProps) {
   if (!level) return null;
 
   return (
     <div className={compact ? "mt-2" : "mt-2.5"}>
       <div className="flex items-center justify-between gap-2 text-[10px] text-gray-400 mb-1">
         <span className="font-semibold text-indigo-200">{formatLevelLabel(level)}</span>
-        <span>
-          {level.xpIntoLevel}/{level.xpForNextLevel} XP
+        <span className="inline-flex items-center gap-1.5 tabular-nums shrink-0">
+          <span>
+            {level.xpIntoLevel}/{level.xpForNextLevel} XP
+          </span>
+          {trailing}
         </span>
       </div>
       <div className="h-1.5 rounded-full bg-gray-700/90 overflow-hidden">

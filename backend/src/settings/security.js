@@ -3,6 +3,7 @@ import { getSetting, setSetting } from "../db/index.js";
 export function normalizeSecuritySettings(raw = {}) {
   return {
     localLogin2faRequired: raw.localLogin2faRequired === true,
+    requireLocalPasswordForOidcUsers: raw.requireLocalPasswordForOidcUsers === true,
   };
 }
 

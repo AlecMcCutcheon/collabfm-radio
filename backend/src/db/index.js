@@ -152,7 +152,8 @@ export function listUsers() {
       `SELECT id, username, login_email, auth_source, role, enabled, created_at, last_login, last_login_ip,
               experience_points, block_guest_action_xp,
               display_name, avatar_filename, bio, genres,
-              password_hash, totp_enabled, registration_request_id, oidc_profile_json
+              password_hash, must_change_password, temp_password_encrypted,
+              totp_enabled, registration_request_id, oidc_profile_json
        FROM users ORDER BY username`
     )
     .all();
@@ -170,14 +171,31 @@ export function countOidcOnlyUsers() {
   return Number(row?.count ?? 0);
 }
 
-export function createLocalUser({ username, passwordHash, role = "listener", loginEmail = null }) {
+export function createLocalUser({
+  username,
+  passwordHash,
+  role = "listener",
+  loginEmail = null,
+  mustChangePassword = false,
+  tempPasswordEncrypted = null,
+}) {
   const normalizedLoginEmail = loginEmail ? normalizeLoginEmail(loginEmail) : null;
   const result = getDb()
     .prepare(
-      `INSERT INTO users (username, auth_source, password_hash, role, enabled, login_email)
-       VALUES (?, 'local', ?, ?, 1, ?)`
+      `INSERT INTO users (
+         username, auth_source, password_hash, role, enabled, login_email,
+         must_change_password, temp_password_encrypted
+       )
+       VALUES (?, 'local', ?, ?, 1, ?, ?, ?)`
     )
-    .run(username, passwordHash, role, normalizedLoginEmail);
+    .run(
+      username,
+      passwordHash,
+      role,
+      normalizedLoginEmail,
+      mustChangePassword ? 1 : 0,
+      tempPasswordEncrypted,
+    );
   return getUserById(result.lastInsertRowid);
 }
 
@@ -186,6 +204,8 @@ export function updateUser(id, fields) {
     "username",
     "login_email",
     "password_hash",
+    "must_change_password",
+    "temp_password_encrypted",
     "role",
     "enabled",
     "last_login",
@@ -240,6 +260,15 @@ export function promoteSessionToFull(token) {
        WHERE token = ?`,
     )
     .run(Date.now() + SESSION_TTL_MS, token);
+}
+
+export function updateSessionScope(token, scope, expiresAt) {
+  getDb()
+    .prepare(
+      `UPDATE sessions SET scope = ?, expires_at = ?
+       WHERE token = ?`,
+    )
+    .run(scope, expiresAt, token);
 }
 
 export function getSession(token) {

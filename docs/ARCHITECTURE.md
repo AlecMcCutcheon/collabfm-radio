@@ -81,6 +81,10 @@ Admin (session + admin role):
 |----------|--------|---------|
 | `/auth/methods` | GET | Available login methods |
 | `/auth/local/login` | POST | Username or email + password |
+| `/auth/local/password-change/status` | GET | Pending password setup/change metadata |
+| `/auth/local/password-change/complete` | POST | Complete forced password setup/change before 2FA/full session |
+| `/auth/local/temp-password/status` | GET | Hybrid SSO temp-password recovery metadata |
+| `/auth/local/temp-password/verify` | POST | Verify admin temporary password after SSO recovery |
 | `/auth/local/2fa/verify` | POST | Complete login after TOTP |
 | `/auth/local/2fa/setup/begin` | GET | QR setup during mandatory enrollment |
 | `/auth/local/2fa/setup/confirm` | POST | Confirm TOTP at login |
@@ -107,8 +111,11 @@ Admin (session + admin role):
 | `/api/admin/oidc/refresh-legacy-emails` | POST | Batch SSO email refresh |
 | `/api/admin/users/:id/refresh-oidc-email` | POST | Per-user SSO email refresh |
 | `/api/admin/users/:id/reconcile-oidc-username` | POST | Normalize legacy hybrid username to IdP `sub` |
+| `/api/admin/users/:id/temp-password` | GET | Reveal active admin temporary password (when `must_change_password` is set) |
 
 Local sign-in resolves **username or `login_email`**. OIDC usernames are always the provider subject; email for local login lives in `login_email`.
+
+Password setup/change uses scoped sessions the same way 2FA does. A user with `must_change_password` gets a `password_change` scoped session after password verification and cannot access `/api/*` until they set a compliant password. Hybrid SSO users with an admin temporary password get an `sso_temp_recovery` scoped session after OIDC proves identity, then must enter the temporary password before moving to `password_change`. Temporary passwords are stored encrypted in `users.temp_password_encrypted` only while `must_change_password` is active.
 
 ## Stream access
 

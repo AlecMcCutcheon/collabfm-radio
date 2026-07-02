@@ -64,6 +64,7 @@ export interface AccountSecurityStatus {
 
 export interface SecuritySettings {
   localLogin2faRequired: boolean;
+  requireLocalPasswordForOidcUsers?: boolean;
 }
 
 export interface LocalLoginResult {
@@ -72,6 +73,8 @@ export interface LocalLoginResult {
   requires2faSetup?: boolean;
   optional2faSetup?: boolean;
   pending2fa?: "verify" | "setup" | "setup_optional";
+  requiresPasswordChange?: boolean;
+  pendingPasswordChange?: "setup" | "change";
   user?: { username: string; role: string };
   permissions?: Record<string, boolean>;
   backupCodes?: string[];
@@ -193,6 +196,8 @@ export interface RegistrationStatusResult {
 export interface AuthStatus {
   authenticated: boolean;
   pending2fa?: "verify" | "setup" | "setup_optional";
+  pendingPasswordChange?: "setup" | "change";
+  pendingSsoTempRecovery?: boolean;
   canSkip2faSetup?: boolean;
   /** How this browser session was established */
   sessionLoginMethod?: "local" | "oidc";
@@ -229,6 +234,8 @@ export interface AdminUser {
   role: string;
   enabled: number;
   has_password?: boolean;
+  mustChangePassword?: boolean;
+  hasTempPassword?: boolean;
   totp_enabled?: boolean;
   created_at?: string;
   last_login?: string | null;

@@ -37,7 +37,11 @@ This is intentional: it reduces abuse (e.g. burning your Last.fm quota) and matc
 
 Use the site normally; the browser sends the session cookie. Stream URL: `GET /api/stream`.
 
-**Studio account APIs** (`/api/account/*`) require a session and let users manage passwords and 2FA. **Admin registration and SSO helper routes** (`/api/admin/registration/*`, `/api/admin/oidc/refresh-legacy-emails`, etc.) require an admin session. See [ARCHITECTURE.md — Auth endpoints](https://github.com/AlecMcCutcheon/collabfm-radio/blob/main/docs/ARCHITECTURE.md#registration-when-enabled) for the full list.
+**Studio account APIs** (`/api/account/*`) require a **full** session and let users manage passwords and 2FA.
+
+**Mid-login scoped sessions** (password gate or 2FA) are **not** full sessions — `GET /auth/status` may show `pendingPasswordChange`, `pendingSsoTempRecovery`, or `pending2fa`, and most `/api/*` routes return **401** until the gate completes. Password-gate routes include `/auth/local/password-change/*` and `/auth/local/temp-password/*`.
+
+**Admin registration and SSO helper routes** (`/api/admin/registration/*`, `/api/admin/oidc/refresh-legacy-emails`, `/api/admin/users/:id/temp-password`, etc.) require an admin session. See [ARCHITECTURE.md — Auth endpoints](https://github.com/AlecMcCutcheon/collabfm-radio/blob/main/docs/ARCHITECTURE.md#registration-when-enabled) for the full list.
 
 ## Browser extension
 

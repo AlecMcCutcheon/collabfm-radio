@@ -1,12 +1,15 @@
+import { useEffect, useState } from "react";
 import { apiUrl } from "../../config";
 import type { AdminUser } from "../../types/api";
 import { avatarSrc } from "../../utils/avatar";
 import { avatarImageFallbackHandler } from "../../utils/brandingImage";
+import { validatePasswordPolicy } from "../../utils/passwordPolicy";
 import { LevelProgressBar } from "../LevelProgressBar";
 import {
   AdminBtn,
   AdminCheckbox,
   AdminInput,
+  AdminSecretInput,
   AdminSelect,
   RoleBadge,
 } from "./adminUi";
@@ -19,7 +22,14 @@ interface AdminUserRowProps {
   lockSelfAdmin: boolean;
   editingPassword: boolean;
   passwordDraft: string;
+  requirePasswordChangeDraft: boolean;
+  tempPassword: string;
   onPasswordDraftChange: (value: string) => void;
+  onRequirePasswordChangeDraft: (value: boolean) => void;
+  onGeneratePassword: () => void;
+  onRevealTempPassword: () => void;
+  onRegenerateTempPassword: () => void;
+  onCopyTempPassword: () => void;
   onTogglePasswordEdit: () => void;
   onSavePassword: () => void;
   onRoleChange: (role: string) => void;
@@ -75,7 +85,14 @@ export function AdminUserRow({
   lockSelfAdmin,
   editingPassword,
   passwordDraft,
+  requirePasswordChangeDraft,
+  tempPassword,
   onPasswordDraftChange,
+  onRequirePasswordChangeDraft,
+  onGeneratePassword,
+  onRevealTempPassword,
+  onRegenerateTempPassword,
+  onCopyTempPassword,
   onTogglePasswordEdit,
   onSavePassword,
   onRoleChange,
@@ -102,6 +119,17 @@ export function AdminUserRow({
   const roleColor = user.roleColor ?? "#e5e7eb";
   const lastLoginLabel = formatLastLogin(user.last_login);
   const signInSummary = signInMethodsSummary(user, isHybridOidc);
+  const passwordPolicy = validatePasswordPolicy(passwordDraft);
+  const [passwordDraftRevealed, setPasswordDraftRevealed] = useState(false);
+  const [tempPasswordRevealed, setTempPasswordRevealed] = useState(false);
+
+  useEffect(() => {
+    if (!editingPassword) setPasswordDraftRevealed(false);
+  }, [editingPassword]);
+
+  useEffect(() => {
+    if (tempPassword) setTempPasswordRevealed(true);
+  }, [tempPassword]);
 
   return (
     <li className="rounded-xl border border-gray-700/90 bg-gradient-to-br from-gray-800/80 to-gray-900/70 p-4 shadow-sm space-y-4">
@@ -226,6 +254,11 @@ export function AdminUserRow({
                   2FA
                 </span>
               )}
+              {user.mustChangePassword && (
+                <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-600/15 px-2.5 py-0.5 text-[10px] font-medium text-amber-100">
+                  Password change required
+                </span>
+              )}
               {isSelf && (
                 <span className="inline-flex items-center rounded-full border border-radio-accent/30 bg-radio-accent/10 px-2.5 py-0.5 text-[10px] font-medium text-radio-accent">
                   You
@@ -253,7 +286,21 @@ export function AdminUserRow({
             </div>
           )}
 
-          <LevelProgressBar level={user.level} compact showTotalXp />
+          <LevelProgressBar
+            level={user.level}
+            compact
+            showTotalXp
+            trailing={
+              <button
+                type="button"
+                onClick={onResetXp}
+                className="text-[10px] text-gray-500 hover:text-amber-200 transition-colors"
+                title="Reset XP to zero"
+              >
+                Reset
+              </button>
+            }
+          />
         </div>
       </div>
 
@@ -289,43 +336,102 @@ export function AdminUserRow({
         </div>
 
         {editingPassword && (
-          <div className="flex flex-col sm:flex-row gap-3 sm:items-end pt-1 border-t border-gray-700/70">
-            <AdminInput
-              className="mt-0 sm:flex-1"
-              type="password"
-              placeholder="New password (min 8 characters)"
-              value={passwordDraft}
-              onChange={(e) => onPasswordDraftChange(e.target.value)}
-              autoComplete="new-password"
+          <div className="space-y-3 pt-1 border-t border-gray-700/70">
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+              <AdminSecretInput
+                containerClassName="mt-0 sm:flex-1 min-w-0"
+                className="mt-0 text-sm"
+                placeholder="New password"
+                value={passwordDraft}
+                revealed={passwordDraftRevealed}
+                onRevealedChange={setPasswordDraftRevealed}
+                onChange={(e) => onPasswordDraftChange(e.target.value)}
+                autoComplete="new-password"
+              />
+              <AdminBtn
+                variant="secondary"
+                className="w-full sm:w-auto shrink-0"
+                onClick={() => {
+                  onGeneratePassword();
+                  setPasswordDraftRevealed(true);
+                }}
+              >
+                Generate
+              </AdminBtn>
+              <AdminBtn
+                className="w-full sm:w-auto shrink-0"
+                disabled={!passwordPolicy.ok}
+                onClick={onSavePassword}
+              >
+                Save password
+              </AdminBtn>
+            </div>
+            {passwordDraft && !passwordPolicy.ok && (
+              <p className="text-xs text-amber-300">{passwordPolicy.errors[0]}</p>
+            )}
+            <AdminCheckbox
+              checked={requirePasswordChangeDraft}
+              onChange={onRequirePasswordChangeDraft}
+              label="Make this a temporary password"
+              hint="The user must change it on next login. Admins can reveal it until the user completes the change."
             />
-            <AdminBtn
-              className="w-full sm:w-auto shrink-0"
-              disabled={passwordDraft.length < 8}
-              onClick={onSavePassword}
-            >
-              Save password
-            </AdminBtn>
           </div>
         )}
 
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-end flex-wrap pt-1 border-t border-gray-700/70">
-          {guestActionsGrantXp && (
-            <AdminCheckbox
-              checked={!!user.block_guest_action_xp}
-              onChange={onToggleBlockGuestXp}
-              label="Block guest-action XP"
-              hint="Hearts and request approvals from guest sessions won't grant XP to this account."
-            />
-          )}
-          <AdminBtn variant="secondary" className="w-full sm:w-auto shrink-0" onClick={onResetXp}>
-            Reset XP
-          </AdminBtn>
-          {canResetTotp && (
-            <AdminBtn variant="secondary" className="w-full sm:w-auto shrink-0" onClick={onResetTotp}>
-              Reset 2FA
-            </AdminBtn>
-          )}
-        </div>
+        {user.hasTempPassword && (
+          <div className="rounded-lg border border-amber-700/50 bg-amber-950/20 p-3 space-y-3">
+            <div>
+              <p className="text-xs font-semibold text-amber-100">Temporary password</p>
+              <p className="text-xs text-amber-200/80">
+                This password remains visible to admins until the user changes it.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+              <AdminSecretInput
+                containerClassName="mt-0 sm:flex-1 min-w-0"
+                readOnly
+                placeholder="Click Reveal to load"
+                value={tempPassword}
+                revealed={tempPasswordRevealed}
+                onRevealedChange={setTempPasswordRevealed}
+              />
+              <AdminBtn variant="secondary" className="w-full sm:w-auto" onClick={onRevealTempPassword}>
+                Reveal
+              </AdminBtn>
+              <AdminBtn
+                variant="secondary"
+                className="w-full sm:w-auto"
+                disabled={!tempPassword}
+                onClick={onCopyTempPassword}
+              >
+                Copy
+              </AdminBtn>
+              {canEditPassword && (
+                <AdminBtn variant="secondary" className="w-full sm:w-auto" onClick={onRegenerateTempPassword}>
+                  Regenerate
+                </AdminBtn>
+              )}
+            </div>
+          </div>
+        )}
+
+        {(guestActionsGrantXp || canResetTotp) && (
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-end flex-wrap pt-1 border-t border-gray-700/70">
+            {guestActionsGrantXp && (
+              <AdminCheckbox
+                checked={!!user.block_guest_action_xp}
+                onChange={onToggleBlockGuestXp}
+                label="Block guest-action XP"
+                hint="Hearts and request approvals from guest sessions won't grant XP to this account."
+              />
+            )}
+            {canResetTotp && (
+              <AdminBtn variant="secondary" className="w-full sm:w-auto shrink-0" onClick={onResetTotp}>
+                Reset 2FA
+              </AdminBtn>
+            )}
+          </div>
+        )}
       </div>
     </li>
   );

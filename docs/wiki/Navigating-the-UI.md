@@ -10,8 +10,11 @@ CollabFM is a single-page web app. Layout differs on **desktop** (wide screen) a
 2. Enter **Username** and **Password**, then click **Sign in**. You can also sign in with your **email** when the account has a login email (registration or hybrid accounts).
 3. If SSO is enabled, use **Login With …** (your provider nickname) instead.
 4. If **gated registration** is enabled and you do not have an account, use **Request access** on the login page — submit the form, wait for admin approval, then activate with your enrollment token.
-5. If you have **two-factor authentication** enabled, enter your authenticator code (or one backup code) on the next step.
-6. If the station **requires 2FA** and you have not set it up yet, complete the setup flow—or, for **admins**, choose **Skip for now**.
+5. If the account has a **temporary password** or the station requires a **password change**, choose a new password on the login screen (policy hints are shown inline).
+6. If you signed in with **SSO** but an admin set a temporary local password, you may be sent to **`/login/temp-password`** — your email is shown and you enter only the temporary password, then set a new one.
+7. If **Require local password setup for SSO users** is enabled and you have no local password yet, set one after SSO before continuing.
+8. If you have **two-factor authentication** enabled, enter your authenticator code (or one backup code) on the next step.
+9. If the station **requires 2FA** and you have not set it up yet, complete the setup flow—or, for **admins**, choose **Skip for now**.
 
 First-time server setup uses `/setup` with the bootstrap token from container logs — see the [README](https://github.com/AlecMcCutcheon/collabfm-radio#2-first-time-setup).
 

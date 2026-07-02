@@ -16,8 +16,9 @@ import {
   proceduralStationLogo,
   resolveBrandingImageUrl,
 } from "../utils/brandingImage";
+import { validatePasswordPolicy } from "../utils/passwordPolicy";
 
-type LoginStep = "login" | "verify" | "setup_prompt" | "setup";
+type LoginStep = "login" | "password_change" | "verify" | "setup_prompt" | "setup";
 
 function apiErrorMessage(err: unknown, fallback: string): string {
   if (!(err instanceof Error)) return fallback;
@@ -35,6 +36,9 @@ export function LandingPage() {
   const [setupOptional, setSetupOptional] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordChangeMode, setPasswordChangeMode] = useState<"setup" | "change">("change");
   const [totpCode, setTotpCode] = useState("");
   const [backupCode, setBackupCode] = useState("");
   const [useBackupCode, setUseBackupCode] = useState(false);
@@ -59,11 +63,16 @@ export function LandingPage() {
     username.trim() && password && (!turnstileRequired || !!turnstileToken);
   const canSubmitVerify = useBackupCode ? backupCode.trim().length >= 8 : /^\d{6}$/.test(totpCode);
   const canSubmitSetupConfirm = /^\d{6}$/.test(totpCode);
+  const passwordPolicy = validatePasswordPolicy(newPassword);
+  const canSubmitPasswordChange = passwordPolicy.ok && newPassword === confirmPassword;
 
   const resetLoginForm = useCallback(() => {
     setStep("login");
     setSetupOptional(false);
     setTotpCode("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordChangeMode("change");
     setBackupCode("");
     setUseBackupCode(false);
     setBackupPasteHint(false);
@@ -90,6 +99,15 @@ export function LandingPage() {
       setSsoNickname(m.ssoNickname || null);
     });
     void api.authStatus().then((s) => {
+      if (s.pendingSsoTempRecovery) {
+        window.location.href = "/login/temp-password";
+        return;
+      }
+      if (s.pendingPasswordChange) {
+        setPasswordChangeMode(s.pendingPasswordChange);
+        setStep("password_change");
+        return;
+      }
       if (s.pending2fa) {
         void abandonPendingLogin();
       }
@@ -130,6 +148,42 @@ export function LandingPage() {
     setTurnstileReset((n) => n + 1);
   }, []);
 
+  const handlePostLoginResult = (result: Awaited<ReturnType<typeof api.localLogin>>) => {
+    if (result.requiresPasswordChange || result.pendingPasswordChange) {
+      setPasswordChangeMode(result.pendingPasswordChange === "setup" ? "setup" : "change");
+      setStep("password_change");
+      setNewPassword("");
+      setConfirmPassword("");
+      return true;
+    }
+    if (result.requires2fa) {
+      setStep("verify");
+      setTotpCode("");
+      setBackupCode("");
+      setUseBackupCode(false);
+      return true;
+    }
+    if (result.requires2faSetup && result.optional2faSetup) {
+      setSetupOptional(true);
+      setStep("setup_prompt");
+      setTotpCode("");
+      setSetupQr(null);
+      setSetupSecret(null);
+      setBackupCodes(null);
+      return true;
+    }
+    if (result.requires2faSetup) {
+      setSetupOptional(false);
+      setStep("setup");
+      setTotpCode("");
+      setSetupQr(null);
+      setSetupSecret(null);
+      setBackupCodes(null);
+      return true;
+    }
+    return false;
+  };
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!canSubmitLocal) return;
@@ -137,31 +191,7 @@ export function LandingPage() {
     setLoading(true);
     try {
       const result = await api.localLogin(username, password, turnstileToken || undefined);
-      if (result.requires2fa) {
-        setStep("verify");
-        setTotpCode("");
-        setBackupCode("");
-        setUseBackupCode(false);
-        return;
-      }
-      if (result.requires2faSetup && result.optional2faSetup) {
-        setSetupOptional(true);
-        setStep("setup_prompt");
-        setTotpCode("");
-        setSetupQr(null);
-        setSetupSecret(null);
-        setBackupCodes(null);
-        return;
-      }
-      if (result.requires2faSetup) {
-        setSetupOptional(false);
-        setStep("setup");
-        setTotpCode("");
-        setSetupQr(null);
-        setSetupSecret(null);
-        setBackupCodes(null);
-        return;
-      }
+      if (handlePostLoginResult(result)) return;
       window.location.href = "/";
     } catch (err) {
       const message = apiErrorMessage(err, "");
@@ -188,6 +218,25 @@ export function LandingPage() {
       window.location.href = "/";
     } catch (err) {
       setError(apiErrorMessage(err, "Invalid authentication code"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitPasswordChange = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!canSubmitPasswordChange) return;
+    setError(null);
+    setLoading(true);
+    try {
+      const result = await api.completePasswordChange({
+        newPassword,
+        confirmPassword,
+      });
+      if (handlePostLoginResult(result)) return;
+      window.location.href = "/";
+    } catch (err) {
+      setError(apiErrorMessage(err, "Could not update password"));
     } finally {
       setLoading(false);
     }
@@ -238,6 +287,10 @@ export function LandingPage() {
   const heading =
     step === "verify"
       ? "Two-factor authentication"
+      : step === "password_change"
+        ? passwordChangeMode === "setup"
+          ? "Set a local password"
+          : "Choose a new password"
       : step === "setup_prompt"
         ? "Two-factor authentication"
         : step === "setup"
@@ -314,6 +367,66 @@ export function LandingPage() {
                 Request access or activate account
               </AppNavLink>
             )}
+          </form>
+        )}
+
+        {step === "password_change" && (
+          <form onSubmit={submitPasswordChange} className="space-y-4">
+            <p className="text-sm text-gray-400">
+              {passwordChangeMode === "setup"
+                ? "Set a local password so you can sign in with username or email and password later. If this station requires 2FA, that setup will happen next."
+                : "You need to choose a new password before continuing. If this station requires 2FA, that check will happen next."}
+            </p>
+
+            <label className="block text-sm text-gray-300">
+              New password
+              <input
+                type="password"
+                className="mt-1 w-full rounded-lg bg-gray-900 border border-gray-600 px-3 py-2.5 text-white placeholder:text-gray-500 focus:border-radio-accent/60 focus:outline-none"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="New password"
+                autoComplete="new-password"
+                required
+              />
+            </label>
+
+            <label className="block text-sm text-gray-300">
+              Confirm password
+              <input
+                type="password"
+                className="mt-1 w-full rounded-lg bg-gray-900 border border-gray-600 px-3 py-2.5 text-white placeholder:text-gray-500 focus:border-radio-accent/60 focus:outline-none"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm password"
+                autoComplete="new-password"
+                required
+              />
+            </label>
+
+            {newPassword && !passwordPolicy.ok && (
+              <p className="text-xs text-amber-300">{passwordPolicy.errors[0]}</p>
+            )}
+            {confirmPassword && newPassword !== confirmPassword && (
+              <p className="text-xs text-amber-300">Passwords must match</p>
+            )}
+            {error && <p className="text-sm text-red-400">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={loading || !canSubmitPasswordChange}
+              className="w-full rounded-xl bg-radio-accent text-gray-900 font-semibold py-2.5 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {loading ? "Saving…" : "Continue"}
+            </button>
+            <button
+              type="button"
+              disabled={loading}
+              className="w-full text-sm text-gray-400 hover:text-white"
+              onClick={() => void abandonPendingLogin()}
+            >
+              Back to login
+            </button>
           </form>
         )}
 

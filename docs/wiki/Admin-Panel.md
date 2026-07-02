@@ -24,13 +24,15 @@ Manage local accounts (SSO users may also appear here after first login).
 - **Role** — Listener, Broadcaster, or Admin.
 - **Identity badges** — Local, SSO, or Hybrid; sign-in methods summary; **login email** / **SSO email** when known.
 - **Set password** / **Reset password** — local accounts; OIDC users when **hybrid accounts** are enabled (admin reset does not require current password).
+- **Require password change** — make an admin-set password temporary so the user must change it on next login.
+- **Temporary password** — reveal/copy the active temporary password until the user changes it; **Regenerate** issues a new temporary password.
 - **Normalize to provider UUID** — for legacy hybrid accounts whose username is not the IdP subject (when stored `sub` is on file).
 - **Delete** — remove account.
 - **Block guest-action XP** — shown only when **Allow guest hearts and request approvals to grant XP** is on (Admin → System → DJ leveling).
-- **Reset XP** — zero DJ level progress.
+- **Reset XP** — small **Reset** control beside the level XP line (`0/25 XP`); opens a confirmation dialog before zeroing DJ level progress.
 - **Reset 2FA** — clear authenticator setup (users with a local password and 2FA enabled).
 
-**Add user** — username, password, role, **Add user**.
+**Add user** — username, password (with **show/hide** toggle), role, optional **Generate** (auto-reveals the generated password), and **Require password change on first login** (on by default). Required-change passwords are stored as temporary passwords so admins can reveal/copy them until the user completes the login-time change.
 
 Local sign-in accepts **username or email** when `login_email` is set (registration and hybrid accounts).
 
@@ -125,6 +127,7 @@ Sign-in hardening and broadcast compliance.
 **Local login 2FA**
 
 - **Require 2FA for local login** — off by default. When enabled, users with a password must enroll before a full local session (non-admins mandatory; admins may skip at login). SSO and console recovery login are unaffected.
+- **Require local password setup for SSO users** — off by default. When enabled, SSO/OIDC users without a local password are prompted after SSO to create one, then continue through local-login requirements such as 2FA.
 - Users manage 2FA in **Studio → Account security**; admins use **Reset 2FA** on the Users tab.
 
 **Login bot protection (Cloudflare Turnstile)**

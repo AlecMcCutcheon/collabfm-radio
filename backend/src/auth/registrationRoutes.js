@@ -26,6 +26,7 @@ import {
   buildCountryVerification,
 } from "../settings/registration.js";
 import { hashPassword } from "./session.js";
+import { validatePasswordPolicy } from "./passwordPolicy.js";
 import { BOOTSTRAP_USERNAME } from "../setup/bootstrapToken.js";
 import { createScopedSession, finishFullLogin } from "./routes.js";
 import {
@@ -269,8 +270,9 @@ export async function handleRegistrationAuthRoutes(req, res, pathname, method) {
       if (username.toLowerCase() === BOOTSTRAP_USERNAME.toLowerCase()) {
         return json(res, 400, { error: "That username is reserved" });
       }
-      if (!password || password.length < 8) {
-        return json(res, 400, { error: "Password must be at least 8 characters" });
+      const policy = validatePasswordPolicy(password);
+      if (!password || !policy.ok) {
+        return json(res, 400, { error: policy.error || "Password is required" });
       }
       const request = getRegistrationRequestByTokenHash(hashRegistrationToken(token));
       if (!request) return json(res, 404, { error: "Invalid or unknown token" });

@@ -2,6 +2,7 @@ import { isAdminSession } from "./setup.js";
 import { getAppSession } from "../auth/routes.js";
 import { hashPassword } from "../auth/session.js";
 import {
+  createLocalUser,
   deleteUser,
   getSetting,
   getUserById,
@@ -38,6 +39,8 @@ import {
   legacyOidcIdentityStatus,
   reconcileOidcUsernameFromStoredProfile,
 } from "../auth/legacyOidcIdentity.js";
+import { validatePasswordPolicy } from "../auth/passwordPolicy.js";
+import { revealTemporaryPassword, temporaryPasswordFields } from "../auth/temporaryPassword.js";
 import { getRegistrationRequestById } from "../db/registrationRequests.js";
 import { looksLikeLoginEmail, normalizeLoginEmail } from "../db/index.js";
 import {
@@ -179,6 +182,8 @@ export async function handleAdminRoutes(req, res, pathname, method) {
           ...u,
           block_guest_action_xp: !!u.block_guest_action_xp,
           has_password: !!(u.password_hash && String(u.password_hash).trim()),
+          mustChangePassword: Number(u.must_change_password) === 1,
+          hasTempPassword: !!u.temp_password_encrypted,
           totp_enabled: Number(u.totp_enabled) === 1,
           level: publicLevelInfo(u),
           nickname: String(u.display_name || "").trim() || null,
@@ -202,19 +207,30 @@ export async function handleAdminRoutes(req, res, pathname, method) {
       const username = String(body.username || "").trim();
       const password = String(body.password || "");
       const role = body.role || "listener";
+      const requirePasswordChange = body.requirePasswordChange !== false;
       if (!username || !password) return writeAdminJsonError(res, 400, "Username and password required");
       if (!["admin", "broadcaster", "listener"].includes(role)) {
         return writeAdminJsonError(res, 400, "Invalid role");
       }
-      const passwordHash = await hashPassword(password);
-      const { createLocalUser } = await import("../db/index.js");
-      const user = createLocalUser({ username, passwordHash, role });
+      const policy = validatePasswordPolicy(password);
+      if (!policy.ok) return writeAdminJsonError(res, 400, policy.error);
+      const temp = requirePasswordChange ? await temporaryPasswordFields(password) : null;
+      if (temp?.error) return writeAdminJsonError(res, temp.status, temp.error);
+      const user = createLocalUser({
+        username,
+        passwordHash: temp ? temp.fields.password_hash : await hashPassword(password),
+        role,
+        mustChangePassword: requirePasswordChange,
+        tempPasswordEncrypted: temp ? temp.fields.temp_password_encrypted : null,
+      });
       return json(res, 201, {
         user: {
           id: user.id,
           username: user.username,
           role: user.role,
           auth_source: user.auth_source,
+          mustChangePassword: Number(user.must_change_password) === 1,
+          hasTempPassword: !!user.temp_password_encrypted,
         },
       });
     } catch (e) {
@@ -224,6 +240,19 @@ export async function handleAdminRoutes(req, res, pathname, method) {
       }
       return writeAdminJsonError(res, 400, "Invalid request");
     }
+  }
+
+  const tempPasswordMatch = pathname.match(/^\/api\/admin\/users\/(\d+)\/temp-password$/);
+  if (tempPasswordMatch && method === "GET") {
+    const id = Number(tempPasswordMatch[1]);
+    const existing = getUserById(id);
+    if (!existing) return writeAdminJsonError(res, 404, "Not found");
+    if (Number(existing.must_change_password) !== 1 || !existing.temp_password_encrypted) {
+      return writeAdminJsonError(res, 404, "No temporary password is stored for this user");
+    }
+    const password = revealTemporaryPassword(existing);
+    if (!password) return writeAdminJsonError(res, 404, "Temporary password could not be revealed");
+    return json(res, 200, { password });
   }
 
   const userMatch = pathname.match(/^\/api\/admin\/users\/(\d+)$/);
@@ -252,16 +281,21 @@ export async function handleAdminRoutes(req, res, pathname, method) {
         }
         if (typeof body.enabled === "boolean") fields.enabled = body.enabled ? 1 : 0;
         if (body.username) fields.username = String(body.username).trim();
-        if (body.password) {
+        if (body.password || body.regenerateTempPassword === true) {
           const { normalizeOidcConfig } = await import("../auth/oidcUser.js");
           const { applyHybridOidcPassword, hasPasswordHash } = await import(
             "../auth/hybridPassword.js"
           );
           const oidcCfg = normalizeOidcConfig(getSetting("oidc", { enabled: false }));
-          const password = String(body.password);
-          if (password.length < 8) {
-            return writeAdminJsonError(res, 400, "Password must be at least 8 characters");
-          }
+          const requirePasswordChange =
+            body.regenerateTempPassword === true || body.requirePasswordChange === true;
+          const temp = requirePasswordChange
+            ? await temporaryPasswordFields(body.regenerateTempPassword === true ? undefined : String(body.password || ""))
+            : null;
+          if (temp?.error) return writeAdminJsonError(res, temp.status, temp.error);
+          const password = temp ? temp.password : String(body.password || "");
+          const policy = validatePasswordPolicy(password);
+          if (!policy.ok) return writeAdminJsonError(res, 400, policy.error);
 
           if (existing.auth_source === "oidc") {
             if (oidcCfg.hybridUsersEnabled !== true) {
@@ -274,7 +308,12 @@ export async function handleAdminRoutes(req, res, pathname, method) {
             if (hybridResult.error) {
               return writeAdminJsonError(res, hybridResult.status, hybridResult.error);
             }
-            const user = hybridResult.user;
+            const user = requirePasswordChange
+              ? updateUser(hybridResult.user.id, {
+                  must_change_password: 1,
+                  temp_password_encrypted: temp.fields.temp_password_encrypted,
+                })
+              : hybridResult.user;
             const { publicLevelInfo } = await import("../db/userLevel.js");
             const presentation = publicUserPresentation(user);
             const roleInfo = roleInfoForUser(user);
@@ -316,6 +355,8 @@ export async function handleAdminRoutes(req, res, pathname, method) {
                 auth_source: user.auth_source,
                 enabled: !!user.enabled,
                 has_password: true,
+                mustChangePassword: Number(user.must_change_password) === 1,
+                hasTempPassword: !!user.temp_password_encrypted,
                 experience_points: user.experience_points ?? 0,
                 block_guest_action_xp: !!user.block_guest_action_xp,
                 level: publicLevelInfo(user),
@@ -329,6 +370,10 @@ export async function handleAdminRoutes(req, res, pathname, method) {
             return writeAdminJsonError(res, 400, "Cannot set password for this account type");
           }
           fields.password_hash = await hashPassword(password);
+          fields.must_change_password = requirePasswordChange ? 1 : 0;
+          fields.temp_password_encrypted = requirePasswordChange
+            ? temp.fields.temp_password_encrypted
+            : null;
         }
         if (typeof body.blockGuestActionXp === "boolean") {
           fields.block_guest_action_xp = body.blockGuestActionXp ? 1 : 0;
@@ -374,6 +419,10 @@ export async function handleAdminRoutes(req, res, pathname, method) {
             username: user.username,
             role: user.role,
             enabled: !!user.enabled,
+            auth_source: user.auth_source,
+            has_password: !!(user.password_hash && String(user.password_hash).trim()),
+            mustChangePassword: Number(user.must_change_password) === 1,
+            hasTempPassword: !!user.temp_password_encrypted,
             experience_points: user.experience_points ?? 0,
             block_guest_action_xp: !!user.block_guest_action_xp,
             level: publicLevelInfo(user),
@@ -875,9 +924,14 @@ export async function handleAdminRoutes(req, res, pathname, method) {
         setSetting("leveling.blockGuestXpMatchingStageIp", body.leveling.blockGuestXpMatchingStageIp);
       }
       let security = securitySettingsAdminPayload();
-      if (body.security && typeof body.security.localLogin2faRequired === "boolean") {
+      if (body.security) {
         security = saveSecuritySettings({
-          localLogin2faRequired: body.security.localLogin2faRequired,
+          ...(typeof body.security.localLogin2faRequired === "boolean"
+            ? { localLogin2faRequired: body.security.localLogin2faRequired }
+            : {}),
+          ...(typeof body.security.requireLocalPasswordForOidcUsers === "boolean"
+            ? { requireLocalPasswordForOidcUsers: body.security.requireLocalPasswordForOidcUsers }
+            : {}),
         });
       }
       let updates = getContainerUpdateSettings();

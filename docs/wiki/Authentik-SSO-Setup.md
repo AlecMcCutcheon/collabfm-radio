@@ -117,7 +117,9 @@ Enable **Allow hybrid accounts (SSO + local password)** on the same tab when you
 
 Disable this if you want SSO-only access with no self-service password setup. Existing hybrid passwords keep working.
 
-See [Account Security & Studio](./Account-Security-and-Studio.md) for the full hybrid and 2FA flows.
+On **Admin → Security**, **Require local password setup for SSO users** prompts OIDC accounts without a local password to set one after their next SSO login (still subject to 2FA if enabled).
+
+See [Account Security & Studio](./Account-Security-and-Studio.md) for hybrid login, temporary passwords, forced password change, and 2FA flows.
 
 ### SSO email refresh (before next login)
 

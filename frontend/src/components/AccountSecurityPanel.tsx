@@ -8,6 +8,7 @@ import {
   normalizeBackupCodeInput,
   pastedMultipleBackupCodes,
 } from "../utils/totpBackupCode";
+import { validatePasswordPolicy } from "../utils/passwordPolicy";
 
 interface AccountSecurityPanelProps {
   onMessage?: (msg: string) => void;
@@ -97,8 +98,9 @@ export function AccountSecurityPanel({
   };
 
   const submitPassword = async () => {
-    if (password.length < 8) {
-      onError?.("Password must be at least 8 characters");
+    const policy = validatePasswordPolicy(password);
+    if (!policy.ok) {
+      onError?.(policy.errors[0] || "Password does not meet policy");
       return;
     }
     if (password !== confirmPassword) {
@@ -391,7 +393,7 @@ export function AccountSecurityPanel({
               <AdminInput
                 className="mt-0"
                 type="password"
-                placeholder="New password (min 8 characters)"
+                placeholder="New password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
@@ -404,6 +406,11 @@ export function AccountSecurityPanel({
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 autoComplete="new-password"
               />
+              {password && !validatePasswordPolicy(password).ok && (
+                <p className="text-xs text-amber-300">
+                  {validatePasswordPolicy(password).errors[0]}
+                </p>
+              )}
             </div>
             <div className="mt-5 flex flex-wrap gap-2 justify-end">
               <AdminBtn
@@ -421,7 +428,7 @@ export function AccountSecurityPanel({
               <AdminBtn
                 disabled={
                   loading ||
-                  password.length < 8 ||
+                  !validatePasswordPolicy(password).ok ||
                   password !== confirmPassword ||
                   (mode === "reset" &&
                     security?.passwordResetRequiresCurrent &&

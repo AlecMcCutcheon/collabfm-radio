@@ -13,6 +13,7 @@ import { LandingPage } from "../pages/LandingPage";
 import { RegistrationPage } from "../pages/RegistrationPage";
 import { ListenPage } from "../pages/ListenPage";
 import { SetupPage } from "../pages/SetupPage";
+import { TempPasswordRecoveryPage } from "../pages/TempPasswordRecoveryPage";
 import { pageTitleSuffix } from "../utils/stationTitle";
 import { App } from "./App";
 import { PartyEffectsLayer } from "./PartyEffectsLayer";
@@ -69,6 +70,8 @@ function AuthenticatedApp() {
 
   if (path === "/register") {
     content = <RegistrationPage />;
+  } else if (path === "/login/temp-password") {
+    content = <TempPasswordRecoveryPage />;
   } else if (path === "/admin/registration/form") {
     content = (
       <AdminRoute>

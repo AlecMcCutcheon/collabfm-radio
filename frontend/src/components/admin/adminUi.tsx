@@ -10,7 +10,11 @@ export const adminTextareaClass =
 
 export const adminInputClass = `mt-1.5 ${adminFormControlClass}`;
 
+export const adminInlineInputClass = adminFormControlClass;
+
 export const adminSelectClass = adminInputClass;
+
+export const adminInlineSelectClass = adminInlineInputClass;
 
 export const adminInlineRowClass = "flex flex-col sm:flex-row gap-3 sm:items-center";
 
@@ -97,34 +101,51 @@ export function AdminField({
   );
 }
 
-export function AdminInput(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={`${adminInputClass} ${props.className ?? ""}`} />;
+export function AdminInput({
+  inline = false,
+  className = "",
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & { inline?: boolean }) {
+  return <input {...props} className={`${inline ? adminInlineInputClass : adminInputClass} ${className}`} />;
 }
 
 export function AdminSecretInput({
   className = "",
-  revealLabel = "Show value",
-  hideLabel = "Hide value",
+  containerClassName = "mt-1.5",
+  revealLabel = "Show password",
+  hideLabel = "Hide password",
+  revealed: revealedProp,
+  defaultRevealed = false,
+  onRevealedChange,
   disabled,
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & {
+  containerClassName?: string;
   revealLabel?: string;
   hideLabel?: string;
+  revealed?: boolean;
+  defaultRevealed?: boolean;
+  onRevealedChange?: (revealed: boolean) => void;
 }) {
-  const [revealed, setRevealed] = useState(false);
+  const [revealedInternal, setRevealedInternal] = useState(defaultRevealed);
+  const revealed = revealedProp ?? revealedInternal;
+  const setRevealed = (next: boolean) => {
+    if (revealedProp === undefined) setRevealedInternal(next);
+    onRevealedChange?.(next);
+  };
 
   return (
-    <div className="relative mt-1.5">
+    <div className={`relative ${containerClassName}`}>
       <input
         {...props}
         disabled={disabled}
         type={revealed ? "text" : "password"}
-        className={`${adminFormControlClass} pr-10 ${className}`}
+        className={`${adminFormControlClass} pr-10 font-mono text-xs ${className}`}
       />
       <button
         type="button"
-        disabled={disabled}
-        onClick={() => setRevealed((v) => !v)}
+        disabled={disabled || !String(props.value ?? "").length}
+        onClick={() => setRevealed(!revealed)}
         className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-700/70 hover:text-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-radio-accent/40 disabled:pointer-events-none disabled:opacity-40"
         aria-label={revealed ? hideLabel : revealLabel}
         aria-pressed={revealed}
@@ -139,8 +160,12 @@ export function AdminSecretInput({
   );
 }
 
-export function AdminSelect(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={`${adminSelectClass} ${props.className ?? ""}`} />;
+export function AdminSelect({
+  inline = false,
+  className = "",
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement> & { inline?: boolean }) {
+  return <select {...props} className={`${inline ? adminInlineSelectClass : adminSelectClass} ${className}`} />;
 }
 
 export function AdminTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {

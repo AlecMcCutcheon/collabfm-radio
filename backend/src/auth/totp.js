@@ -16,9 +16,13 @@ export const SESSION_SCOPE_FULL = "full";
 export const SESSION_SCOPE_TOTP_VERIFY = "totp_verify";
 export const SESSION_SCOPE_TOTP_SETUP = "totp_setup";
 export const SESSION_SCOPE_TOTP_SETUP_OPTIONAL = "totp_setup_optional";
+export const SESSION_SCOPE_PASSWORD_CHANGE = "password_change";
+export const SESSION_SCOPE_SSO_TEMP_RECOVERY = "sso_temp_recovery";
 
 export const TOTP_VERIFY_TTL_MS = 5 * 60 * 1000;
 export const TOTP_SETUP_TTL_MS = 15 * 60 * 1000;
+export const PASSWORD_CHANGE_TTL_MS = 15 * 60 * 1000;
+export const SSO_TEMP_RECOVERY_TTL_MS = 10 * 60 * 1000;
 
 function getEncryptionKey() {
   let key = getSetting("totpEncryptionKey");

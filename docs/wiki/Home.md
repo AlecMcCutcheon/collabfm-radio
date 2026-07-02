@@ -7,7 +7,7 @@ Detailed guides beyond the [main README](https://github.com/AlecMcCutcheon/colla
 | Guide | What it covers |
 |-------|----------------|
 | [Navigating the UI](./Navigating-the-UI.md) | Chat, admin entry, mobile vs desktop, main radio screen |
-| [Account Security & Studio](./Account-Security-and-Studio.md) | Listener/Broadcaster Studio, hybrid SSO+password, local password reset, 2FA, share links |
+| [Account Security & Studio](./Account-Security-and-Studio.md) | Listener/Broadcaster Studio, hybrid SSO+password, forced password change, temporary passwords, 2FA, share links |
 | [Broadcasting & Stage](./Broadcasting-and-Stage.md) | Go live, extension pairing, promote a DJ, media controls |
 | [Broadcaster Extension](./Broadcaster-Extension.md) | Extension layout, site adapters, contributing new sources |
 | [Chat & Party Effects](./Chat-and-Party-Effects.md) | Live chat, GIFs, synced party effects, hearts, hotkeys |
@@ -39,6 +39,9 @@ Same Studio page — broadcasters and admins also see extension pairing and go-l
 
 **Account security & 2FA**  
 Studio → **Account security** — see [Account Security & Studio](./Account-Security-and-Studio.md)
+
+**Temporary password after SSO (hybrid users)**  
+`/login/temp-password` — shown when SSO verified identity but an admin temporary password is still required
 
 **Gated registration (admin)**  
 **Admin settings** → **Users** → enable gate, edit **Registration form**, manage **Request queue**

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { validatePasswordPolicy } from "../utils/passwordPolicy";
 
 interface SetupPageProps {
   onComplete: () => void;
@@ -16,6 +17,7 @@ export function SetupPage({ onComplete }: SetupPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(true);
+  const passwordPolicy = validatePasswordPolicy(password);
 
   useEffect(() => {
     void api
@@ -50,6 +52,10 @@ export function SetupPage({ onComplete }: SetupPageProps) {
     setError(null);
     if (password !== confirm) {
       setError("Passwords do not match");
+      return;
+    }
+    if (!passwordPolicy.ok) {
+      setError(passwordPolicy.errors[0] || "Password does not meet policy");
       return;
     }
     setLoading(true);
@@ -152,10 +158,12 @@ export function SetupPage({ onComplete }: SetupPageProps) {
               className="mt-1 w-full rounded-lg bg-gray-900 border border-gray-600 px-3 py-2 text-white"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              minLength={8}
               required
             />
           </label>
+          {password && !passwordPolicy.ok && (
+            <p className="text-xs text-amber-300">{passwordPolicy.errors[0]}</p>
+          )}
 
           <label className="block text-sm text-gray-300">
             Confirm password
@@ -164,7 +172,6 @@ export function SetupPage({ onComplete }: SetupPageProps) {
               className="mt-1 w-full rounded-lg bg-gray-900 border border-gray-600 px-3 py-2 text-white"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              minLength={8}
               required
             />
           </label>
@@ -183,7 +190,7 @@ export function SetupPage({ onComplete }: SetupPageProps) {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !passwordPolicy.ok || password !== confirm}
             className="w-full rounded-xl bg-radio-accent text-gray-900 font-semibold py-2 hover:brightness-110 disabled:opacity-50"
           >
             {loading ? "Creating…" : "Complete setup"}

@@ -14,6 +14,7 @@ import {
   formatRegistrationStatus,
   registrationStatusCardClass,
 } from "../utils/registrationStatus";
+import { validatePasswordPolicy } from "../utils/passwordPolicy";
 
 type HubMode = "hub" | "apply" | "check";
 type CheckPhase = "lookup" | "account" | "setup_prompt" | "setup" | "done";
@@ -63,6 +64,7 @@ export function RegistrationPage() {
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
 
   const turnstileRequired = !!turnstileSiteKey;
+  const activationPasswordPolicy = validatePasswordPolicy(password);
 
   useEffect(() => {
     void Promise.all([api.registrationConfig(), api.authMethods()])
@@ -183,6 +185,10 @@ export function RegistrationPage() {
     setBusy(true);
     setError(null);
     try {
+      if (!activationPasswordPolicy.ok) {
+        setError(activationPasswordPolicy.errors[0] || "Password does not meet policy");
+        return;
+      }
       const result = await api.registrationActivateComplete({
         token: normalizeRegistrationTokenInput(registrationToken),
         username: username.trim(),
@@ -521,10 +527,12 @@ export function RegistrationPage() {
                 className={registrationFieldClass}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                minLength={8}
                 required
               />
             </label>
+            {password && !activationPasswordPolicy.ok && (
+              <p className="text-xs text-amber-300">{activationPasswordPolicy.errors[0]}</p>
+            )}
             {turnstileRequired && (
               <TurnstileWidget
                 siteKey={turnstileSiteKey!}
@@ -537,7 +545,7 @@ export function RegistrationPage() {
               disabled={
                 busy ||
                 username.trim().length < 3 ||
-                password.length < 8 ||
+                !activationPasswordPolicy.ok ||
                 (turnstileRequired && !turnstileToken)
               }
               className="w-full rounded-xl bg-radio-accent text-gray-900 font-semibold py-2.5 disabled:opacity-50"

@@ -15,6 +15,7 @@ import {
   revokeSetupUnlockToken,
   setSetupUnlockCookie,
 } from "../setup/setupUnlock.js";
+import { validatePasswordPolicy } from "../auth/passwordPolicy.js";
 
 function json(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -110,8 +111,9 @@ export async function handleSetupRoutes(req, res, pathname, method) {
         });
         return true;
       }
-      if (!password || password.length < 8) {
-        json(res, 400, { error: "Password must be at least 8 characters" });
+      const policy = validatePasswordPolicy(password);
+      if (!password || !policy.ok) {
+        json(res, 400, { error: policy.error || "Password is required" });
         return true;
       }
       const user = await createBootstrapAdmin({

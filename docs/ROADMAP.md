@@ -45,6 +45,9 @@ Optional **registration gate** instead of open signup: configurable public reque
 ✅ ~~**Auth identity consistency (SSO + local login)**~~  
 Unified sign-in identity: OIDC accounts use provider `sub` as internal username; **`login_email`** holds the email used for local password login (hybrid and registration locals). Admin user list shows Local / SSO / Hybrid badges, sign-in methods, and SSO email. **SSO email refresh** (Admin → Users, requires Authentik admin API token on OIDC tab) backfills missing emails from stored profiles or the IdP without waiting for SSO login. **Legacy hybrid reconcile** normalizes pre-change usernames to provider UUID. **Local account password reset** in Studio (current password required).
 
+✅ ~~**Password change required flow & strong password policy**~~  
+Station-wide password rules (12+ characters, upper, lower, number, special) on all set/change paths. Admins create users with optional **Require password change on first login**; temporary passwords are encrypted and **revealable** in Admin → Users until the user changes them. Login chains **password gate → 2FA → full session**. Hybrid SSO users with an admin temp password complete recovery at **`/login/temp-password`**. Admin → Security **Require local password setup for SSO users** prompts OIDC-only accounts to set a local password after SSO. See [Account Security & Studio](./wiki/Account-Security-and-Studio.md).
+
 ---
 
 ## Planned

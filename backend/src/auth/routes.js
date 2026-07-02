@@ -9,6 +9,8 @@ import {
   resolveUserForLocalLogin,
   promoteSessionToFull,
   setSetting,
+  updateSessionScope,
+  updateUser,
 } from "../db/index.js";
 import {
   clearSessionCookie,
@@ -24,8 +26,12 @@ import {
   SESSION_SCOPE_TOTP_SETUP,
   SESSION_SCOPE_TOTP_SETUP_OPTIONAL,
   SESSION_SCOPE_TOTP_VERIFY,
+  SESSION_SCOPE_PASSWORD_CHANGE,
+  SESSION_SCOPE_SSO_TEMP_RECOVERY,
   TOTP_SETUP_TTL_MS,
   TOTP_VERIFY_TTL_MS,
+  PASSWORD_CHANGE_TTL_MS,
+  SSO_TEMP_RECOVERY_TTL_MS,
   beginTotpSetupForUser,
   confirmTotpSetupForUser,
   userExemptFrom2faEnforcement,
@@ -34,15 +40,18 @@ import {
   userNeedsTotpVerify,
   verifyUserTotpLogin,
 } from "./totp.js";
+import { applyHybridOidcPassword, hasPasswordHash } from "./hybridPassword.js";
 import { permissionsForRole, roleInfoForUser } from "./permissions.js";
 import { avatarUrlForUserId, publicDisplayName } from "../db/userProfile.js";
 import { touchUserVisit } from "../db/userActivity.js";
 import { consumeRateLimit, clientIp } from "../security/rateLimit.js";
 import { verifyTurnstileToken, publicTurnstileSiteKey } from "../security/turnstile.js";
-import { normalizeOidcConfig, oidcConfigForRuntime } from "./oidcUser.js";
+import { normalizeOidcConfig, oidcConfigForRuntime, resolveEmailFromOidcProfile } from "./oidcUser.js";
 import { getRegistrationSettings } from "../settings/registration.js";
+import { getSecuritySettings } from "../settings/security.js";
 import { clearBootstrapToken, clearRecoveryMode, BOOTSTRAP_USERNAME, getFirstAdminUser, isRecoveryActive, verifyRecoveryToken } from "../setup/bootstrapToken.js";
 import { isSetupComplete } from "../db/index.js";
+import { validatePasswordPolicy } from "./passwordPolicy.js";
 
 function isSecureRequest(req) {
   if (req.headers["x-forwarded-proto"] === "https") return true;
@@ -137,9 +146,98 @@ function loginSuccessPayload(user) {
   };
 }
 
-export function finishFullLogin(req, res, user) {
-  createUserSession(req, res, user.id);
+export function finishFullLogin(req, res, user, loginMethod = "local") {
+  createUserSession(req, res, user.id, loginMethod);
   return loginSuccessPayload(user);
+}
+
+function userNeedsPasswordChange(user) {
+  return Number(user?.must_change_password) === 1;
+}
+
+function userNeedsOidcLocalPasswordSetup(user) {
+  const security = getSecuritySettings();
+  return (
+    security.requireLocalPasswordForOidcUsers === true &&
+    user?.auth_source === "oidc" &&
+    !hasPasswordHash(user)
+  );
+}
+
+function passwordChangeModeForUser(user) {
+  if (userNeedsOidcLocalPasswordSetup(user)) return "setup";
+  return "change";
+}
+
+function passwordChangePayload(user, mode) {
+  return {
+    requiresPasswordChange: true,
+    pendingPasswordChange: mode,
+    user: { username: user.username, role: user.role },
+  };
+}
+
+export function createSsoTempRecoverySession(req, res, user) {
+  createScopedSession(
+    req,
+    res,
+    user.id,
+    SESSION_SCOPE_SSO_TEMP_RECOVERY,
+    SSO_TEMP_RECOVERY_TTL_MS,
+    "oidc",
+  );
+}
+
+function continueAfterPasswordGate(req, res, user, loginMethod = "local") {
+  if (userNeedsTotpVerify(user)) {
+    createScopedSession(req, res, user.id, SESSION_SCOPE_TOTP_VERIFY, TOTP_VERIFY_TTL_MS, loginMethod);
+    return {
+      requires2fa: true,
+      pending2fa: "verify",
+      user: { username: user.username, role: user.role },
+    };
+  }
+  if (userNeedsMandatoryTotpSetup(user)) {
+    createScopedSession(req, res, user.id, SESSION_SCOPE_TOTP_SETUP, TOTP_SETUP_TTL_MS, loginMethod);
+    return {
+      requires2faSetup: true,
+      pending2fa: "setup",
+      user: { username: user.username, role: user.role },
+    };
+  }
+  if (userShouldPromptOptionalTotpSetup(user)) {
+    createScopedSession(
+      req,
+      res,
+      user.id,
+      SESSION_SCOPE_TOTP_SETUP_OPTIONAL,
+      TOTP_SETUP_TTL_MS,
+      loginMethod,
+    );
+    return {
+      requires2faSetup: true,
+      optional2faSetup: true,
+      pending2fa: "setup_optional",
+      user: { username: user.username, role: user.role },
+    };
+  }
+  return finishFullLogin(req, res, user, loginMethod);
+}
+
+export function beginPostCredentialAuth(req, res, user, loginMethod = "local") {
+  if (userNeedsPasswordChange(user) || userNeedsOidcLocalPasswordSetup(user)) {
+    const mode = passwordChangeModeForUser(user);
+    createScopedSession(
+      req,
+      res,
+      user.id,
+      SESSION_SCOPE_PASSWORD_CHANGE,
+      PASSWORD_CHANGE_TTL_MS,
+      loginMethod,
+    );
+    return passwordChangePayload(user, mode);
+  }
+  return continueAfterPasswordGate(req, res, user, loginMethod);
 }
 
 function clearAuthCookie(res, req) {
@@ -159,6 +257,32 @@ export function authStatusPayload(session) {
 
   const userRow = getUserById(Number(session.user.id));
   if (session.scope !== SESSION_SCOPE_FULL) {
+    if (session.scope === SESSION_SCOPE_PASSWORD_CHANGE) {
+      return {
+        authenticated: false,
+        pendingPasswordChange: passwordChangeModeForUser(userRow),
+        user: {
+          id: session.user.id,
+          username: userRow?.username ?? session.user.username,
+          displayName: publicDisplayName(userRow) || session.user.username,
+        },
+        permissions: {},
+        oidcAvailable: oidc.enabled === true,
+      };
+    }
+    if (session.scope === SESSION_SCOPE_SSO_TEMP_RECOVERY) {
+      return {
+        authenticated: false,
+        pendingSsoTempRecovery: true,
+        user: {
+          id: session.user.id,
+          username: userRow?.username ?? session.user.username,
+          displayName: publicDisplayName(userRow) || session.user.username,
+        },
+        permissions: {},
+        oidcAvailable: oidc.enabled === true,
+      };
+    }
     const pending2fa =
       session.scope === SESSION_SCOPE_TOTP_SETUP
         ? "setup"
@@ -279,39 +403,115 @@ export async function handleAuthRoutes(req, res, pathname, method) {
       const ok = await verifyPassword(password, user.password_hash);
       if (!ok) return json(res, 401, { error: "Invalid credentials" });
 
-      if (userNeedsTotpVerify(user)) {
-        createScopedSession(req, res, user.id, SESSION_SCOPE_TOTP_VERIFY, TOTP_VERIFY_TTL_MS);
-        return json(res, 200, {
-          requires2fa: true,
-          pending2fa: "verify",
-          user: { username: user.username, role: user.role },
-        });
+      return json(res, 200, beginPostCredentialAuth(req, res, user, "local"));
+    } catch {
+      return json(res, 400, { error: "Invalid JSON" });
+    }
+  }
+
+  if (pathname === "/auth/local/temp-password/status" && method === "GET") {
+    const session = getAuthSession(req);
+    if (!session || session.scope !== SESSION_SCOPE_SSO_TEMP_RECOVERY) {
+      return json(res, 401, { error: "Unauthorized" });
+    }
+    const user = getUserById(Number(session.user.id));
+    if (!user) return json(res, 401, { error: "Unauthorized" });
+    return json(res, 200, {
+      user: {
+        username: user.username,
+        displayName: publicDisplayName(user) || user.username,
+        loginEmail: user.login_email || resolveEmailFromOidcProfile(user) || null,
+      },
+      notice:
+        "SSO verified your identity, but an administrator set a temporary local password. Enter it to choose a new password.",
+    });
+  }
+
+  if (pathname === "/auth/local/temp-password/verify" && method === "POST") {
+    try {
+      const rl = consumeRateLimit(`temp-password:${clientIp(req)}`, {
+        windowMs: 15 * 60 * 1000,
+        max: 12,
+      });
+      if (!rl.allowed) {
+        return json(res, 429, { error: "Too many attempts", retryAfterMs: rl.retryAfterMs });
       }
-      if (userNeedsMandatoryTotpSetup(user)) {
-        createScopedSession(req, res, user.id, SESSION_SCOPE_TOTP_SETUP, TOTP_SETUP_TTL_MS);
-        return json(res, 200, {
-          requires2faSetup: true,
-          pending2fa: "setup",
-          user: { username: user.username, role: user.role },
-        });
+      const session = getAuthSession(req);
+      if (!session || session.scope !== SESSION_SCOPE_SSO_TEMP_RECOVERY) {
+        return json(res, 401, { error: "Unauthorized" });
       }
-      if (userShouldPromptOptionalTotpSetup(user)) {
-        createScopedSession(
-          req,
-          res,
-          user.id,
-          SESSION_SCOPE_TOTP_SETUP_OPTIONAL,
-          TOTP_SETUP_TTL_MS,
-        );
-        return json(res, 200, {
-          requires2faSetup: true,
-          optional2faSetup: true,
-          pending2fa: "setup_optional",
-          user: { username: user.username, role: user.role },
-        });
+      const user = getUserById(Number(session.user.id));
+      if (!user || !user.password_hash || Number(user.must_change_password) !== 1) {
+        return json(res, 401, { error: "Unauthorized" });
+      }
+      const body = await readBody(req);
+      const ok = await verifyPassword(String(body.password || ""), user.password_hash);
+      if (!ok) return json(res, 401, { error: "Temporary password is incorrect" });
+      updateSessionScope(session.token, SESSION_SCOPE_PASSWORD_CHANGE, Date.now() + PASSWORD_CHANGE_TTL_MS);
+      return json(res, 200, passwordChangePayload(user, "change"));
+    } catch {
+      return json(res, 400, { error: "Invalid JSON" });
+    }
+  }
+
+  if (pathname === "/auth/local/password-change/status" && method === "GET") {
+    const session = getAuthSession(req);
+    if (!session || session.scope !== SESSION_SCOPE_PASSWORD_CHANGE) {
+      return json(res, 401, { error: "Unauthorized" });
+    }
+    const user = getUserById(Number(session.user.id));
+    if (!user) return json(res, 401, { error: "Unauthorized" });
+    return json(res, 200, {
+      pendingPasswordChange: passwordChangeModeForUser(user),
+      user: {
+        username: user.username,
+        displayName: publicDisplayName(user) || user.username,
+        loginEmail: user.login_email || resolveEmailFromOidcProfile(user) || null,
+      },
+    });
+  }
+
+  if (pathname === "/auth/local/password-change/complete" && method === "POST") {
+    try {
+      const rl = consumeRateLimit(`password-change:${clientIp(req)}`, {
+        windowMs: 15 * 60 * 1000,
+        max: 12,
+      });
+      if (!rl.allowed) {
+        return json(res, 429, { error: "Too many attempts", retryAfterMs: rl.retryAfterMs });
+      }
+      const session = getAuthSession(req);
+      if (!session || session.scope !== SESSION_SCOPE_PASSWORD_CHANGE) {
+        return json(res, 401, { error: "Unauthorized" });
+      }
+      const user = getUserById(Number(session.user.id));
+      if (!user) return json(res, 401, { error: "Unauthorized" });
+      const body = await readBody(req);
+      const newPassword = String(body.newPassword || body.password || "");
+      const confirmPassword = String(body.confirmPassword || "");
+      if (!newPassword || newPassword !== confirmPassword) {
+        return json(res, 400, { error: "Passwords must match" });
+      }
+      const policy = validatePasswordPolicy(newPassword);
+      if (!policy.ok) {
+        return json(res, 400, { error: policy.error, errors: policy.errors });
       }
 
-      return json(res, 200, finishFullLogin(req, res, user));
+      let updated;
+      if (user.auth_source === "oidc") {
+        const result = await applyHybridOidcPassword(user, newPassword, {
+          requireEmailOnFile: !hasPasswordHash(user),
+        });
+        if (result.error) return json(res, result.status || 400, { error: result.error });
+        updated = result.user;
+      } else {
+        updated = updateUser(user.id, {
+          password_hash: await hashPassword(newPassword),
+          must_change_password: 0,
+          temp_password_encrypted: null,
+        });
+      }
+      return json(res, 200, continueAfterPasswordGate(req, res, updated, session.loginMethod));
     } catch {
       return json(res, 400, { error: "Invalid JSON" });
     }
@@ -441,7 +641,7 @@ export async function handleAuthRoutes(req, res, pathname, method) {
   if (pathname === "/auth/oidc/callback" && method === "GET") {
     if (!oidc.enabled) return json(res, 404, { error: "OIDC not enabled" });
     const { handleOidcCallback } = await import("./oidc.js");
-    return handleOidcCallback(req, res, oidc, createUserSession, getAppSession);
+    return handleOidcCallback(req, res, oidc, beginPostCredentialAuth, getAppSession, createSsoTempRecoverySession);
   }
 
   return false;

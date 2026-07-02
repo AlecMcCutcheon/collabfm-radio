@@ -74,6 +74,7 @@ Planned directions and ideas—not a schedule or promise of delivery:
 - ✅ ~~**Local login 2FA (TOTP)**~~ — authenticator 2FA for username/password sign-in; admin policy, Studio self-service, backup codes, admin Reset 2FA. Off by default.
 - ✅ ~~**Gated registration**~~ — access-request form, admin approve/deny queue, one-time enrollment tokens, activation flow.
 - ✅ ~~**Auth identity & SSO email tools**~~ — `login_email` for local sign-in, username-or-email login, SSO email refresh, legacy hybrid username reconcile, local password reset in Studio.
+- ✅ ~~**Password change required flow & strong password policy**~~ — admin temporary passwords with reveal/regenerate; **require change on first login**; login-time password gate before 2FA; SSO hybrid temp recovery at `/login/temp-password`; **require local password for SSO users** (Admin → Security); 12+ character policy on all set/change paths.
 - ⏳ **Off-site update alerts** — email or Discord DM beyond the in-app Admin container banner.
 
 More detail on each item: [docs/ROADMAP.md](./docs/ROADMAP.md).
@@ -136,8 +137,8 @@ See [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md) for `/join`,
 | **Broadcasters** | Chrome extension (tab audio), in-browser Web UI broadcaster, guest broadcaster links |
 | **Listeners** | Log in on the main site, **Studio** (profile, share links, security), or **share links** for guest access |
 | **Discord** | Voice bot relays audio into voice channels; `/join`, `/station`, `/leave`; per-channel now-playing embed with station picker |
-| **Auth** | Local accounts, optional OIDC, optional **2FA** for local login, device pairing for the extension |
-| **Admin** | Users, Discord bot, share links, SSO, **Security** (2FA policy, Turnstile, content policy), branding, integrations, container updates |
+| **Auth** | Local accounts, optional OIDC, **strong password policy**, optional **2FA** for local login, login-time password change gate, device pairing for the extension |
+| **Admin** | Users (temp passwords, require-change), Discord bot, share links, SSO, **Security** (2FA policy, SSO local password, Turnstile, content policy), branding, integrations, container updates |
 
 ---
 
@@ -351,7 +352,7 @@ radio.example.com {
 
 ### Station listener (logged in)
 
-1. Open `/` and sign in (local password or OIDC if enabled). Complete **2FA** if your account or station policy requires it.
+1. Open `/` and sign in (local password or OIDC if enabled). Complete a **password change** if the account has a temporary password or the station requires it, then **2FA** if your account or station policy requires it.
 2. Use the main player: volume, chat, stage view, party effects, song search (if enabled), request queue.
 3. Open **Studio** (profile icon) for profile, share links, and account security.
 4. Stream URL for this session: `/api/stream` (cookie auth).
@@ -405,12 +406,12 @@ Details: [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md).
 
 | Tab | What it controls |
 |-----|------------------|
-| **Users** | Accounts, roles, passwords, **Reset 2FA**, leveling blocks, Reset XP, **gated registration**, **SSO email refresh** |
+| **Users** | Accounts, roles, passwords (generate, show/hide, **require change**, temp password reveal/regenerate), **Reset 2FA**, leveling blocks, inline **Reset XP**, **gated registration**, **SSO email refresh** |
 | **Discord** | Voice bot credentials, runtime status, **server whitelist** |
 | **Share links** | Site-wide link list (users also create links in **Studio**) |
 | **OIDC** | SSO provider, **hybrid accounts**, **provider admin API token**, group → role mapping |
 | **Radio** | Max stage users (default 7, max 9), log retention, PCM/discord buffer tuning |
-| **Security** | **Require 2FA** (off by default), Turnstile, **content policy** |
+| **Security** | **Require 2FA** (off by default), **require local password for SSO users**, Turnstile, **content policy** |
 | **System** | Guest XP rules, Last.fm/Giphy, **branding** (incl. branded 2FA), container updates |
 
 Details: [Admin Panel wiki](docs/wiki/Admin-Panel.md), [Account Security & Studio](docs/wiki/Account-Security-and-Studio.md).
