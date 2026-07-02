@@ -253,6 +253,7 @@ export async function pruneAllStaleVoiceNotices(client, { isGuildProtected } = {
 
   let scanned = 0;
   let skippedProtected = 0;
+  let totalDeleted = 0;
 
   for (const guildId of guildIds) {
     const protectedGuild = isGuildProtected ? isGuildProtected(guildId) : false;
@@ -261,13 +262,15 @@ export async function pruneAllStaleVoiceNotices(client, { isGuildProtected } = {
       continue;
     }
     scanned += 1;
-    await pruneStaleVoiceNoticesForGuild(client, guildId, {
+    totalDeleted += await pruneStaleVoiceNoticesForGuild(client, guildId, {
       botId,
       guildProtected: false,
     });
   }
 
-  console.log(
-    `🧹 Relay bot: message cleanup (${settings.targets}, ${settings.scope}) — scanned ${scanned} guild(s), skipped ${skippedProtected} active session(s)`,
-  );
+  if (totalDeleted > 0) {
+    console.log(
+      `🧹 Relay bot: message cleanup (${settings.targets}, ${settings.scope}) — removed ${totalDeleted} message(s), scanned ${scanned} guild(s), skipped ${skippedProtected} active session(s)`,
+    );
+  }
 }
