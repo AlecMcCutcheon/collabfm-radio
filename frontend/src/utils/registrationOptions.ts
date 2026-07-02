@@ -34,7 +34,7 @@ export function normalizeChoiceOptions(
 }
 
 export function createModuleUid(): string {
-  return `mod_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  return `mod_${crypto.randomUUID()}`;
 }
 
 export function moduleEditorKey(mod: RegistrationFlowModule): string {

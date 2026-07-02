@@ -1,4 +1,5 @@
 import { getSetting, setSetting } from "../db/index.js";
+import crypto from "crypto";
 import {
   countryNameByCode,
   countrySelectOptions,
@@ -104,7 +105,7 @@ function defaultFlowModules() {
 }
 
 function createModuleUid() {
-  return `mod_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  return `mod_${crypto.randomUUID()}`;
 }
 
 function normalizeModule(raw, index) {
