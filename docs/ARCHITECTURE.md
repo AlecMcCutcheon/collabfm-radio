@@ -117,6 +117,8 @@ Local sign-in resolves **username or `login_email`**. OIDC usernames are always 
 
 Password setup/change uses scoped sessions the same way 2FA does. A user with `must_change_password` gets a `password_change` scoped session after password verification and cannot access `/api/*` until they set a compliant password. Hybrid SSO users with an admin temporary password get an `sso_temp_recovery` scoped session after OIDC proves identity, then must enter the temporary password before moving to `password_change`. Temporary passwords are stored encrypted in `users.temp_password_encrypted` only while `must_change_password` is active.
 
+**SSO vs 2FA:** OIDC callback calls `beginPostCredentialAuth` with `loginMethod: "oidc"`. After any password gate, SSO sign-in finishes with a full session and does **not** require 2FA. Two-factor authentication applies to **local username/password sign-in** only. The one exception is completing **first-time local password setup** after SSO when the station requires 2FA for local login — that enrollment uses the local 2FA setup flow once, not on every future SSO login.
+
 ## Stream access
 
 | Audience | URL |

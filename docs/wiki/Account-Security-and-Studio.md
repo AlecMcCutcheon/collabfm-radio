@@ -45,7 +45,7 @@ When an admin enables **Allow hybrid accounts (SSO + local password)** under **A
 
 When hybrid accounts are **disabled**, hybrid users who already have a password keep working; new password setup is hidden.
 
-If Admin → Security enables **Require local password setup for SSO users**, SSO users without a local password are prompted after SSO to create one before they receive a full session. If a hybrid user has an admin temporary password, SSO proves identity but does not bypass the temporary-password check; they are sent to a focused temporary-password screen, then choose a new password and continue through any local 2FA requirement.
+If Admin → Security enables **Require local password setup for SSO users**, SSO users without a local password are prompted after SSO to create one before they receive a full session. If a hybrid user has an admin temporary password, SSO proves identity but does not bypass the temporary-password check; they are sent to a focused temporary-password screen, then choose a new password. **Routine SSO sign-in never requires 2FA** — 2FA enrollment after SSO happens only when the user is completing **first-time local password setup** and the station requires 2FA for local login.
 
 ---
 
@@ -65,10 +65,10 @@ Some accounts must finish a **password gate** before receiving a full session (s
 |---------|-------------------|
 | Admin created the account with **Require password change on first login** | Login with username/email + temporary password → choose a new password |
 | Admin reset a password with **require change** or **Regenerate** temporary password | Same on next login |
-| Admin enabled **Require local password setup for SSO users** | After SSO, set a local password (then 2FA if required) |
-| Hybrid user with admin temporary password signs in via **SSO** | `/login/temp-password` — email shown, enter temporary password only → choose new password |
+| Admin enabled **Require local password setup for SSO users** | After SSO, set a local password (2FA enrollment only if this is their **first** local password and the station requires 2FA for local login) |
+| Hybrid user with admin temporary password signs in via **SSO** | `/login/temp-password` — email shown, enter temporary password only → choose a new password |
 
-**Login order** when multiple requirements apply: password setup/change first, then 2FA (if enabled), then full access.
+**Login order** when multiple requirements apply on **local sign-in**: password setup/change first, then 2FA (if enabled), then full access. **SSO sign-in** only runs the password gate when required; it does not chain 2FA on every SSO login.
 
 On the main login page, use **Back to login** during a password gate only if you intend to abandon the in-progress sign-in (same as the 2FA gate).
 

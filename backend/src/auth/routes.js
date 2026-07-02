@@ -38,6 +38,7 @@ import {
   userNeedsMandatoryTotpSetup,
   userShouldPromptOptionalTotpSetup,
   userNeedsTotpVerify,
+  localLogin2faRequired,
   verifyUserTotpLogin,
 } from "./totp.js";
 import { applyHybridOidcPassword, hasPasswordHash } from "./hybridPassword.js";
@@ -237,7 +238,23 @@ export function beginPostCredentialAuth(req, res, user, loginMethod = "local") {
     );
     return passwordChangePayload(user, mode);
   }
+  // SSO proves identity at the IdP — 2FA is for local username/password sign-in only.
+  if (loginMethod === "oidc") {
+    return finishFullLogin(req, res, user, loginMethod);
+  }
   return continueAfterPasswordGate(req, res, user, loginMethod);
+}
+
+function finishPasswordChangeAuth(req, res, user, session, wasFirstLocalPassword = false) {
+  const enrollLocal2faAfterSsoSetup =
+    session.loginMethod === "oidc" &&
+    wasFirstLocalPassword &&
+    localLogin2faRequired();
+
+  if (session.loginMethod === "oidc" && !enrollLocal2faAfterSsoSetup) {
+    return finishFullLogin(req, res, user, "oidc");
+  }
+  return continueAfterPasswordGate(req, res, user, "local");
 }
 
 function clearAuthCookie(res, req) {
@@ -486,6 +503,10 @@ export async function handleAuthRoutes(req, res, pathname, method) {
       }
       const user = getUserById(Number(session.user.id));
       if (!user) return json(res, 401, { error: "Unauthorized" });
+      const wasFirstLocalPassword =
+        session.loginMethod === "oidc" &&
+        user.auth_source === "oidc" &&
+        !hasPasswordHash(user);
       const body = await readBody(req);
       const newPassword = String(body.newPassword || body.password || "");
       const confirmPassword = String(body.confirmPassword || "");
@@ -511,7 +532,7 @@ export async function handleAuthRoutes(req, res, pathname, method) {
           temp_password_encrypted: null,
         });
       }
-      return json(res, 200, continueAfterPasswordGate(req, res, updated, session.loginMethod));
+      return json(res, 200, finishPasswordChangeAuth(req, res, updated, session, wasFirstLocalPassword));
     } catch {
       return json(res, 400, { error: "Invalid JSON" });
     }
