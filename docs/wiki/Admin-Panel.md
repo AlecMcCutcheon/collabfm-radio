@@ -12,16 +12,27 @@ Use **Back to radio** (top-left arrow) to return to the main player.
 
 Manage local accounts (SSO users may also appear here after first login).
 
+**Gated registration** (optional):
+
+- **Enable gated registration** — shows a registration entry point on the login page instead of open signup.
+- **Registration form** — edit the public application form (identity fields, custom modules, agreement text).
+- **Request queue** — approve, deny, or regenerate enrollment tokens; pending count badge refreshes automatically while Admin is open.
+- **SSO email refresh** — when OIDC is enabled and a **provider admin API token** is saved on the OIDC tab, fetches missing SSO login emails from the IdP without waiting for user sign-in.
+
 **Per user:**
 
 - **Role** — Listener, Broadcaster, or Admin.
-- **Set password** / **Save password** — local accounts; OIDC users when **hybrid accounts** are enabled.
+- **Identity badges** — Local, SSO, or Hybrid; sign-in methods summary; **login email** / **SSO email** when known.
+- **Set password** / **Reset password** — local accounts; OIDC users when **hybrid accounts** are enabled (admin reset does not require current password).
+- **Normalize to provider UUID** — for legacy hybrid accounts whose username is not the IdP subject (when stored `sub` is on file).
 - **Delete** — remove account.
 - **Block guest-action XP** — shown only when **Allow guest hearts and request approvals to grant XP** is on (Admin → System → DJ leveling).
 - **Reset XP** — zero DJ level progress.
 - **Reset 2FA** — clear authenticator setup (users with a local password and 2FA enabled).
 
 **Add user** — username, password, role, **Add user**.
+
+Local sign-in accepts **username or email** when `login_email` is set (registration and hybrid accounts).
 
 ---
 
@@ -76,14 +87,17 @@ Single sign-on via OpenID Connect (Authentik and other providers).
 | **Scopes** | Default: `openid profile email groups` |
 | **Groups claim name** | JWT field for groups (often `groups`) |
 | **Logout URL** | IdP end-session URL for full SSO logout |
-| **Radio username from** | `sub`, `preferred_username`, or `name` |
+| **Provider admin API token** | Optional Authentik API token to refresh SSO login emails without waiting for sign-in |
+| **SSO username** | Always the provider subject (`sub` / UUID). Display names come from the IdP and appear in chat. |
+| **Allow hybrid accounts (SSO + local password)** | SSO users can set a local password in Studio; local sign-in uses their SSO email (`login_email`) while the internal username stays the provider subject |
 | **Link to existing local account on name match** | Attach SSO login to matching local username on first login |
-| **Allow hybrid accounts (SSO + local password)** | SSO users can set a local password in Studio; username may migrate to email on first set |
 | **SSO button nickname** | Shown as “Login With …” on the login page |
 
 **Group → role mapping** — map IdP group names to Listener / Broadcaster / Admin.
 
 **Save OIDC settings** at the bottom.
+
+Legacy hybrid accounts may show an amber **Normalize to provider UUID** banner on the Users tab; SSO email backfill uses **SSO email refresh** on Users (requires provider admin API token above).
 
 See [Authentik SSO Setup](./Authentik-SSO-Setup.md) for a step-by-step Authentik guide.
 

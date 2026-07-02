@@ -1,7 +1,7 @@
 import { hashPassword } from "./session.js";
-import { getUserByUsername, updateUser } from "../db/index.js";
+import { updateUser } from "../db/index.js";
+import { isLoginEmailAvailable } from "../db/index.js";
 import {
-  normalizeEmailUsername,
   normalizeOidcConfig,
   resolveEmailFromOidcProfile,
 } from "./oidcUser.js";
@@ -11,34 +11,27 @@ export function hasPasswordHash(user) {
   return !!(user?.password_hash && String(user.password_hash).trim());
 }
 
-export function migrateUsernameToEmail(user, email) {
-  const normalized = normalizeEmailUsername(email);
-  if (!normalized) {
-    return {
-      error:
-        "No SSO email on file for this account. Have them sign in via SSO once (or use Studio verify), then set the password again.",
-      status: 400,
-    };
+export function assignHybridLoginEmail(user, email) {
+  const availability = isLoginEmailAvailable(email, user.id);
+  if (!availability.ok) {
+    return { error: availability.error, status: availability.error.includes("valid") ? 400 : 409 };
   }
-  if (user.username.toLowerCase() === normalized.toLowerCase()) {
-    return { username: user.username, email: normalized, migrated: false };
+  const current = String(user.login_email || "").trim().toLowerCase();
+  if (current === availability.email) {
+    return { email: availability.email, assigned: false };
   }
-  const taken = getUserByUsername(normalized);
-  if (taken && taken.id !== user.id) {
-    return { error: "That email is already used as a username on this station", status: 409 };
-  }
-  return { username: normalized, email: normalized, migrated: true };
+  return { email: availability.email, assigned: true };
 }
 
 /**
  * Set or reset a hybrid OIDC user's local password.
- * When requireEmailMigration is true, email must be on file (first-time set).
- * When migrateIfNeeded is true, username moves to email whenever profile has one and differs.
+ * When requireEmailOnFile is true, SSO email must be on file (first-time set).
+ * Sets login_email from SSO profile; username is never changed.
  */
 export async function applyHybridOidcPassword(
   user,
   password,
-  { requireEmailMigration = false, migrateIfNeeded = false } = {},
+  { requireEmailOnFile = false } = {},
 ) {
   const oidc = normalizeOidcConfig(getSetting("oidc", { enabled: false }));
   if (oidc.hybridUsersEnabled !== true) {
@@ -51,34 +44,41 @@ export async function applyHybridOidcPassword(
     return { error: "Password must be at least 8 characters", status: 400 };
   }
 
+  const email = resolveEmailFromOidcProfile(user);
+  if (requireEmailOnFile && !email) {
+    return {
+      error:
+        "No SSO email on file for this account. Have them sign in via SSO once (or use Studio verify), then set the password again.",
+      status: 400,
+    };
+  }
+
   const fields = {
     password_hash: await hashPassword(password),
   };
-  let migrated = false;
+  let loginEmailAssigned = false;
 
-  const email = resolveEmailFromOidcProfile(user);
-  const shouldMigrate =
-    requireEmailMigration ||
-    (migrateIfNeeded &&
-      !!email &&
-      user.username.toLowerCase() !== email.toLowerCase());
-
-  if (shouldMigrate) {
-    const migration = migrateUsernameToEmail(user, email);
-    if (migration.error) {
-      return { error: migration.error, status: migration.status };
+  if (email) {
+    const assignment = assignHybridLoginEmail(user, email);
+    if (assignment.error) {
+      return { error: assignment.error, status: assignment.status };
     }
-    fields.username = migration.username;
-    fields.oidc_username_from = "email";
-    migrated = migration.migrated === true;
+    if (assignment.assigned) {
+      fields.login_email = assignment.email;
+      loginEmailAssigned = true;
+    }
   }
 
   try {
     const updated = updateUser(user.id, fields);
-    return { user: updated, migrated, username: updated.username };
+    return {
+      user: updated,
+      loginEmailAssigned,
+      loginEmail: updated.login_email || email || null,
+    };
   } catch (e) {
     if (String(e?.message || "").includes("UNIQUE")) {
-      return { error: "That email is already used as a username on this station", status: 409 };
+      return { error: "That email is already used for local sign-in on this station", status: 409 };
     }
     throw e;
   }

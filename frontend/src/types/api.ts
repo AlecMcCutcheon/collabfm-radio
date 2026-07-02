@@ -50,6 +50,7 @@ export interface AccountSecurityStatus {
   hasPassword: boolean;
   canSetPassword: boolean;
   canResetPassword: boolean;
+  passwordResetRequiresCurrent?: boolean;
   emailKnown: boolean;
   needsOidcVerification: boolean;
   oidcVerifyUrl: string | null;
@@ -77,6 +78,118 @@ export interface LocalLoginResult {
   ok?: boolean;
 }
 
+export type RegistrationModuleType =
+  | "select"
+  | "multiselect"
+  | "text"
+  | "textarea"
+  | "yesno"
+  | "country";
+
+export interface RegistrationModuleOption {
+  value: string;
+  label: string;
+}
+
+export interface RegistrationFlowModule {
+  /** Stable identity for editor UI — never derived from the label. */
+  uid?: string;
+  id: string;
+  type: RegistrationModuleType;
+  label: string;
+  placeholder?: string;
+  required?: boolean;
+  options?: RegistrationModuleOption[];
+  showWhen?: { moduleId: string; equals: string };
+  minLength?: number;
+  maxLength?: number;
+}
+
+export interface RegistrationConsentConfig {
+  enabled: boolean;
+  title: string;
+  body: string;
+  checkboxLabel: string;
+}
+
+export interface RegistrationSettings {
+  enabled: boolean;
+  saveApplicantIp: boolean;
+  hydrateApplicantGeo: boolean;
+  defaultRole: "listener" | "broadcaster" | "admin";
+  consent: RegistrationConsentConfig;
+  flowModules: RegistrationFlowModule[];
+}
+
+export interface RegistrationApplicantGeo {
+  ip: string;
+  country: string | null;
+  countryCode: string | null;
+  regionName: string | null;
+  city: string | null;
+  zip: string | null;
+  lookedUpAt: string;
+}
+
+export interface RegistrationCountryVerification {
+  selectedCode: string | null;
+  selectedName: string | null;
+  geoCode: string | null;
+  geoName: string | null;
+  matches: boolean | null;
+}
+
+export interface RegistrationPublicConfig {
+  enabled: boolean;
+  consent?: RegistrationConsentConfig;
+  flowModules?: RegistrationFlowModule[];
+  countryOptions?: RegistrationModuleOption[];
+}
+
+export type RegistrationRequestStatus =
+  | "pending"
+  | "approved"
+  | "denied"
+  | "activated"
+  | "not_found";
+
+export interface RegistrationAnswerSummary {
+  id: string;
+  label: string;
+  value: string;
+}
+
+export interface RegistrationRequestSummary {
+  id: number;
+  email: string;
+  displayName?: string | null;
+  status: RegistrationRequestStatus;
+  submittedAt: string;
+  reviewedAt?: string | null;
+  denyReason?: string | null;
+  activatedAt?: string | null;
+  applicantIp?: string | null;
+  applicantIpIsLocal?: boolean;
+  applicantGeo?: RegistrationApplicantGeo | null;
+  countryVerification?: RegistrationCountryVerification | null;
+  registrationToken?: string | null;
+  consentAgreement?: { title: string } | null;
+  summary: RegistrationAnswerSummary[];
+}
+
+export interface RegistrationApplyResult {
+  ok: boolean;
+  token: string;
+  request: RegistrationRequestSummary;
+  message: string;
+}
+
+export interface RegistrationStatusResult {
+  status: RegistrationRequestStatus;
+  request?: RegistrationRequestSummary;
+  message: string;
+}
+
 export interface AuthStatus {
   authenticated: boolean;
   pending2fa?: "verify" | "setup" | "setup_optional";
@@ -98,6 +211,16 @@ export interface AdminUser {
   username: string;
   nickname?: string | null;
   displayName?: string;
+  loginEmail?: string | null;
+  oidcSubject?: string | null;
+  legacyOidcIdentity?: {
+    needsReconciliation: boolean;
+    providerSub: string | null;
+    providerSubSource: "oidc_subject" | "oidc_profile_json" | null;
+    expectedUsername: string | null;
+    canReconcileFromStored: boolean;
+    verifiedViaIdpAvailable: boolean;
+  } | null;
   avatar?: string | null;
   bio?: string | null;
   genres?: string[];
@@ -289,12 +412,14 @@ export interface OidcConfig {
   redirectUri?: string;
   scopes?: string;
   groupClaim?: string;
-  /** Radio login username source: sub (default), preferred_username, name, or email */
-  usernameFrom?: "sub" | "preferred_username" | "name" | "email";
+  /** Legacy field — SSO usernames are always the provider subject (sub). */
+  usernameFrom?: "sub";
   /** Link OIDC login to an existing local account when names match */
   linkByNameMatch?: boolean;
   /** Allow SSO users to optionally set a local password on the same account */
   hybridUsersEnabled?: boolean;
+  /** Optional Authentik (or compatible) admin API token for SSO email refresh without sign-in. */
+  providerAdminToken?: string;
   /** Short name shown on the login SSO button, e.g. "Authentik" */
   providerNickname?: string;
   /** Provider end-session URL — OIDC users are redirected here after logout */

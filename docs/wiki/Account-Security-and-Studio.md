@@ -20,17 +20,36 @@ Every logged-in user opens **Studio** from the profile icon (desktop) or bottom 
 
 ---
 
+## Gated registration
+
+When an admin enables **gated registration** (Admin → Users):
+
+1. The login page shows **Request access** instead of open signup.
+2. Applicants submit name/handle, email, and any custom application questions.
+3. Admins review the **Request queue**, approve or deny, and share the one-time enrollment token.
+4. Approved applicants open the activation link, choose a **username** and **password**, and sign in locally (username or email + password).
+
+Admins can edit the public form under **Registration form** and toggle the gate on the Users tab.
+
+---
+
 ## Hybrid accounts (SSO + local password)
 
 When an admin enables **Allow hybrid accounts (SSO + local password)** under **Admin → OIDC / SSO**:
 
 1. Users who signed in with SSO can open **Studio → Account security**.
-2. **Set password** — adds a local password so they can sign in with either SSO or username/password.
-3. On first set, the stored username may migrate to the SSO **email** so local login uses a familiar identifier.
+2. **Set password** — adds a local password so they can sign in with either SSO or email/password.
+3. On first set, **`login_email`** is stored from the SSO profile so local login uses their email; the internal username stays the provider subject.
 4. If the IdP profile has no email yet, Studio prompts an **OIDC verify** step before setting a password.
-5. **Reset password** — change an existing hybrid local password (SSO login still works).
+5. **Reset password** — change an existing hybrid local password (SSO login still works; no current password required).
 
 When hybrid accounts are **disabled**, hybrid users who already have a password keep working; new password setup is hidden.
+
+---
+
+## Local account password (Studio)
+
+Users who sign in with **username and password** (registration-activated or admin-created accounts) can open **Studio → Account security** and click **Reset password**. They must enter their **current password** plus the new password twice. This is self-service only — admins can still reset any account from **Admin → Users** without the current password.
 
 ---
 

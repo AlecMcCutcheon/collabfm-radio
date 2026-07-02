@@ -40,6 +40,7 @@ export function AccountSecurityPanel({
   const [mode, setMode] = useState<"set" | "reset">("set");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
   const [backupCode, setBackupCode] = useState("");
   const [useBackupForDisable, setUseBackupForDisable] = useState(false);
@@ -72,9 +73,11 @@ export function AccountSecurityPanel({
   }, [loadSecurity]);
 
   const showHybrid = security?.hybridEnabled && security.authSource === "oidc";
+  const showLocalPassword =
+    security?.authSource === "local" && security.canResetPassword === true;
   const showTotp = security?.canManageTotp === true;
 
-  if (!security || (!showHybrid && !showTotp)) {
+  if (!security || (!showHybrid && !showLocalPassword && !showTotp)) {
     return null;
   }
 
@@ -89,6 +92,7 @@ export function AccountSecurityPanel({
     setMode("reset");
     setPassword("");
     setConfirmPassword("");
+    setCurrentPassword("");
     setPasswordModalOpen(true);
   };
 
@@ -99,6 +103,10 @@ export function AccountSecurityPanel({
     }
     if (password !== confirmPassword) {
       onError?.("Passwords must match");
+      return;
+    }
+    if (mode === "reset" && security?.passwordResetRequiresCurrent && !currentPassword.trim()) {
+      onError?.("Enter your current password");
       return;
     }
     setLoading(true);
@@ -112,13 +120,20 @@ export function AccountSecurityPanel({
             : "Password set.",
         );
       } else {
-        const res = await api.resetAccountPassword({ password, confirmPassword });
+        const res = await api.resetAccountPassword({
+          password,
+          confirmPassword,
+          ...(security?.passwordResetRequiresCurrent
+            ? { currentPassword }
+            : {}),
+        });
         setSecurity(res.security);
         onMessage?.("Password updated.");
       }
       setPasswordModalOpen(false);
       setPassword("");
       setConfirmPassword("");
+      setCurrentPassword("");
       onAuthRefresh?.();
       onProfileRefresh?.();
     } catch (e) {
@@ -241,8 +256,8 @@ export function AccountSecurityPanel({
       {showHybrid && (
         <>
           <p className="text-sm text-gray-400 mb-4">
-            Optionally add a local password to your SSO-linked account. On first setup your username
-            becomes your SSO email so you can sign in with either method.
+            Optionally add a local password to your SSO-linked account. Sign in locally with your SSO
+            email address; your internal username stays unchanged.
           </p>
 
           {security.needsOidcVerification && security.canSetPassword && (
@@ -277,9 +292,22 @@ export function AccountSecurityPanel({
         </>
       )}
 
+      {showLocalPassword && (
+        <>
+          <p className="text-sm text-gray-400 mb-4">
+            Change your username/password sign-in credentials. Your current password is required.
+          </p>
+          <div className="flex flex-wrap gap-2 mb-6">
+            <AdminBtn variant="secondary" onClick={openReset}>
+              Reset password
+            </AdminBtn>
+          </div>
+        </>
+      )}
+
       {showTotp && (
         <>
-          {showHybrid && <hr className="border-gray-700 mb-6" />}
+          {(showHybrid || showLocalPassword) && <hr className="border-gray-700 mb-6" />}
           <h3 className="text-base font-medium text-white mb-1">Two-factor authentication</h3>
           <p className="text-sm text-gray-400 mb-4">
             Protect local sign-in with an authenticator app. SSO sign-in is not affected.
@@ -345,9 +373,21 @@ export function AccountSecurityPanel({
             <p className="text-sm text-gray-400 mb-4">
               {mode === "set"
                 ? "Choose a password for local sign-in. Your SSO login will still work."
-                : "Enter a new password for local sign-in."}
+                : security?.passwordResetRequiresCurrent
+                  ? "Enter your current password, then choose a new one."
+                  : "Enter a new password for local sign-in."}
             </p>
             <div className="space-y-3">
+              {mode === "reset" && security?.passwordResetRequiresCurrent && (
+                <AdminInput
+                  className="mt-0"
+                  type="password"
+                  placeholder="Current password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              )}
               <AdminInput
                 className="mt-0"
                 type="password"
@@ -373,12 +413,20 @@ export function AccountSecurityPanel({
                   setPasswordModalOpen(false);
                   setPassword("");
                   setConfirmPassword("");
+                  setCurrentPassword("");
                 }}
               >
                 Cancel
               </AdminBtn>
               <AdminBtn
-                disabled={loading || password.length < 8 || password !== confirmPassword}
+                disabled={
+                  loading ||
+                  password.length < 8 ||
+                  password !== confirmPassword ||
+                  (mode === "reset" &&
+                    security?.passwordResetRequiresCurrent &&
+                    !currentPassword.trim())
+                }
                 onClick={() => void submitPassword()}
               >
                 {mode === "set" ? "Set password" : "Save password"}

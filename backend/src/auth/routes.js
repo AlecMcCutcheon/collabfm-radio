@@ -6,6 +6,7 @@ import {
   getSetting,
   getUserById,
   getUserByUsername,
+  resolveUserForLocalLogin,
   promoteSessionToFull,
   setSetting,
 } from "../db/index.js";
@@ -39,6 +40,7 @@ import { touchUserVisit } from "../db/userActivity.js";
 import { consumeRateLimit, clientIp } from "../security/rateLimit.js";
 import { verifyTurnstileToken, publicTurnstileSiteKey } from "../security/turnstile.js";
 import { normalizeOidcConfig } from "./oidcUser.js";
+import { getRegistrationSettings } from "../settings/registration.js";
 import { clearBootstrapToken, clearRecoveryMode, BOOTSTRAP_USERNAME, getFirstAdminUser, isRecoveryActive, verifyRecoveryToken } from "../setup/bootstrapToken.js";
 import { isSetupComplete } from "../db/index.js";
 
@@ -107,7 +109,7 @@ export function getAppSession(req) {
   return session;
 }
 
-function createScopedSession(req, res, userId, scope, ttlMs, loginMethod = "local") {
+export function createScopedSession(req, res, userId, scope, ttlMs, loginMethod = "local") {
   const token = generateSessionToken();
   createSession(token, userId, Date.now() + ttlMs, scope, loginMethod);
   touchUserVisit(userId, clientIp(req), { force: true });
@@ -135,7 +137,7 @@ function loginSuccessPayload(user) {
   };
 }
 
-function finishFullLogin(req, res, user) {
+export function finishFullLogin(req, res, user) {
   createUserSession(req, res, user.id);
   return loginSuccessPayload(user);
 }
@@ -215,9 +217,11 @@ export async function handleAuthRoutes(req, res, pathname, method) {
 
   if (pathname === "/auth/methods" && method === "GET") {
     const normalized = normalizeOidcConfig(oidc);
+    const registration = getRegistrationSettings();
     return json(res, 200, {
       local: true,
       oidc: oidc.enabled === true,
+      registrationEnabled: registration.enabled === true,
       turnstileSiteKey: publicTurnstileSiteKey(),
       ssoNickname:
         oidc.enabled === true && normalized.providerNickname
@@ -245,14 +249,14 @@ export async function handleAuthRoutes(req, res, pathname, method) {
       if (!turnstile.ok) {
         return json(res, 403, { error: turnstile.error || "Verification failed" });
       }
-      const username = String(body.username || "").trim();
+      const identifier = String(body.username || "").trim();
       const password = String(body.password || "");
-      if (!username || !password) return json(res, 400, { error: "Username and password required" });
+      if (!identifier || !password) return json(res, 400, { error: "Username and password required" });
 
       if (
         isSetupComplete() &&
         isRecoveryActive() &&
-        username.toLowerCase() === BOOTSTRAP_USERNAME.toLowerCase()
+        identifier.toLowerCase() === BOOTSTRAP_USERNAME.toLowerCase()
       ) {
         const ok = await verifyRecoveryToken(password);
         if (!ok) return json(res, 401, { error: "Invalid credentials" });
@@ -263,7 +267,7 @@ export async function handleAuthRoutes(req, res, pathname, method) {
         return json(res, 200, { ...payload, recoveryLogin: true });
       }
 
-      const user = getUserByUsername(username);
+      const user = resolveUserForLocalLogin(identifier);
       if (!user || !user.enabled) return json(res, 401, { error: "Invalid credentials" });
       if (user.auth_source === "oidc" && !user.password_hash) {
         return json(res, 401, { error: "Use SSO for this account" });

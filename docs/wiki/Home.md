@@ -7,11 +7,11 @@ Detailed guides beyond the [main README](https://github.com/AlecMcCutcheon/colla
 | Guide | What it covers |
 |-------|----------------|
 | [Navigating the UI](./Navigating-the-UI.md) | Chat, admin entry, mobile vs desktop, main radio screen |
-| [Account Security & Studio](./Account-Security-and-Studio.md) | Listener/Broadcaster Studio, hybrid SSO+password, 2FA, share links |
+| [Account Security & Studio](./Account-Security-and-Studio.md) | Listener/Broadcaster Studio, hybrid SSO+password, local password reset, 2FA, share links |
 | [Broadcasting & Stage](./Broadcasting-and-Stage.md) | Go live, extension pairing, promote a DJ, media controls |
 | [Broadcaster Extension](./Broadcaster-Extension.md) | Extension layout, site adapters, contributing new sources |
 | [Chat & Party Effects](./Chat-and-Party-Effects.md) | Live chat, GIFs, synced party effects, hearts, hotkeys |
-| [Admin Panel](./Admin-Panel.md) | All admin tabs and what each setting does (including **container update notifications**) |
+| [Admin Panel](./Admin-Panel.md) | All admin tabs (users, gated registration, SSO, security, system) |
 | [Content Policy](./Content-Policy.md) | Broadcast allowlists, metadata-based filtering, and responsible use |
 | [API Access & Security](./API-Access-and-Security.md) | Which endpoints are public vs login/share-token |
 | [Discord Voice Bot Setup](./Discord-Voice-Bot-Setup.md) | Discord Developer Portal → CollabFM Admin |
@@ -39,6 +39,9 @@ Same Studio page — broadcasters and admins also see extension pairing and go-l
 
 **Account security & 2FA**  
 Studio → **Account security** — see [Account Security & Studio](./Account-Security-and-Studio.md)
+
+**Gated registration (admin)**  
+**Admin settings** → **Users** → enable gate, edit **Registration form**, manage **Request queue**
 
 **Admin Security tab (2FA policy, Turnstile, content policy)**  
 **Admin settings** → **Security** tab

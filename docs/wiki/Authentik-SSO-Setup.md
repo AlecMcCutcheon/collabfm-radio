@@ -92,7 +92,7 @@ Copy from Authentik’s provider or application documentation page.
    - **Groups claim name:** `groups` (unless your JWT uses another field)
    - **Logout URL** — Authentik end-session URL (recommended)
    - **SSO button nickname** — e.g. `Authentik` (shown as “Login With Authentik”)
-6. **Radio username from** — usually `preferred_username` or `sub`.
+6. SSO accounts always use the provider **subject (`sub`)** as the internal username. Display names come from Authentik and appear in chat.
 7. Optional: **Link to existing local account on name match** — links SSO to an existing local user with the same username on first login.
 
 ### Group → role mapping
@@ -113,11 +113,20 @@ Map Authentik groups to CollabFM roles:
 
 ### Hybrid accounts (SSO + local password)
 
-Enable **Allow hybrid accounts (SSO + local password)** on the same tab when you want SSO users to optionally add a local password in **Studio → Account security** (sign in with either method). On first password set, CollabFM may migrate the stored username to the user’s SSO email.
+Enable **Allow hybrid accounts (SSO + local password)** on the same tab when you want SSO users to optionally add a local password in **Studio → Account security**. Local sign-in uses their SSO email address; the internal username stays the provider subject.
 
 Disable this if you want SSO-only access with no self-service password setup. Existing hybrid passwords keep working.
 
 See [Account Security & Studio](./Account-Security-and-Studio.md) for the full hybrid and 2FA flows.
+
+### SSO email refresh (before next login)
+
+Older SSO accounts may lack a stored **login email** until they sign in again. CollabFM can backfill without waiting:
+
+1. On **Admin → OIDC**, add an optional **Provider admin API token** — in Authentik, create an API token with permission to read users.
+2. On **Admin → Users**, click **Refresh SSO emails**.
+
+The batch job tries, in order: email from the stored IdP profile snapshot, email-shaped usernames, then Authentik’s admin API (`/api/v3/core/users/{sub}/`) using the provider subject. This mirrors proactive hybrid username reconciliation: reach out to the IdP when you have admin credentials, instead of waiting for the user’s next SSO session.
 
 ---
 
@@ -157,6 +166,6 @@ CollabFM uses standard OIDC discovery. For Keycloak, Google Workspace OIDC, etc.
 |---------|--------|
 | Redirect mismatch | Callback URL in IdP matches CollabFM exactly (scheme, host, path) |
 | No groups / wrong role | Groups scope issued; **Groups claim name** matches JWT |
-| Login works, wrong username | **Radio username from** setting |
+| Login works, wrong display name | IdP `name` / `preferred_username` claims; user can set nickname in Studio |
 | Logout still logged into IdP | **Logout URL** set to provider end-session endpoint |
 | `Origin not allowed` | **Admin → System** branding / allowed origins include your public URL |

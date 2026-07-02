@@ -30,6 +30,11 @@ import type {
   AccountSecurityStatus,
   SecuritySettings,
   LocalLoginResult,
+  RegistrationApplyResult,
+  RegistrationPublicConfig,
+  RegistrationRequestSummary,
+  RegistrationSettings,
+  RegistrationStatusResult,
   StreamInfo,
   NowPlayingSocial,
   PresenceRoster,
@@ -110,9 +115,52 @@ export const api = {
     json<{
       local: boolean;
       oidc: boolean;
+      registrationEnabled?: boolean;
       turnstileSiteKey?: string | null;
       ssoNickname?: string | null;
     }>(apiUrl("/auth/methods")),
+
+  registrationConfig: () =>
+    json<RegistrationPublicConfig>(apiUrl("/auth/registration/config")),
+
+  registrationApply: (body: {
+    email: string;
+    displayName: string;
+    consentAgreed?: boolean;
+    answers: Record<string, string | string[]>;
+    turnstileToken?: string;
+  }) =>
+    json<RegistrationApplyResult>(apiUrl("/auth/registration/apply"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+
+  registrationStatus: (token: string) =>
+    json<RegistrationStatusResult>(apiUrl("/auth/registration/status"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    }),
+
+  registrationActivateBegin: (token: string) =>
+    json<{ ok: boolean; status: string; email: string }>(apiUrl("/auth/registration/activate/begin"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    }),
+
+  registrationActivateComplete: (body: {
+    token: string;
+    username: string;
+    password: string;
+    turnstileToken?: string;
+  }) =>
+    json<LocalLoginResult>(apiUrl("/auth/registration/activate/complete"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
 
   localLogin: (username: string, password: string, turnstileToken?: string) =>
     json<LocalLoginResult>(apiUrl("/auth/local/login"), {
@@ -470,7 +518,11 @@ export const api = {
     }),
 
   updateAdminUser: (id: number, body: Record<string, unknown>) =>
-    json(`${API}/admin/users/${id}`, {
+    json<{
+      user?: AdminUser;
+      loginEmailAssigned?: boolean;
+      loginEmail?: string | null;
+    }>(`${API}/admin/users/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -484,6 +536,86 @@ export const api = {
 
   resetAdminUserTotp: (id: number) =>
     json<{ ok: boolean; user: AdminUser }>(`${API}/admin/users/${id}/reset-totp`, { method: "POST" }),
+
+  reconcileAdminUserOidcUsername: (id: number) =>
+    json<{
+      ok: boolean;
+      reconciled: boolean;
+      providerSub?: string;
+      user: AdminUser;
+      needsSsoVerification?: boolean;
+      error?: string;
+    }>(`${API}/admin/users/${id}/reconcile-oidc-username`, { method: "POST" }),
+
+  refreshAdminUserOidcEmail: (id: number) =>
+    json<{
+      ok: boolean;
+      refreshed: boolean;
+      email?: string;
+      source?: string;
+      user: AdminUser;
+      needsSsoVerification?: boolean;
+      needsIdpAdminToken?: boolean;
+      error?: string;
+    }>(`${API}/admin/users/${id}/refresh-oidc-email`, { method: "POST" }),
+
+  refreshLegacyOidcEmails: () =>
+    json<{
+      ok: boolean;
+      summary: {
+        scanned: number;
+        refreshed: number;
+        skipped: number;
+        failed: number;
+        errors: { userId: number; username: string; error: string }[];
+      };
+    }>(`${API}/admin/oidc/refresh-legacy-emails`, { method: "POST" }),
+
+  adminRegistration: () =>
+    json<{ settings: RegistrationSettings; pendingCount: number }>(`${API}/admin/registration`),
+
+  saveAdminRegistration: (settings: RegistrationSettings) =>
+    json<{ ok: boolean; settings: RegistrationSettings }>(`${API}/admin/registration`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ settings }),
+    }),
+
+  resetAdminRegistrationDefaults: () =>
+    json<{ ok: boolean; settings: RegistrationSettings }>(
+      `${API}/admin/registration/reset-defaults`,
+      { method: "POST" },
+    ),
+
+  adminRegistrationRequests: (status?: string) => {
+    const q = status ? `?status=${encodeURIComponent(status)}` : "";
+    return json<{ requests: RegistrationRequestSummary[] }>(`${API}/admin/registration/requests${q}`);
+  },
+
+  approveRegistrationRequest: (id: number) =>
+    json<{ ok: boolean; request: RegistrationRequestSummary }>(
+      `${API}/admin/registration/requests/${id}/approve`,
+      { method: "POST" },
+    ),
+
+  denyRegistrationRequest: (id: number, reason?: string) =>
+    json<{ ok: boolean; request: RegistrationRequestSummary }>(
+      `${API}/admin/registration/requests/${id}/deny`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      },
+    ),
+
+  deleteRegistrationRequest: (id: number) =>
+    json<{ ok: boolean }>(`${API}/admin/registration/requests/${id}`, { method: "DELETE" }),
+
+  regenerateRegistrationRequestToken: (id: number) =>
+    json<{ ok: boolean; request: RegistrationRequestSummary }>(
+      `${API}/admin/registration/requests/${id}/regenerate-token`,
+      { method: "POST" },
+    ),
 
   nowPlayingSocial: (guest?: Pick<GuestContext, "shareToken" | "guestId" | "guestSession"> | null) => {
     const params = new URLSearchParams();
@@ -724,7 +856,11 @@ export const api = {
       },
     ),
 
-  resetAccountPassword: (body: { password: string; confirmPassword: string }) =>
+  resetAccountPassword: (body: {
+    password: string;
+    confirmPassword: string;
+    currentPassword?: string;
+  }) =>
     json<{ ok: boolean; security: AccountSecurityStatus }>(`${API}/account/password`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },

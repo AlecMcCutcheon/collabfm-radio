@@ -1,4 +1,5 @@
 import { listOidcGroupMappings, getDb, getUserById, getUserByOidcSubject, getUserByUsername } from "../db/index.js";
+import { isLoginEmailAvailable } from "../db/index.js";
 
 export const OIDC_USERNAME_SOURCES = ["sub", "preferred_username", "name", "email"];
 
@@ -35,15 +36,13 @@ export function mapRoleFromOidcGroups(groups) {
 }
 
 export function normalizeOidcConfig(oidc = {}) {
-  const usernameFrom = OIDC_USERNAME_SOURCES.includes(oidc.usernameFrom)
-    ? oidc.usernameFrom
-    : "sub";
   return {
     ...oidc,
-    usernameFrom,
+    usernameFrom: "sub",
     linkByNameMatch: oidc.linkByNameMatch === true,
     hybridUsersEnabled: oidc.hybridUsersEnabled === true,
     providerNickname: String(oidc.providerNickname || "").trim().slice(0, 32),
+    providerAdminToken: String(oidc.providerAdminToken || "").trim(),
     logoutUrl: normalizeLogoutUrl(oidc.logoutUrl),
   };
 }
@@ -60,6 +59,7 @@ const OIDC_CONFIG_PERSIST_KEYS = [
   "linkByNameMatch",
   "hybridUsersEnabled",
   "providerNickname",
+  "providerAdminToken",
   "authorizationEndpoint",
   "tokenEndpoint",
   "jwksUri",
@@ -94,6 +94,14 @@ export function mergeOidcConfigUpdate(current = {}, incoming = {}) {
     current.clientSecret
   ) {
     next.clientSecret = current.clientSecret;
+  }
+  if (
+    (incoming.providerAdminToken === "********" ||
+      incoming.providerAdminToken === "" ||
+      incoming.providerAdminToken == null) &&
+    current.providerAdminToken
+  ) {
+    next.providerAdminToken = current.providerAdminToken;
   }
   return next;
 }
@@ -151,35 +159,19 @@ function resolveDisplayLabel(claims) {
   return label ? label.slice(0, 64) : null;
 }
 
-function resolveUsernameRaw(claims, usernameFrom) {
+function resolveOidcSubUsername(claims) {
   const sub = String(claims.sub || "");
-  switch (usernameFrom) {
-    case "email":
-      return normalizeEmailUsername(claims.email) || claims.preferred_username || sub;
-    case "preferred_username":
-      return claims.preferred_username || claims.email?.split("@")[0] || sub;
-    case "name":
-      return claims.name || claims.preferred_username || sub;
-    case "sub":
-    default:
-      return sub;
-  }
+  return (
+    sanitizeUsername(sub) ||
+    sanitizeUsername(String(claims.sub || "")) ||
+    `user-${String(claims.sub || "")
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .slice(0, 12) || "oidc"}`
+  );
 }
 
-function resolveUsernameBase(claims, usernameFrom) {
-  if (usernameFrom === "email") {
-    const email = normalizeEmailUsername(claims.email);
-    if (email) return email;
-  }
-  const raw = resolveUsernameRaw(claims, usernameFrom);
-  if (usernameFrom === "email") {
-    return sanitizeUsername(raw) || sanitizeUsername(String(claims.sub || ""));
-  }
-  return (
-    sanitizeUsername(raw) ||
-    sanitizeUsername(String(claims.sub || "")) ||
-    `user-${String(claims.sub || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 12) || "oidc"}`
-  );
+export function usernameForOidcSubject(sub) {
+  return resolveOidcSubUsername({ sub: String(sub || "") });
 }
 
 function uniqueUsername(base) {
@@ -212,19 +204,35 @@ function findLocalUserForNameLink(claims) {
   return null;
 }
 
-export function syncOidcProfileOnLogin(user, claims) {
+function syncOidcLoginEmail(user, claims) {
+  if (!user || user.auth_source !== "oidc") return user;
+  const email = normalizeEmailUsername(claims.email);
+  if (!email) return user;
+  const current = normalizeEmailUsername(user.login_email);
+  if (current === email) return user;
+  const availability = isLoginEmailAvailable(email, user.id);
+  if (!availability.ok) return user;
+  getDb().prepare("UPDATE users SET login_email = ? WHERE id = ?").run(email, user.id);
+  return getUserById(user.id);
+}
+
+export async function syncOidcProfileOnLogin(user, claims) {
   if (!user) return user;
   if (user.oidc_subject || user.auth_source === "oidc") {
     persistOidcProfile(user.id, claims);
   }
   if (user.auth_source !== "oidc") return user;
   const label = resolveDisplayLabel(claims);
-  if (!label || String(user.display_name || "").trim()) return getUserById(user.id);
-  getDb().prepare("UPDATE users SET display_name = ? WHERE id = ?").run(label, user.id);
-  return getUserById(user.id);
+  if (label && !String(user.display_name || "").trim()) {
+    getDb().prepare("UPDATE users SET display_name = ? WHERE id = ?").run(label, user.id);
+  }
+  let updated = getUserById(user.id);
+  updated = syncOidcLoginEmail(updated, claims);
+  const { maybeReconcileLegacyHybridOnLogin } = await import("./legacyOidcIdentity.js");
+  return maybeReconcileLegacyHybridOnLogin(updated, claims);
 }
 
-export function provisionOidcUser(claims, oidcConfig = {}) {
+export async function provisionOidcUser(claims, oidcConfig = {}) {
   const oidc = normalizeOidcConfig(oidcConfig);
   const subject = String(claims.sub);
   let user = getUserByOidcSubject(subject);
@@ -249,10 +257,9 @@ export function provisionOidcUser(claims, oidcConfig = {}) {
     }
   }
 
-  const sub = String(claims.sub || "");
-  const base = resolveUsernameBase(claims, oidc.usernameFrom);
+  const base = resolveOidcSubUsername(claims);
   const finalName = uniqueUsername(base);
-  const displayName = oidc.usernameFrom === "sub" ? resolveDisplayLabel(claims) : null;
+  const displayName = resolveDisplayLabel(claims);
 
   const result = getDb()
     .prepare(

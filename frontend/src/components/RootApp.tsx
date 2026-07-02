@@ -6,8 +6,11 @@ import { RadioPlayerProvider } from "../context/RadioPlayerContext";
 import { useAuthStatus } from "../hooks/useAuthStatus";
 import { useStationTitle } from "../hooks/useStationTitle";
 import { AdminPage } from "../pages/AdminPage";
+import { AdminRegistrationFormPage } from "../pages/AdminRegistrationFormPage";
+import { AdminRegistrationQueuePage } from "../pages/AdminRegistrationQueuePage";
 import { BroadcasterPage } from "../pages/BroadcasterPage";
 import { LandingPage } from "../pages/LandingPage";
+import { RegistrationPage } from "../pages/RegistrationPage";
 import { ListenPage } from "../pages/ListenPage";
 import { SetupPage } from "../pages/SetupPage";
 import { pageTitleSuffix } from "../utils/stationTitle";
@@ -42,6 +45,20 @@ function BroadcasterWithPartyEffects() {
   );
 }
 
+function AdminRoute({ children }: { children: ReactNode }) {
+  const { status, loading } = useAuthStatus();
+  if (loading) return <LoadingScreen />;
+  if (status.roleInfo?.roleType !== "admin") {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center text-red-400">
+        Admin access required.
+      </div>
+    );
+  }
+  if (!status.authenticated) return <LandingPage />;
+  return <>{children}</>;
+}
+
 function AuthenticatedApp() {
   const { path } = useAppNavigation();
   const { status, loading } = useAuthStatus();
@@ -50,7 +67,21 @@ function AuthenticatedApp() {
 
   let content: ReactNode;
 
-  if (path === "/admin") {
+  if (path === "/register") {
+    content = <RegistrationPage />;
+  } else if (path === "/admin/registration/form") {
+    content = (
+      <AdminRoute>
+        <AdminRegistrationFormPage />
+      </AdminRoute>
+    );
+  } else if (path === "/admin/registration/queue") {
+    content = (
+      <AdminRoute>
+        <AdminRegistrationQueuePage />
+      </AdminRoute>
+    );
+  } else if (path === "/admin") {
     if (status.roleInfo?.roleType !== "admin") {
       return (
         <div className="min-h-screen bg-gray-900 flex items-center justify-center text-red-400">
@@ -77,7 +108,7 @@ function AuthenticatedApp() {
 
   const keepPlayerAlive =
     status.authenticated &&
-    (path === "/" || path === "/admin" || path === "/broadcaster");
+    (path === "/" || path === "/admin" || path.startsWith("/admin/") || path === "/broadcaster");
 
   if (keepPlayerAlive) {
     return <RadioPlayerProvider>{content}</RadioPlayerProvider>;

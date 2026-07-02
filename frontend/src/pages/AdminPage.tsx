@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { ClipboardList, FileText } from "lucide-react";
 import { api } from "../api/client";
+import { AppNavLink } from "../context/AppNavigationContext";
 import { apiUrl } from "../config";
 import { notifyStationFeaturesChanged } from "../context/BrandingFeaturesContext";
 import { useAuthStatus } from "../hooks/useAuthStatus";
@@ -25,9 +27,14 @@ import {
 import type { AdminUser, AudioPipelineSettings, BrandingSettings, BuildInfo, ContainerUpdateStatus, IntegrationsSettings, LimitsSettings, OidcConfig, ShareLink, StreamInfo, VoiceBotConfig, VoiceBotMessageCleanupScope, VoiceBotMessageCleanupTarget, VoiceBotRuntime, WhitelistEntry } from "../types/api";
 import { applyStationTitle } from "../utils/stationTitle";
 import { absolutePublicUrl } from "../utils/publicUrl";
+import { registrationPendingCountBadgeClass } from "../utils/registrationStatus";
 import { imageFallbackHandler, proceduralStationLogo, resolveBrandingImageUrl } from "../utils/brandingImage";
 
 type Tab = "users" | "discord" | "sharing" | "oidc" | "radio" | "security" | "system";
+
+function hasOidcProviderAdminToken(token?: string): boolean {
+  return String(token ?? "").trim().length > 0;
+}
 
 const DEFAULT_LIMITS: LimitsSettings = { maxStageUsers: 7, logRetentionCount: 5 };
 const MAX_STAGE_USERS = 9;
@@ -102,6 +109,8 @@ export function AdminPage() {
   const [saved, setSaved] = useState<string | null>(null);
   const [newUser, setNewUser] = useState({ username: "", password: "", role: "listener" });
   const [passwordEditId, setPasswordEditId] = useState<number | null>(null);
+  const [reconcileBusyId, setReconcileBusyId] = useState<number | null>(null);
+  const [refreshEmailsBusy, setRefreshEmailsBusy] = useState(false);
   const [passwordDraft, setPasswordDraft] = useState("");
   const [newGuildId, setNewGuildId] = useState("");
   const [newGuildLabel, setNewGuildLabel] = useState("");
@@ -133,6 +142,8 @@ export function AdminPage() {
   const [buildInfo, setBuildInfo] = useState<BuildInfo | null>(null);
   const [containerUpdates, setContainerUpdates] = useState<ContainerUpdateStatus | null>(null);
   const [updatesBusy, setUpdatesBusy] = useState(false);
+  const [registrationEnabled, setRegistrationEnabled] = useState(false);
+  const [registrationPendingCount, setRegistrationPendingCount] = useState(0);
   const visualizerInputRef = useRef<HTMLInputElement>(null);
 
   const resolvedTrackTag =
@@ -157,7 +168,7 @@ export function AdminPage() {
   const reload = async () => {
     setError(null);
     try {
-      const [u, o, w, vb, stream, links, settings] = await Promise.all([
+      const [u, o, w, vb, stream, links, settings, registration] = await Promise.all([
         api.adminUsers(),
         api.adminOidc(),
         api.adminWhitelist(),
@@ -165,6 +176,7 @@ export function AdminPage() {
         api.adminStream(),
         api.adminShareLinks(),
         api.adminSettings(),
+        api.adminRegistration().catch(() => ({ settings: { enabled: false }, pendingCount: 0 })),
       ]);
       setUsers(u.users);
       setOidc(o.oidc);
@@ -177,6 +189,8 @@ export function AdminPage() {
       setInviteUrl(vb.inviteUrl);
       setVoiceNote(vb.note);
       setStreamInfo(stream);
+      setRegistrationEnabled(registration.settings.enabled === true);
+      setRegistrationPendingCount(registration.pendingCount ?? 0);
       setShareLinks(links.links);
       setBranding(settings.branding);
       setVisualizerPreview(brandingPreviewUrl(settings.branding));
@@ -203,9 +217,30 @@ export function AdminPage() {
     }
   };
 
+  const refreshRegistrationPendingCount = async () => {
+    try {
+      const registration = await api.adminRegistration();
+      setRegistrationEnabled(registration.settings.enabled === true);
+      setRegistrationPendingCount(registration.pendingCount ?? 0);
+    } catch {
+      /* Ignore transient poll errors — badge keeps last known count. */
+    }
+  };
+
   useEffect(() => {
     void reload();
   }, []);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void refreshRegistrationPendingCount();
+    }, 15_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (tab === "users") void refreshRegistrationPendingCount();
+  }, [tab]);
 
   useEffect(() => {
     if (tab !== "discord") return;
@@ -370,10 +405,9 @@ export function AdminPage() {
       await reload();
       const user = res.user;
       if (user?.username) {
-        const migrated = (res as { usernameMigrated?: boolean }).usernameMigrated === true;
         flash(
-          migrated
-            ? `Password set. Username updated to ${user.username} for local login.`
+          res.loginEmailAssigned && res.loginEmail
+            ? `Password set. Local sign-in enabled with ${res.loginEmail}.`
             : `Password updated for ${user.username}.`,
         );
       } else {
@@ -568,6 +602,89 @@ export function AdminPage() {
 
         {tab === "users" && (
           <AdminSection title="Users" description="Manage accounts, roles, passwords, and leveling controls.">
+            <div className="rounded-xl border border-gray-700/90 bg-gray-900/50 p-4 space-y-4 mb-6">
+              <div>
+                <h3 className="text-sm font-semibold text-white">Gated registration</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Optional access-request flow with admin approval and token-based account activation.
+                </p>
+              </div>
+              <AdminCheckbox
+                checked={registrationEnabled}
+                onChange={async (checked) => {
+                  try {
+                    const current = await api.adminRegistration();
+                    const result = await api.saveAdminRegistration({
+                      ...current.settings,
+                      enabled: checked,
+                    });
+                    setRegistrationEnabled(result.settings.enabled);
+                    flash(checked ? "Gated registration enabled" : "Gated registration disabled");
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Failed to update registration");
+                  }
+                }}
+                label="Enable gated registration"
+                hint="Off by default. When on, the login page shows a registration entry point."
+              />
+              <div className="flex flex-wrap gap-3">
+                <AppNavLink
+                  to="/admin/registration/form"
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-sm text-white hover:border-radio-accent/40 hover:text-radio-accent transition"
+                >
+                  <FileText className="w-4 h-4" aria-hidden />
+                  Registration form
+                </AppNavLink>
+                <AppNavLink
+                  to="/admin/registration/queue"
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-sm text-white hover:border-radio-accent/40 hover:text-radio-accent transition"
+                >
+                  <ClipboardList className="w-4 h-4" aria-hidden />
+                  Request queue
+                  {registrationPendingCount > 0 && (
+                    <span className={`ml-1 rounded-full text-xs px-2 py-0.5 ${registrationPendingCountBadgeClass()}`}>
+                      {registrationPendingCount}
+                    </span>
+                  )}
+                </AppNavLink>
+              </div>
+            </div>
+
+            {oidc.enabled && hasOidcProviderAdminToken(oidc.providerAdminToken) && (
+              <div className="rounded-xl border border-gray-700/90 bg-gray-900/50 p-4 space-y-3 mb-6">
+                <div>
+                  <h3 className="text-sm font-semibold text-white">SSO email refresh</h3>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                    Fetch missing SSO login emails from the identity provider. Does not require users
+                    to sign in again.
+                  </p>
+                </div>
+                <AdminBtn
+                  variant="secondary"
+                  disabled={refreshEmailsBusy}
+                  onClick={() => {
+                    setRefreshEmailsBusy(true);
+                    setError(null);
+                    void api
+                      .refreshLegacyOidcEmails()
+                      .then((res) => {
+                        const s = res.summary;
+                        flash(
+                          `SSO email refresh: ${s.refreshed} updated, ${s.skipped} unchanged, ${s.failed} failed (${s.scanned} scanned).`,
+                        );
+                        return reload();
+                      })
+                      .catch((err) => {
+                        setError(err instanceof Error ? err.message : "Failed to refresh SSO emails");
+                      })
+                      .finally(() => setRefreshEmailsBusy(false));
+                  }}
+                >
+                  {refreshEmailsBusy ? "Refreshing…" : "Refresh SSO emails"}
+                </AdminBtn>
+              </div>
+            )}
+
             <ul className="space-y-4">
               {users.map((u) => {
                 const isSelf = currentUserId != null && String(u.id) === currentUserId;
@@ -635,6 +752,37 @@ export function AdminPage() {
                         flash(`Reset 2FA for ${u.username}`);
                       } catch (err) {
                         setError(err instanceof Error ? err.message : "Failed to reset 2FA");
+                      }
+                    }}
+                    reconcileBusy={reconcileBusyId === u.id}
+                    onReconcileOidcUsername={async () => {
+                      setReconcileBusyId(u.id);
+                      setError(null);
+                      try {
+                        const res = await api.reconcileAdminUserOidcUsername(u.id);
+                        await reload();
+                        flash(
+                          res.reconciled
+                            ? `Normalized ${u.username} to provider UUID ${res.providerSub || res.user.username}.`
+                            : `Identity already matches provider UUID for ${u.username}.`,
+                        );
+                      } catch (err) {
+                        let message = err instanceof Error ? err.message : "Failed to reconcile identity";
+                        try {
+                          const parsed = JSON.parse(message) as {
+                            error?: string;
+                            needsSsoVerification?: boolean;
+                          };
+                          if (parsed?.error) message = parsed.error;
+                          if (parsed?.needsSsoVerification) {
+                            message += " Have them sign in via SSO once to refresh from the identity provider.";
+                          }
+                        } catch {
+                          /* plain text */
+                        }
+                        setError(message);
+                      } finally {
+                        setReconcileBusyId(null);
                       }
                     }}
                   />
@@ -905,25 +1053,20 @@ export function AdminPage() {
                   />
                 </AdminField>
               ))}
+              <div className="rounded-lg border border-gray-700 bg-gray-800/70 px-3 py-2 text-xs text-gray-400">
+                SSO accounts use the provider subject (sub) as the internal username. Display names
+                come from the identity provider and appear in chat.
+              </div>
               <AdminField
-                label="Radio username from"
-                hint="What becomes the stored username on first OIDC sign-in. sub uses the stable OIDC subject (recommended). name and preferred_username are shown in chat via display name when using sub."
+                label="Provider admin API token (optional)"
+                hint="Authentik: create an API token with permission to read users. CollabFM uses it to fetch SSO login emails without waiting for the user's next sign-in."
               >
-                <AdminSelect
-                  className="mt-0"
-                  value={oidc.usernameFrom || "sub"}
-                  onChange={(e) =>
-                    setOidc({
-                      ...oidc,
-                      usernameFrom: e.target.value as OidcConfig["usernameFrom"],
-                    })
-                  }
-                >
-                  <option value="sub">OIDC subject (sub / UUID)</option>
-                  <option value="preferred_username">preferred_username</option>
-                  <option value="name">name</option>
-                  <option value="email">email</option>
-                </AdminSelect>
+                <AdminInput
+                  type="password"
+                  placeholder="********"
+                  value={oidc.providerAdminToken || ""}
+                  onChange={(e) => setOidc({ ...oidc, providerAdminToken: e.target.value })}
+                />
               </AdminField>
               <AdminCheckbox
                 checked={!!oidc.hybridUsersEnabled}

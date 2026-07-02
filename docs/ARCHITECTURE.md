@@ -22,7 +22,7 @@ Details, config, and debugging: [audio-pipeline.md](./audio-pipeline.md).
 | Area | Role |
 |------|------|
 | `db/` | SQLite schema, migrations, settings |
-| `auth/` | Local login, optional OIDC, sessions |
+| `auth/` | Local login, OIDC, registration gate, 2FA, account passwords, sessions |
 | `http/` | API routes (admin, listen, stream, chat, leveling, party effects) |
 | `radio/` | PCM hub, MP3 publisher, broadcast session log |
 | `discord/` | Voice bot embeds, station picker, heart button |
@@ -49,6 +49,66 @@ Built-in adapters, metadata/policy interaction, and contributor workflow: [docs/
 - **First boot** → `/setup` wizard creates local admin
 - **Runtime settings** → Admin UI → SQLite `settings` (integrations, voice bot, branding, etc.)
 - **Boot config** → `backend/config.json` only for ports, audio tuning, and paths (see `scripts/ensure-config.js` defaults)
+
+### Registration (when enabled)
+
+Public (no session):
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/auth/registration/config` | GET | Form schema and gate status |
+| `/auth/registration/apply` | POST | Submit access request |
+| `/auth/registration/status` | POST | Check request status by email |
+| `/auth/registration/activate/begin` | POST | Start activation with enrollment token |
+| `/auth/registration/activate/complete` | POST | Choose username + password, create account |
+
+Admin (session + admin role):
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/admin/registration` | GET | Settings + `pendingCount` |
+| `/api/admin/registration` | PATCH | Enable gate, update form settings |
+| `/api/admin/registration/reset-defaults` | POST | Reset form to defaults |
+| `/api/admin/registration/requests` | GET | List requests (`?status=pending`) |
+| `/api/admin/registration/requests/:id/approve` | POST | Approve pending request |
+| `/api/admin/registration/requests/:id/deny` | POST | Deny pending request |
+| `/api/admin/registration/requests/:id/regenerate-token` | POST | New enrollment token |
+| `/api/admin/registration/requests/:id` | DELETE | Remove non-activated request |
+
+### Local login & 2FA
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/auth/methods` | GET | Available login methods |
+| `/auth/local/login` | POST | Username or email + password |
+| `/auth/local/2fa/verify` | POST | Complete login after TOTP |
+| `/auth/local/2fa/setup/begin` | GET | QR setup during mandatory enrollment |
+| `/auth/local/2fa/setup/confirm` | POST | Confirm TOTP at login |
+| `/auth/local/2fa/setup/skip` | POST | Admin skip optional setup at login |
+| `/auth/oidc/login` | GET | Start SSO |
+| `/auth/oidc/callback` | GET | SSO callback |
+
+### Account security (session)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/account/security` | GET | Hybrid/local password + 2FA capabilities |
+| `/api/account/password` | POST | Set hybrid local password (first time) |
+| `/api/account/password` | PUT | Reset password (hybrid or local; local requires `currentPassword`) |
+| `/api/account/totp/setup/begin` | POST | Start 2FA enrollment in Studio |
+| `/api/account/totp/confirm` | POST | Confirm 2FA + receive backup codes |
+| `/api/account/totp` | DELETE | Disable 2FA |
+| `/api/account/totp/backup-codes/regenerate` | POST | New backup codes |
+
+### Admin auth helpers (session + admin)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/admin/oidc/refresh-legacy-emails` | POST | Batch SSO email refresh |
+| `/api/admin/users/:id/refresh-oidc-email` | POST | Per-user SSO email refresh |
+| `/api/admin/users/:id/reconcile-oidc-username` | POST | Normalize legacy hybrid username to IdP `sub` |
+
+Local sign-in resolves **username or `login_email`**. OIDC usernames are always the provider subject; email for local login lives in `login_email`.
 
 ## Stream access
 

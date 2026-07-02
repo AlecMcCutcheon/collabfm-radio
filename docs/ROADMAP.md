@@ -34,17 +34,20 @@ Jamendo site adapter (metadata + license via API, track URL, stage media control
 [`.github/workflows/stage-chrome-extension.yml`](../.github/workflows/stage-chrome-extension.yml) uploads extension ZIP on `main` when `backend/broadcaster-extension/**` changes (upload only; skips when a version is **PENDING_REVIEW**). **Submit for review manually** in the Developer Dashboard when you are done iterating — intentional, so you control when Chrome review starts.
 
 ✅ ~~**Listener Studio & hybrid accounts**~~  
-All signed-in users get **Listener Studio** (profile, share links, party favorites, account security) or **Broadcaster Studio** (same plus extension pairing and go-live tools). Optional **hybrid SSO + local password** (Admin → OIDC → **Allow hybrid accounts**): email username migration on first password set, Studio set/reset password, OIDC re-verify when email is needed. **Listeners** can create guest-listener share links with shorter expiry options; broadcasters and admins get broader TTL choices.
+All signed-in users get **Listener Studio** (profile, share links, party favorites, account security) or **Broadcaster Studio** (same plus extension pairing and go-live tools). Optional **hybrid SSO + local password** (Admin → OIDC → **Allow hybrid accounts**): SSO users set `login_email` from the IdP profile for local sign-in while the internal username stays the provider subject (`sub`). Studio set/reset password, OIDC re-verify when email is needed. **Listeners** can create guest-listener share links with shorter expiry options; broadcasters and admins get broader TTL choices.
 
 ✅ ~~**Local login 2FA (TOTP)**~~  
 Authenticator-based two-factor authentication for **username/password** sign-in. Off by default; admins enable **Require 2FA for local login** under Admin → **Security**. Users with a password complete mandatory setup at login when required; **admins** see the same prompt but may skip and enroll later in Studio. Backup codes, Studio self-service, **Reset 2FA** per user (Admin → Users), console **recovery login** bypasses 2FA, SSO unaffected. Optional **Branded 2FA** (Admin → System → Branding) shows your station name in authenticator apps.
 
+✅ ~~**Gated registration & access requests**~~  
+Optional **registration gate** instead of open signup: configurable public request form (name/handle + email, custom application modules), admin approve/deny queue with masked enrollment tokens, approved applicants activate with username + token and set a password. Admin → Users enables the gate and links to **Registration form** editor and **Request queue** (pending badge auto-refreshes). Local sign-in accepts **username or email** via `login_email`.
+
+✅ ~~**Auth identity consistency (SSO + local login)**~~  
+Unified sign-in identity: OIDC accounts use provider `sub` as internal username; **`login_email`** holds the email used for local password login (hybrid and registration locals). Admin user list shows Local / SSO / Hybrid badges, sign-in methods, and SSO email. **SSO email refresh** (Admin → Users, requires Authentik admin API token on OIDC tab) backfills missing emails from stored profiles or the IdP without waiting for SSO login. **Legacy hybrid reconcile** normalizes pre-change usernames to provider UUID. **Local account password reset** in Studio (current password required).
+
 ---
 
 ## Planned
-
-⏳ **Gated registration & access requests**  
-A **registration gate** instead of open signup: public request form, one-time enrollment token, admin approve/deny queue, approved applicants sign in with username + token and set a password on first login.
 
 ⏳ **Off-site container update alerts**  
 Email or Discord DM when subscribed users/admins want update alerts beyond the in-app Admin banner.

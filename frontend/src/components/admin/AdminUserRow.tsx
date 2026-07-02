@@ -27,12 +27,8 @@ interface AdminUserRowProps {
   onToggleBlockGuestXp: (checked: boolean) => void;
   onResetXp: () => void;
   onResetTotp: () => void;
-}
-
-function authSourceLabel(source: string): string {
-  if (source === "local") return "Local login";
-  if (source === "oidc") return "OIDC / SSO";
-  return source;
+  onReconcileOidcUsername?: () => void;
+  reconcileBusy?: boolean;
 }
 
 function looksLikeEmailUsername(username: string): boolean {
@@ -41,6 +37,11 @@ function looksLikeEmailUsername(username: string): boolean {
 
 function formatAccountUsername(username: string): string {
   return looksLikeEmailUsername(username) ? username.trim() : `@${username}`;
+}
+
+function truncateInternalUsername(username: string, max = 28): string {
+  if (username.length <= max) return username;
+  return `${username.slice(0, max - 1)}…`;
 }
 
 function formatLastLogin(iso: string | null | undefined): string | null {
@@ -54,6 +55,16 @@ function formatLastLogin(iso: string | null | undefined): string | null {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function signInMethodsSummary(user: AdminUser, isHybridOidc: boolean): string {
+  if (user.auth_source === "local") {
+    return user.loginEmail ? "Username+password · Email+password" : "Username+password";
+  }
+  if (isHybridOidc) {
+    return user.loginEmail ? "SSO · Email+password" : "SSO · Password";
+  }
+  return "SSO only";
 }
 
 export function AdminUserRow({
@@ -72,18 +83,25 @@ export function AdminUserRow({
   onToggleBlockGuestXp,
   onResetXp,
   onResetTotp,
+  onReconcileOidcUsername,
+  reconcileBusy = false,
 }: AdminUserRowProps) {
   const isLocal = user.auth_source === "local";
-  const isHybridOidc = user.auth_source === "oidc" && !!user.has_password;
-  const canEditPassword = isLocal || (user.auth_source === "oidc" && hybridUsersEnabled);
+  const isOidc = user.auth_source === "oidc";
+  const isHybridOidc = isOidc && !!user.has_password;
+  const isOidcOnly = isOidc && !user.has_password;
+  const legacyIdentity = user.legacyOidcIdentity;
+  const needsLegacyReconcile = !!legacyIdentity?.needsReconciliation;
+  const canEditPassword = isLocal || (isOidc && hybridUsersEnabled);
   const canResetTotp = !!user.has_password && !!user.totp_enabled;
   const nickname = user.nickname?.trim() || "";
   const hasNickname = nickname.length > 0 && nickname.toLowerCase() !== user.username.toLowerCase();
-  const primaryLabel = hasNickname ? nickname : user.username;
+  const primaryLabel = hasNickname ? nickname : isOidcOnly ? truncateInternalUsername(user.username) : user.username;
   const avatarFallback = avatarSrc(String(user.id), 128);
   const avatarImage = user.avatar ? apiUrl(user.avatar) : avatarFallback;
   const roleColor = user.roleColor ?? "#e5e7eb";
   const lastLoginLabel = formatLastLogin(user.last_login);
+  const signInSummary = signInMethodsSummary(user, isHybridOidc);
 
   return (
     <li className="rounded-xl border border-gray-700/90 bg-gradient-to-br from-gray-800/80 to-gray-900/70 p-4 shadow-sm space-y-4">
@@ -106,7 +124,7 @@ export function AdminUserRow({
               <p
                 className="text-base font-semibold truncate"
                 style={{ color: roleColor }}
-                title={primaryLabel}
+                title={hasNickname ? nickname : user.username}
               >
                 {primaryLabel}
               </p>
@@ -115,10 +133,69 @@ export function AdminUserRow({
                   {formatAccountUsername(user.username)}
                 </p>
               )}
-              {!hasNickname && user.auth_source === "oidc" && (
-                <p className="text-sm text-gray-500 mt-0.5 truncate" title={user.username}>
-                  SSO account · no nickname set
+              {isLocal && user.loginEmail && (
+                <p className="text-xs text-gray-500 mt-0.5 truncate" title={user.loginEmail}>
+                  Email login: {user.loginEmail}
                 </p>
+              )}
+              {isHybridOidc && user.loginEmail && (
+                <p className="text-xs text-gray-500 mt-0.5 truncate" title={user.loginEmail}>
+                  Local login: {user.loginEmail}
+                </p>
+              )}
+              {isHybridOidc && (
+                <p className="text-xs text-gray-500 mt-0.5 font-mono truncate" title={user.username}>
+                  Username: {truncateInternalUsername(user.username, 36)}
+                </p>
+              )}
+              {isOidcOnly && user.loginEmail && (
+                <p className="text-xs text-gray-500 mt-0.5 truncate" title={user.loginEmail}>
+                  SSO email: {user.loginEmail}
+                </p>
+              )}
+              {isOidcOnly && (
+                <p className="text-sm text-gray-500 mt-0.5 font-mono truncate" title={user.username}>
+                  SSO only · {truncateInternalUsername(user.username, 36)}
+                </p>
+              )}
+              {!hasNickname && isLocal && !user.loginEmail && (
+                <p className="text-sm text-gray-400 mt-0.5 truncate" title={user.username}>
+                  {formatAccountUsername(user.username)}
+                </p>
+              )}
+              <p className="text-[11px] text-gray-600 mt-1 uppercase tracking-wide">
+                Sign-in: {signInSummary}
+              </p>
+              {needsLegacyReconcile && (
+                <div className="mt-2 rounded-lg border border-amber-700/50 bg-amber-950/25 px-3 py-2 space-y-2">
+                  <p className="text-xs text-amber-100 leading-relaxed">
+                    Legacy hybrid identity — internal username does not match the provider UUID
+                    {legacyIdentity?.providerSub ? (
+                      <>
+                        {" "}
+                        (<span className="font-mono text-amber-50">{legacyIdentity.providerSub}</span>
+                        {legacyIdentity.providerSubSource ? ` from ${legacyIdentity.providerSubSource}` : ""})
+                      </>
+                    ) : (
+                      ". No provider UUID on file yet."
+                    )}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {legacyIdentity?.canReconcileFromStored && onReconcileOidcUsername ? (
+                      <AdminBtn
+                        variant="secondary"
+                        className="text-xs"
+                        disabled={reconcileBusy}
+                        onClick={onReconcileOidcUsername}
+                      >
+                        {reconcileBusy ? "Reconciling…" : "Normalize to provider UUID"}
+                      </AdminBtn>
+                    ) : null}
+                    <span className="text-[11px] text-amber-200/80 self-center">
+                      Or have them sign in via SSO once to refresh from the identity provider.
+                    </span>
+                  </div>
+                </div>
               )}
               {(lastLoginLabel || user.last_login_ip) && (
                 <p className="text-xs text-gray-500 mt-1 font-mono truncate">
@@ -129,9 +206,16 @@ export function AdminUserRow({
             </div>
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <RoleBadge roleId={user.role} />
-              <span className="inline-flex items-center rounded-full border border-gray-600 bg-gray-900/80 px-2.5 py-0.5 text-[10px] uppercase tracking-wide text-gray-400">
-                {authSourceLabel(user.auth_source)}
-              </span>
+              {isLocal && (
+                <span className="inline-flex items-center rounded-full border border-gray-600 bg-gray-900/80 px-2.5 py-0.5 text-[10px] uppercase tracking-wide text-gray-400">
+                  Local
+                </span>
+              )}
+              {isOidcOnly && (
+                <span className="inline-flex items-center rounded-full border border-gray-600 bg-gray-900/80 px-2.5 py-0.5 text-[10px] uppercase tracking-wide text-gray-400">
+                  SSO
+                </span>
+              )}
               {isHybridOidc && (
                 <span className="inline-flex items-center rounded-full border border-indigo-500/30 bg-indigo-600/15 px-2.5 py-0.5 text-[10px] font-medium text-indigo-100">
                   Hybrid

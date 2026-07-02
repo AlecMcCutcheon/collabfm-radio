@@ -10,6 +10,7 @@ import {
   applyHybridOidcPassword,
   hasPasswordHash,
 } from "../auth/hybridPassword.js";
+import { resetLocalAccountPassword } from "../auth/localPassword.js";
 import {
   beginTotpSetupForUser,
   confirmTotpSetupForUser,
@@ -55,10 +56,12 @@ function accountSecurityPayload(user) {
   const email = resolveEmailFromOidcProfile(user);
   const hasPassword = hasPasswordHash(user);
   const isOidc = user.auth_source === "oidc";
+  const isLocal = user.auth_source === "local";
   const canSetPassword =
     hybridEnabled && isOidc && !hasPassword;
   const canResetPassword =
-    hybridEnabled && isOidc && hasPassword;
+    (hybridEnabled && isOidc && hasPassword) || (isLocal && hasPassword);
+  const passwordResetRequiresCurrent = isLocal && hasPassword;
   const needsOidcVerification = canSetPassword && !email;
   const canManageTotp = userHasLocalPassword(user);
   const totpEnabled = userTotpEnabled(user);
@@ -71,6 +74,7 @@ function accountSecurityPayload(user) {
     hasPassword,
     canSetPassword,
     canResetPassword,
+    passwordResetRequiresCurrent,
     emailKnown: !!email,
     needsOidcVerification,
     oidcVerifyUrl: needsOidcVerification ? "/auth/oidc/login?intent=hybrid_verify" : null,
@@ -154,8 +158,7 @@ export async function handleAccountRoutes(req, res, pathname, method) {
       }
 
       const result = await applyHybridOidcPassword(user, password, {
-        requireEmailMigration: true,
-        migrateIfNeeded: false,
+        requireEmailOnFile: true,
       });
       if (result.error) {
         json(res, result.status, { error: result.error });
@@ -198,9 +201,20 @@ export async function handleAccountRoutes(req, res, pathname, method) {
         return true;
       }
 
+      if (user.auth_source === "local") {
+        const currentPassword = String(body.currentPassword || "");
+        const result = await resetLocalAccountPassword(user, currentPassword, password);
+        if (result.error) {
+          json(res, result.status, { error: result.error });
+          return true;
+        }
+        publishAccountProfileUpdate(result.user);
+        json(res, 200, { ok: true, security: accountSecurityPayload(result.user) });
+        return true;
+      }
+
       const result = await applyHybridOidcPassword(user, password, {
-        requireEmailMigration: false,
-        migrateIfNeeded: true,
+        requireEmailOnFile: false,
       });
       if (result.error) {
         json(res, result.status, { error: result.error });

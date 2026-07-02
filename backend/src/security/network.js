@@ -20,12 +20,30 @@ function isPrivateIpv4(ip) {
 
 /** True for loopback and RFC1918 IPv4; ::1 for IPv6. */
 export function isPrivateNetworkRemote(remote) {
-  if (!remote) return false;
-  let addr = String(remote);
+  return isLocalOrPrivateIp(remote);
+}
+
+/** True when an IP is loopback, link-local, RFC1918, or otherwise not publicly routable. */
+export function isLocalOrPrivateIp(ip) {
+  const value = String(ip || "").trim();
+  if (!value || value === "unknown") return true;
+  if (value.toLowerCase() === "localhost") return true;
+
+  let addr = value;
   if (addr.startsWith("::ffff:")) addr = addr.slice(7);
-  if (addr === "::1") return true;
-  if (addr.includes(":")) return false;
-  return isPrivateIpv4(addr);
+
+  if (addr === "::1" || addr === "0:0:0:0:0:0:0:1") return true;
+
+  if (!addr.includes(":")) {
+    if (addr.startsWith("169.254.")) return true;
+    return isPrivateIpv4(addr);
+  }
+
+  const lower = addr.toLowerCase();
+  const first = lower.split(":")[0] || "";
+  if (/^fe[89ab][0-9a-f]{0,2}$/i.test(first)) return true;
+  if (/^f[cd][0-9a-f]{0,2}$/i.test(first)) return true;
+  return false;
 }
 
 /** Resolve a URL path segment under root; returns null if traversal escapes root. */

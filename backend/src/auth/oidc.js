@@ -167,7 +167,7 @@ export async function handleOidcCallback(req, res, oidc, createUserSession, getA
         return;
       }
       const { syncOidcProfileOnLogin } = await import("./oidcUser.js");
-      syncOidcProfileOnLogin(sessionUser, claims);
+      await syncOidcProfileOnLogin(sessionUser, claims);
       const profile = extractOidcProfileClaims(claims);
       const emailKnown = !!profile.email;
       res.writeHead(302, {
@@ -178,7 +178,7 @@ export async function handleOidcCallback(req, res, oidc, createUserSession, getA
     }
 
     const { provisionOidcUser } = await import("./oidcUser.js");
-    const user = provisionOidcUser(claims, oidc);
+    const user = await provisionOidcUser(claims, oidc);
     createUserSession(req, res, user.id, "oidc");
     res.writeHead(302, { Location: "/" });
     res.end();

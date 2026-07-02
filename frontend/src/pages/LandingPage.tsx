@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { LogIn } from "lucide-react";
+import { AppNavLink } from "../context/AppNavigationContext";
 import { api } from "../api/client";
 import { apiUrl } from "../config";
 import { TurnstileWidget } from "../components/TurnstileWidget";
@@ -44,6 +45,7 @@ export function LandingPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [oidc, setOidc] = useState(false);
+  const [registrationEnabled, setRegistrationEnabled] = useState(false);
   const [turnstileSiteKey, setTurnstileSiteKey] = useState<string | null>(null);
   const [ssoNickname, setSsoNickname] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
@@ -83,6 +85,7 @@ export function LandingPage() {
   useEffect(() => {
     void api.authMethods().then((m) => {
       setOidc(m.oidc);
+      setRegistrationEnabled(m.registrationEnabled === true);
       setTurnstileSiteKey(m.turnstileSiteKey || null);
       setSsoNickname(m.ssoNickname || null);
     });
@@ -269,6 +272,9 @@ export function LandingPage() {
                 required
               />
             </label>
+            <p className="text-xs text-gray-500 -mt-2 mb-1">
+              Use your username or the email on your account.
+            </p>
 
             <label className="block text-sm text-gray-300">
               Password
@@ -302,6 +308,15 @@ export function LandingPage() {
             >
               {loading ? "Signing in…" : "Sign in"}
             </button>
+
+            {registrationEnabled && (
+              <AppNavLink
+                to="/register"
+                className="block w-full text-center text-sm text-gray-400 hover:text-radio-accent pt-1"
+              >
+                Request access or activate account
+              </AppNavLink>
+            )}
           </form>
         )}
 

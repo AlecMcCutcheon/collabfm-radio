@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { initDatabase, isSetupComplete, pruneExpiredSessions, getUserById, hasWsToken, persistWsToken, getSetting, setSetting } from "./db/index.js";
 import { getAppSession, handleAuthRoutes } from "./auth/routes.js";
+import { handleRegistrationAuthRoutes } from "./auth/registrationRoutes.js";
 import { handleSetupRoutes, requireSetupOrAllow } from "./http/setup.js";
 import { handleAdminRoutes, handlePublicDiscordRoutes } from "./http/admin.js";
 import { handleListenRoutes } from "./http/listen.js";
@@ -37,6 +38,7 @@ import { ensureOperationalSettings } from "./settings/operational.js";
 import { ensureIntegrationsSettings } from "./settings/integrations.js";
 import { ensureContentPolicySettings } from "./settings/contentPolicy.js";
 import { ensureSecuritySettings } from "./settings/security.js";
+import { ensureRegistrationSettings } from "./settings/registration.js";
 import { maybeAutoStartManagedVoiceBot } from "./voice/voiceBotManager.js";
 import { pruneOrphanBroadcastDevices } from "./db/broadcastDevices.js";
 import { purgeExpiredShareLinks } from "./db/shareLinks.js";
@@ -52,6 +54,7 @@ export function initV2({ storageDir, config }) {
   ensureIntegrationsSettings(config || {});
   ensureContentPolicySettings();
   ensureSecuritySettings();
+  ensureRegistrationSettings();
   pruneExpiredSessions();
   setInterval(() => pruneExpiredSessions(), 60 * 60 * 1000);
   v2Ready = true;
@@ -122,6 +125,9 @@ export async function tryHandleV2Request(req, res, pathname, method, configFile 
 
   const authResult = await handleAuthRoutes(req, res, pathname, method);
   if (authResult !== false) return true;
+
+  const registrationAuthResult = await handleRegistrationAuthRoutes(req, res, pathname, method);
+  if (registrationAuthResult !== false) return true;
 
   if (method === "GET" && isStreamPath(pathname)) {
     serveAuthenticatedStream(req, res, pathname, getAppSession);

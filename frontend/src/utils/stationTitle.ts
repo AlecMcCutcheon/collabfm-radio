@@ -16,6 +16,9 @@ export function pageTitleSuffix(
 ): string | undefined {
   if (setupComplete === false) return "Setup";
   if (path === "/admin") return "Admin";
+  if (path === "/admin/registration/form") return "Registration form";
+  if (path === "/admin/registration/queue") return "Request queue";
+  if (path === "/register") return "Register";
   if (path === "/broadcaster") {
     return options?.canBroadcast === false ? "Listener Studio" : "Broadcaster Studio";
   }

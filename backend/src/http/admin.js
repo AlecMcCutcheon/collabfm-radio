@@ -31,6 +31,15 @@ import {
   saveSecuritySettings,
   securitySettingsAdminPayload,
 } from "../settings/security.js";
+import { handleRegistrationAdminRoutes } from "../auth/registrationRoutes.js";
+import { resolveEmailFromOidcProfile } from "../auth/oidcUser.js";
+import { hasPasswordHash } from "../auth/hybridPassword.js";
+import {
+  legacyOidcIdentityStatus,
+  reconcileOidcUsernameFromStoredProfile,
+} from "../auth/legacyOidcIdentity.js";
+import { getRegistrationRequestById } from "../db/registrationRequests.js";
+import { looksLikeLoginEmail, normalizeLoginEmail } from "../db/index.js";
 import {
   checkForContainerUpdate,
   getContainerUpdateSettings,
@@ -138,6 +147,24 @@ function forbidden(res) {
   return writeAdminJsonError(res, 403, "Admin required");
 }
 
+function resolveAdminLoginEmail(user) {
+  const stored = normalizeLoginEmail(user.login_email);
+  if (stored) return stored;
+  if (user.auth_source === "oidc") {
+    const profileEmail = resolveEmailFromOidcProfile(user);
+    if (profileEmail) return profileEmail;
+    if (hasPasswordHash(user) && looksLikeLoginEmail(user.username)) {
+      return normalizeLoginEmail(user.username);
+    }
+    return null;
+  }
+  if (user.registration_request_id) {
+    const request = getRegistrationRequestById(user.registration_request_id);
+    if (request?.email) return normalizeLoginEmail(request.email);
+  }
+  return null;
+}
+
 export async function handleAdminRoutes(req, res, pathname, method) {
   if (!pathname.startsWith("/api/admin")) return false;
   if (!isAdminSession(req)) return forbidden(res);
@@ -156,6 +183,9 @@ export async function handleAdminRoutes(req, res, pathname, method) {
           level: publicLevelInfo(u),
           nickname: String(u.display_name || "").trim() || null,
           displayName: presentation?.displayName ?? u.username,
+          loginEmail: resolveAdminLoginEmail(u),
+          oidcSubject: u.oidc_subject || null,
+          legacyOidcIdentity: legacyOidcIdentityStatus(u),
           avatar: presentation?.avatar ?? null,
           bio: presentation?.bio ?? null,
           genres: presentation?.genres ?? [],
@@ -239,8 +269,7 @@ export async function handleAdminRoutes(req, res, pathname, method) {
             }
             const isFirstPassword = !hasPasswordHash(existing);
             const hybridResult = await applyHybridOidcPassword(existing, password, {
-              requireEmailMigration: isFirstPassword,
-              migrateIfNeeded: true,
+              requireEmailOnFile: isFirstPassword,
             });
             if (hybridResult.error) {
               return writeAdminJsonError(res, hybridResult.status, hybridResult.error);
@@ -291,7 +320,8 @@ export async function handleAdminRoutes(req, res, pathname, method) {
                 block_guest_action_xp: !!user.block_guest_action_xp,
                 level: publicLevelInfo(user),
               },
-              usernameMigrated: hybridResult.migrated === true,
+              loginEmailAssigned: hybridResult.loginEmailAssigned === true,
+              loginEmail: hybridResult.loginEmail || null,
             });
           }
 
@@ -372,6 +402,100 @@ export async function handleAdminRoutes(req, res, pathname, method) {
     }
   }
 
+  const refreshOidcEmailMatch = pathname.match(
+    /^\/api\/admin\/users\/(\d+)\/refresh-oidc-email$/,
+  );
+  if (refreshOidcEmailMatch && method === "POST") {
+    const id = Number(refreshOidcEmailMatch[1]);
+    const existing = getUserById(id);
+    if (!existing) return writeAdminJsonError(res, 404, "Not found");
+    const { normalizeOidcConfig } = await import("../auth/oidcUser.js");
+    const { refreshOidcLoginEmail } = await import("../auth/oidcEmailRefresh.js");
+    const oidc = normalizeOidcConfig(getSetting("oidc", { enabled: false }));
+    const result = await refreshOidcLoginEmail(existing, oidc);
+    if (result.error) {
+      return json(res, result.status || 400, {
+        error: result.error,
+        needsSsoVerification: result.needsSsoVerification === true,
+        needsIdpAdminToken: result.needsIdpAdminToken === true,
+      });
+    }
+    const user = result.user;
+    const { publicLevelInfo } = await import("../db/userLevel.js");
+    const presentation = publicUserPresentation(user);
+    const roleInfo = roleInfoForUser(user);
+    return json(res, 200, {
+      ok: true,
+      refreshed: result.refreshed === true,
+      email: result.email,
+      source: result.source,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        auth_source: user.auth_source,
+        enabled: !!user.enabled,
+        has_password: !!(user.password_hash && String(user.password_hash).trim()),
+        totp_enabled: Number(user.totp_enabled) === 1,
+        level: publicLevelInfo(user),
+        nickname: String(user.display_name || "").trim() || null,
+        displayName: presentation?.displayName ?? user.username,
+        loginEmail: resolveAdminLoginEmail(user),
+        oidcSubject: user.oidc_subject || null,
+        legacyOidcIdentity: legacyOidcIdentityStatus(user),
+        avatar: presentation?.avatar ?? null,
+        roleColor: roleInfo.roleColor,
+      },
+    });
+  }
+
+  const reconcileOidcMatch = pathname.match(
+    /^\/api\/admin\/users\/(\d+)\/reconcile-oidc-username$/,
+  );
+  if (reconcileOidcMatch && method === "POST") {
+    const id = Number(reconcileOidcMatch[1]);
+    const existing = getUserById(id);
+    if (!existing) return writeAdminJsonError(res, 404, "Not found");
+    const result = reconcileOidcUsernameFromStoredProfile(existing);
+    if (result.error) {
+      return json(res, result.status || 400, {
+        error: result.error,
+        needsSsoVerification: result.needsSsoVerification === true,
+      });
+    }
+    const user = result.user;
+    const { publicLevelInfo } = await import("../db/userLevel.js");
+    const presentation = publicUserPresentation(user);
+    const roleInfo = roleInfoForUser(user);
+    return json(res, 200, {
+      ok: true,
+      reconciled: result.reconciled === true,
+      providerSub: result.providerSub,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        auth_source: user.auth_source,
+        enabled: !!user.enabled,
+        has_password: !!(user.password_hash && String(user.password_hash).trim()),
+        totp_enabled: Number(user.totp_enabled) === 1,
+        experience_points: user.experience_points ?? 0,
+        block_guest_action_xp: !!user.block_guest_action_xp,
+        level: publicLevelInfo(user),
+        nickname: String(user.display_name || "").trim() || null,
+        displayName: presentation?.displayName ?? user.username,
+        loginEmail: resolveAdminLoginEmail(user),
+        oidcSubject: user.oidc_subject || null,
+        legacyOidcIdentity: legacyOidcIdentityStatus(user),
+        avatar: presentation?.avatar ?? null,
+        bio: presentation?.bio ?? null,
+        genres: presentation?.genres ?? [],
+        roleColor: roleInfo.roleColor,
+        last_login_ip: user.last_login_ip ?? null,
+      },
+    });
+  }
+
   const resetTotpMatch = pathname.match(/^\/api\/admin\/users\/(\d+)\/reset-totp$/);
   if (resetTotpMatch && method === "POST") {
     const id = Number(resetTotpMatch[1]);
@@ -423,10 +547,25 @@ export async function handleAdminRoutes(req, res, pathname, method) {
     const { normalizeOidcConfig } = await import("../auth/oidcUser.js");
     const oidc = normalizeOidcConfig(getSetting("oidc", { enabled: false }));
     return json(res, 200, {
-      oidc: { ...oidc, clientSecret: oidc.clientSecret ? "********" : "" },
+      oidc: {
+        ...oidc,
+        clientSecret: oidc.clientSecret ? "********" : "",
+        providerAdminToken: oidc.providerAdminToken ? "********" : "",
+      },
       mappings: listOidcGroupMappings(),
       oidcOnlyUserCount: countOidcOnlyUsers(),
     });
+  }
+
+  if (pathname === "/api/admin/oidc/refresh-legacy-emails" && method === "POST") {
+    const { normalizeOidcConfig } = await import("../auth/oidcUser.js");
+    const { refreshAllLegacyOidcEmails } = await import("../auth/oidcEmailRefresh.js");
+    const oidc = normalizeOidcConfig(getSetting("oidc", { enabled: false }));
+    if (oidc.enabled !== true) {
+      return writeAdminJsonError(res, 400, "OIDC must be enabled to refresh SSO emails");
+    }
+    const summary = await refreshAllLegacyOidcEmails(oidc);
+    return json(res, 200, { ok: true, summary });
   }
 
   if (pathname === "/api/admin/oidc" && method === "PUT") {
@@ -761,6 +900,16 @@ export async function handleAdminRoutes(req, res, pathname, method) {
       return writeAdminJsonError(res, 400, "Invalid request");
     }
   }
+
+  const adminSession = getAppSession(req);
+  const registrationAdminResult = await handleRegistrationAdminRoutes(
+    req,
+    res,
+    pathname,
+    method,
+    adminSession ? Number(adminSession.user.id) : null,
+  );
+  if (registrationAdminResult !== false) return registrationAdminResult;
 
   return writeAdminJsonError(res, 404, "Not found");
 }

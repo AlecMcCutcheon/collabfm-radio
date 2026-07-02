@@ -90,6 +90,58 @@ export function getUserByUsername(username) {
     .get(username) ?? null;
 }
 
+export function normalizeLoginEmail(raw) {
+  const email = String(raw || "").trim().toLowerCase().slice(0, 254);
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
+  return email;
+}
+
+export function looksLikeLoginEmail(value) {
+  return normalizeLoginEmail(value) !== null;
+}
+
+export function getUserByLoginEmail(email) {
+  const normalized = normalizeLoginEmail(email);
+  if (!normalized) return null;
+  return getDb()
+    .prepare("SELECT * FROM users WHERE login_email = ? COLLATE NOCASE")
+    .get(normalized) ?? null;
+}
+
+export function resolveUserForLocalLogin(identifier) {
+  const trimmed = String(identifier || "").trim();
+  if (!trimmed) return null;
+  const byUsername = getUserByUsername(trimmed);
+  if (byUsername) return byUsername;
+  if (looksLikeLoginEmail(trimmed)) {
+    return getUserByLoginEmail(trimmed);
+  }
+  return null;
+}
+
+export function isLoginEmailAvailable(email, excludeUserId = null) {
+  const normalized = normalizeLoginEmail(email);
+  if (!normalized) return { ok: false, error: "A valid email address is required" };
+  const byLoginEmail = getUserByLoginEmail(normalized);
+  if (byLoginEmail && byLoginEmail.id !== excludeUserId) {
+    return { ok: false, error: "That email is already used for local sign-in on this station" };
+  }
+  const byUsername = getUserByUsername(normalized);
+  if (byUsername && byUsername.id !== excludeUserId) {
+    return { ok: false, error: "That email is already used as a username on this station" };
+  }
+  return { ok: true, email: normalized };
+}
+
+export function setUserLoginEmail(userId, email) {
+  const availability = isLoginEmailAvailable(email, userId);
+  if (!availability.ok) return availability;
+  getDb()
+    .prepare("UPDATE users SET login_email = ? WHERE id = ?")
+    .run(availability.email, userId);
+  return { ok: true, email: availability.email, user: getUserById(userId) };
+}
+
 export function getUserByOidcSubject(subject) {
   return getDb().prepare("SELECT * FROM users WHERE oidc_subject = ?").get(subject) ?? null;
 }
@@ -97,10 +149,10 @@ export function getUserByOidcSubject(subject) {
 export function listUsers() {
   return getDb()
     .prepare(
-      `SELECT id, username, auth_source, role, enabled, created_at, last_login, last_login_ip,
+      `SELECT id, username, login_email, auth_source, role, enabled, created_at, last_login, last_login_ip,
               experience_points, block_guest_action_xp,
               display_name, avatar_filename, bio, genres,
-              password_hash, totp_enabled
+              password_hash, totp_enabled, registration_request_id, oidc_profile_json
        FROM users ORDER BY username`
     )
     .all();
@@ -118,19 +170,21 @@ export function countOidcOnlyUsers() {
   return Number(row?.count ?? 0);
 }
 
-export function createLocalUser({ username, passwordHash, role = "listener" }) {
+export function createLocalUser({ username, passwordHash, role = "listener", loginEmail = null }) {
+  const normalizedLoginEmail = loginEmail ? normalizeLoginEmail(loginEmail) : null;
   const result = getDb()
     .prepare(
-      `INSERT INTO users (username, auth_source, password_hash, role, enabled)
-       VALUES (?, 'local', ?, ?, 1)`
+      `INSERT INTO users (username, auth_source, password_hash, role, enabled, login_email)
+       VALUES (?, 'local', ?, ?, 1, ?)`
     )
-    .run(username, passwordHash, role);
+    .run(username, passwordHash, role, normalizedLoginEmail);
   return getUserById(result.lastInsertRowid);
 }
 
 export function updateUser(id, fields) {
   const allowed = [
     "username",
+    "login_email",
     "password_hash",
     "role",
     "enabled",
@@ -141,6 +195,8 @@ export function updateUser(id, fields) {
     "oidc_username_from",
     "block_guest_action_xp",
     "experience_points",
+    "registration_request_id",
+    "display_name",
   ];
   const sets = [];
   const values = [];

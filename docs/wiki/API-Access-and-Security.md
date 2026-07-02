@@ -11,6 +11,7 @@ These work without logging in (needed for the login page and first-time setup):
 - Station branding (`/api/branding`)
 - Setup status (`/api/setup/status`)
 - Auth discovery (`/auth/methods`, `/auth/status`)
+- Registration gate config (`/auth/registration/config`) when gated registration is enabled
 - Public extension download (`/api/extension/public/download`)
 - Static web assets
 
@@ -35,6 +36,8 @@ This is intentional: it reduces abuse (e.g. burning your Last.fm quota) and matc
 ## Logged-in members
 
 Use the site normally; the browser sends the session cookie. Stream URL: `GET /api/stream`.
+
+**Studio account APIs** (`/api/account/*`) require a session and let users manage passwords and 2FA. **Admin registration and SSO helper routes** (`/api/admin/registration/*`, `/api/admin/oidc/refresh-legacy-emails`, etc.) require an admin session. See [ARCHITECTURE.md — Auth endpoints](https://github.com/AlecMcCutcheon/collabfm-radio/blob/main/docs/ARCHITECTURE.md#registration-when-enabled) for the full list.
 
 ## Browser extension
 

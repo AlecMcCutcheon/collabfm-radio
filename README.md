@@ -70,8 +70,10 @@ Planned directions and ideas—not a schedule or promise of delivery:
 - ✅ ~~**Jamendo support**~~ — extension metadata, license enrichment, stage media controls; `jamendo.com` in default content policy.
 - ✅ ~~**Chrome Web Store listing**~~ — [CollabFM Broadcaster](https://chromewebstore.google.com/detail/collabfm-broadcaster/nnalcbfijmoobcgejgnbmdimnekedpba) for easier install and Chrome auto-updates; Go live modal shows server ZIP vs store version.
 - ✅ ~~**Chrome Web Store stage workflow**~~ — CI uploads extension ZIP on `main` (upload only, skips when in review); **submit for review manually** in the Developer Dashboard when ready (intentional).
-- ⏳ **Hybrid users** — optional local password on SSO-linked accounts (and related account management).
-- ⏳ **Gated registration** — access-request form, admin approve/deny queue, one-time enrollment tokens.
+- ✅ ~~**Listener Studio & hybrid accounts**~~ — Studio for all signed-in users; optional SSO + local password; share links by role. See [Account Security & Studio](./docs/wiki/Account-Security-and-Studio.md).
+- ✅ ~~**Local login 2FA (TOTP)**~~ — authenticator 2FA for username/password sign-in; admin policy, Studio self-service, backup codes, admin Reset 2FA. Off by default.
+- ✅ ~~**Gated registration**~~ — access-request form, admin approve/deny queue, one-time enrollment tokens, activation flow.
+- ✅ ~~**Auth identity & SSO email tools**~~ — `login_email` for local sign-in, username-or-email login, SSO email refresh, legacy hybrid username reconcile, local password reset in Studio.
 - ⏳ **Off-site update alerts** — email or Discord DM beyond the in-app Admin container banner.
 
 More detail on each item: [docs/ROADMAP.md](./docs/ROADMAP.md).
@@ -403,10 +405,10 @@ Details: [Discord Voice Bot Setup](docs/wiki/Discord-Voice-Bot-Setup.md).
 
 | Tab | What it controls |
 |-----|------------------|
-| **Users** | Accounts, roles, passwords, **Reset 2FA**, leveling blocks, Reset XP |
+| **Users** | Accounts, roles, passwords, **Reset 2FA**, leveling blocks, Reset XP, **gated registration**, **SSO email refresh** |
 | **Discord** | Voice bot credentials, runtime status, **server whitelist** |
 | **Share links** | Site-wide link list (users also create links in **Studio**) |
-| **OIDC** | SSO provider, **hybrid accounts**, group → role mapping |
+| **OIDC** | SSO provider, **hybrid accounts**, **provider admin API token**, group → role mapping |
 | **Radio** | Max stage users (default 7, max 9), log retention, PCM/discord buffer tuning |
 | **Security** | **Require 2FA** (off by default), Turnstile, **content policy** |
 | **System** | Guest XP rules, Last.fm/Giphy, **branding** (incl. branded 2FA), container updates |
