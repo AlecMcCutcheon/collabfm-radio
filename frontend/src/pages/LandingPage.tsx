@@ -17,6 +17,7 @@ import {
   resolveBrandingImageUrl,
 } from "../utils/brandingImage";
 import { validatePasswordPolicy } from "../utils/passwordPolicy";
+import { useAuthStatus } from "../hooks/useAuthStatus";
 
 type LoginStep = "login" | "password_change" | "verify" | "setup_prompt" | "setup";
 
@@ -32,6 +33,7 @@ function apiErrorMessage(err: unknown, fallback: string): string {
 }
 
 export function LandingPage() {
+  const { status: authStatus, loading: authLoading } = useAuthStatus();
   const [step, setStep] = useState<LoginStep>("login");
   const [setupOptional, setSetupOptional] = useState(false);
   const [username, setUsername] = useState("");
@@ -98,20 +100,6 @@ export function LandingPage() {
       setTurnstileSiteKey(m.turnstileSiteKey || null);
       setSsoNickname(m.ssoNickname || null);
     });
-    void api.authStatus().then((s) => {
-      if (s.pendingSsoTempRecovery) {
-        window.location.href = "/login/temp-password";
-        return;
-      }
-      if (s.pendingPasswordChange) {
-        setPasswordChangeMode(s.pendingPasswordChange);
-        setStep("password_change");
-        return;
-      }
-      if (s.pending2fa) {
-        void abandonPendingLogin();
-      }
-    });
     void api
       .branding()
       .then((b) => {
@@ -121,7 +109,49 @@ export function LandingPage() {
       .catch(() => {
         setVisualizerSrc(null);
       });
-  }, [abandonPendingLogin]);
+  }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (authStatus.pendingSsoTempRecovery) {
+      window.location.href = "/login/temp-password";
+      return;
+    }
+    if (authStatus.pendingPasswordChange) {
+      setPasswordChangeMode(authStatus.pendingPasswordChange);
+      setStep("password_change");
+      return;
+    }
+    if (authStatus.pending2fa) {
+      if (authStatus.pending2fa === "verify") {
+        setStep("verify");
+        setTotpCode("");
+        setBackupCode("");
+        setUseBackupCode(false);
+        return;
+      }
+      if (authStatus.pending2fa === "setup_optional") {
+        setSetupOptional(true);
+        setStep("setup_prompt");
+        setTotpCode("");
+        setSetupQr(null);
+        setSetupSecret(null);
+        setBackupCodes(null);
+        return;
+      }
+      setSetupOptional(false);
+      setStep("setup");
+      setTotpCode("");
+      setSetupQr(null);
+      setSetupSecret(null);
+      setBackupCodes(null);
+    }
+  }, [
+    authLoading,
+    authStatus.pending2fa,
+    authStatus.pendingPasswordChange,
+    authStatus.pendingSsoTempRecovery,
+  ]);
 
   const loadSetupQr = useCallback(async () => {
     setError(null);

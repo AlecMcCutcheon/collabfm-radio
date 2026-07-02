@@ -7,9 +7,20 @@ import {
 } from "./oidcUser.js";
 import { getSetting } from "../db/index.js";
 import { validatePasswordPolicy } from "./passwordPolicy.js";
+import { getSecuritySettings } from "../settings/security.js";
 
 export function hasPasswordHash(user) {
   return !!(user?.password_hash && String(user.password_hash).trim());
+}
+
+/** SSO users may set a local password when hybrid accounts or forced local-password policy is enabled. */
+export function oidcLocalPasswordAllowed() {
+  const oidc = normalizeOidcConfig(getSetting("oidc", { enabled: false }));
+  const security = getSecuritySettings();
+  return (
+    oidc.hybridUsersEnabled === true ||
+    security.requireLocalPasswordForOidcUsers === true
+  );
 }
 
 export function assignHybridLoginEmail(user, email) {
@@ -34,9 +45,8 @@ export async function applyHybridOidcPassword(
   password,
   { requireEmailOnFile = false } = {},
 ) {
-  const oidc = normalizeOidcConfig(getSetting("oidc", { enabled: false }));
-  if (oidc.hybridUsersEnabled !== true) {
-    return { error: "Hybrid accounts are disabled", status: 403 };
+  if (!oidcLocalPasswordAllowed()) {
+    return { error: "Local password setup is disabled for SSO accounts", status: 403 };
   }
   if (user.auth_source !== "oidc" || !user.oidc_subject) {
     return { error: "Password can only be set on SSO-linked accounts", status: 400 };

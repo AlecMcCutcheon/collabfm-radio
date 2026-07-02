@@ -28,6 +28,7 @@ import {
   updateSitePresenceActorProfile,
 } from "../presence/sitePresence.js";
 import { getSetting } from "../db/index.js";
+import { getSecuritySettings } from "../settings/security.js";
 
 function json(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -53,14 +54,16 @@ function readBody(req) {
 function accountSecurityPayload(user) {
   const oidc = normalizeOidcConfig(getSetting("oidc", { enabled: false }));
   const hybridEnabled = oidc.hybridUsersEnabled === true;
+  const requireLocalPassword = getSecuritySettings().requireLocalPasswordForOidcUsers === true;
   const email = resolveEmailFromOidcProfile(user);
   const hasPassword = hasPasswordHash(user);
   const isOidc = user.auth_source === "oidc";
   const isLocal = user.auth_source === "local";
   const canSetPassword =
-    hybridEnabled && isOidc && !hasPassword;
+    isOidc && !hasPassword && (hybridEnabled || requireLocalPassword);
   const canResetPassword =
-    (hybridEnabled && isOidc && hasPassword) || (isLocal && hasPassword);
+    (isOidc && hasPassword && (hybridEnabled || requireLocalPassword)) ||
+    (isLocal && hasPassword);
   const passwordResetRequiresCurrent = isLocal && hasPassword;
   const needsOidcVerification = canSetPassword && !email;
   const canManageTotp = userHasLocalPassword(user);

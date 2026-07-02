@@ -193,11 +193,19 @@ export async function handleOidcCallback(
     const user = await provisionOidcUser(claims, oidc);
     if (user.auth_source === "oidc" && user.password_hash && Number(user.must_change_password) === 1) {
       createSsoTempRecoverySession(req, res, user);
+      console.info("[oidc] SSO login pending temp-password recovery for", user.username);
       res.writeHead(302, { Location: "/login/temp-password" });
       res.end();
       return;
     }
-    beginPostCredentialAuth(req, res, user, "oidc");
+    const authResult = beginPostCredentialAuth(req, res, user, "oidc");
+    if (authResult?.pendingPasswordChange || authResult?.requiresPasswordChange) {
+      console.info("[oidc] SSO login pending password gate for", user.username);
+    } else if (authResult?.requires2fa || authResult?.requires2faSetup) {
+      console.info("[oidc] SSO login pending 2FA gate for", user.username);
+    } else if (authResult?.authenticated) {
+      console.info("[oidc] SSO login complete for", user.username);
+    }
     res.writeHead(302, { Location: "/" });
     res.end();
   } catch (e) {

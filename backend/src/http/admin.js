@@ -282,11 +282,9 @@ export async function handleAdminRoutes(req, res, pathname, method) {
         if (typeof body.enabled === "boolean") fields.enabled = body.enabled ? 1 : 0;
         if (body.username) fields.username = String(body.username).trim();
         if (body.password || body.regenerateTempPassword === true) {
-          const { normalizeOidcConfig } = await import("../auth/oidcUser.js");
-          const { applyHybridOidcPassword, hasPasswordHash } = await import(
+          const { applyHybridOidcPassword, hasPasswordHash, oidcLocalPasswordAllowed } = await import(
             "../auth/hybridPassword.js"
           );
-          const oidcCfg = normalizeOidcConfig(getSetting("oidc", { enabled: false }));
           const requirePasswordChange =
             body.regenerateTempPassword === true || body.requirePasswordChange === true;
           const temp = requirePasswordChange
@@ -298,7 +296,7 @@ export async function handleAdminRoutes(req, res, pathname, method) {
           if (!policy.ok) return writeAdminJsonError(res, 400, policy.error);
 
           if (existing.auth_source === "oidc") {
-            if (oidcCfg.hybridUsersEnabled !== true) {
+            if (!oidcLocalPasswordAllowed()) {
               return writeAdminJsonError(res, 400, "Cannot set password for OIDC users");
             }
             const isFirstPassword = !hasPasswordHash(existing);
