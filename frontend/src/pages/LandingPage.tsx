@@ -272,9 +272,6 @@ export function LandingPage() {
                 required
               />
             </label>
-            <p className="text-xs text-gray-500 -mt-2 mb-1">
-              Use your username or the email on your account.
-            </p>
 
             <label className="block text-sm text-gray-300">
               Password
