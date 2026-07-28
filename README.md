@@ -7,7 +7,7 @@ Licensed under [CC BY-NC 4.0](LICENSE) — © Alec McCutcheon
 CollabFM is a **collaborative, self-hosted social radio platform** built for friends and communities.
 
 Instead of one person running a show alone, multiple broadcasters can join the **stage**, take turns DJing, chat with listeners, and hand off the live broadcast without interrupting the stream. Listeners tune in through the web interface, direct stream URLs, or an optional Discord voice bot—so you can share live audio together across browsers, Discord, and media players.
-
+ 
 ## Preview
 
 <p align="center">
